@@ -12,7 +12,3 @@ docs/
 
 # Dotenv file
 .env
-**/dependencies/
-.env.testnet
-.env.dev
-.env.mainnet
