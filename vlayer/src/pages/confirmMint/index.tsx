@@ -1,10 +1,10 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import verifierSpec from "../../../../out/SimpleTeleportVerifier.sol/SimpleTeleportVerifier";
+import verifierSpec from "../../../../out/SimpleTeleportVerifier.sol/SimpleTeleportVerifier.json";
 import { useLocalStorage } from "usehooks-ts";
 import { useAccount, useBalance, useWriteContract } from "wagmi";
 import { useNavigate } from "react-router";
 import { ConnectWallet } from "../../shared/components/ConnectWallet";
-import { parseProverResult, tokensToProve } from "../../shared/lib/utils";
+import { parseProverResult, getTokensToProve } from "../../shared/lib/utils";
 import { AlreadyMintedError } from "../../shared/errors/appErrors";
 import { Chain, optimismSepolia } from "viem/chains";
 import { match } from "ts-pattern";
@@ -57,7 +57,6 @@ export const ConfirmMintPage = () => {
       address: import.meta.env.VITE_VERIFIER_ADDRESS,
       abi: verifierSpec.abi,
       functionName: "claim",
-      //@ts-expect-error proof is unknown
       args: [proof, owner, tokens],
     });
   };
@@ -68,10 +67,12 @@ export const ConfirmMintPage = () => {
     return <ConnectWallet />;
   }
 
+  const currentTokens = getTokensToProve();
+
   return (
     <form onSubmit={handleSubmit}>
       <p className="desc w-full text-center">
-        NFT of holding USDC across {tokensToProve.length} chains
+        NFT of DeFi activity across {currentTokens.length} token(s) on {new Set(currentTokens.map(t => t.chainId)).size} chain(s)
       </p>
       <div className="mb-4 w-full block">
         <label

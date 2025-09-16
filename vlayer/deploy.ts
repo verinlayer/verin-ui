@@ -27,23 +27,23 @@ if (!account) {
 }
 
 console.log("⏳ Deploying helper contracts...");
-const deployWhaleBadgeHash = await ethClient.deployContract({
-  abi: whaleBadgeNFTSpec.abi,
-  bytecode: whaleBadgeNFTSpec.bytecode.object,
-  account,
-});
+// const deployWhaleBadgeHash = await ethClient.deployContract({
+//   abi: whaleBadgeNFTSpec.abi,
+//   bytecode: whaleBadgeNFTSpec.bytecode.object,
+//   account,
+// });
 
-const whaleBadgeNFTAddress = await waitForContractDeploy({
-  client: ethClient,
-  hash: deployWhaleBadgeHash,
-});
+// const whaleBadgeNFTAddress = await waitForContractDeploy({
+//   client: ethClient,
+//   hash: deployWhaleBadgeHash,
+// });
 
-const { prover, verifier } = await deployVlayerContracts({
-  proverSpec,
-  verifierSpec,
-  proverArgs: [],
-  verifierArgs: [whaleBadgeNFTAddress],
-});
+// const { prover, verifier } = await deployVlayerContracts({
+//   proverSpec,
+//   verifierSpec,
+//   proverArgs: [],
+//   verifierArgs: [whaleBadgeNFTAddress],
+// });
 
 const tokensToCheck: {
   addr: Address;
@@ -60,8 +60,10 @@ const tokensToCheck: {
 );
 
 await writeEnvVariables(".env", {
-  VITE_PROVER_ADDRESS: prover,
-  VITE_VERIFIER_ADDRESS: verifier,
+  VITE_PROVER_ADDRESS: '0x135e8fc8d62F141b09Ad0eBc9B25aAe156a7c67f',
+  VITE_VERIFIER_ADDRESS: '0xE2e924C5F608578ad88bC5CFF87F6852c715B4F2',
+  // VITE_PROVER_ADDRESS: prover,
+  // VITE_VERIFIER_ADDRESS: verifier,
   VITE_CHAIN_NAME: config.chainName,
   VITE_PROVER_URL: config.proverUrl,
   VITE_VLAYER_API_TOKEN: config.token,

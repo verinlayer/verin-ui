@@ -1,3 +1,5 @@
+import { optimismSepolia } from "viem/chains";
+
 export interface TeleportConfig {
   tokenHolder: `0x${string}`;
   prover: {
@@ -16,14 +18,18 @@ export const chainToTeleportConfig: Record<string, TeleportConfig> = {
       erc20BlockNumbers: "3",
     },
   },
-  sepolia: {
+  optimismSepolia: {
     tokenHolder: "0x4631d3E5803332448e0D9cBb9bF501A4C50B95ed",
     prover: {
-      erc20Addresses: "0xc6e1fb449b08b26b2063c289df9bbcb79b91c992",
-      erc20ChainIds: "11155420",
-      erc20BlockNumbers: "30665000",
+      erc20Addresses: "0x3e26834A64CeBb8415bDE55D5543304c5c23f94A,0xb4adc69d39b2a341CB77151A8f37613017AD53F9",
+      erc20ChainIds: "11155420,11155420",
+      erc20BlockNumbers: "32843947,32843947",
+      // erc20Addresses: "0x3e26834A64CeBb8415bDE55D5543304c5c23f94A",
+      // erc20ChainIds: "11155420",
+      // erc20BlockNumbers: "32843947",
     },
   },
+  
   mainnet: {
     tokenHolder: "0xacD03D601e5bB1B275Bb94076fF46ED9D753435A",
     prover: {

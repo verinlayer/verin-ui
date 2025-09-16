@@ -12,6 +12,8 @@ interface ImportMetaEnv {
   readonly VITE_SENTRY_DSN: string;
   readonly VITE_TOKENS_TO_CHECK: string;
   readonly VITE_DEFAULT_TOKEN_HOLDER: Address;
+  readonly VITE_SUBGRAPH_API_KEY: string;
+  readonly VITE_GAS_LIMIT: string;
 }
 
 interface ImportMeta {
