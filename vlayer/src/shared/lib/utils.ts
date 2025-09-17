@@ -27,10 +27,10 @@ export const getChainName = (chainId: string): string => {
 export let tokensToProve: TokenConfig[] = [];
 
 // Function to load token configs from subgraph for a specific user
-export const loadTokensToProve = async (userAddress: string): Promise<TokenConfig[]> => {
+export const loadTokensToProve = async (userAddress: string, currentChainId?: number): Promise<TokenConfig[]> => {
   try {
     console.log(`Loading token configs for user: ${userAddress}`);
-    tokensToProve = await getTokenConfigsForUser(userAddress);
+    tokensToProve = await getTokenConfigsForUser(userAddress, currentChainId);
     console.log(`Loaded ${tokensToProve.length} token configs:`, tokensToProve);
     return tokensToProve;
   } catch (error) {
