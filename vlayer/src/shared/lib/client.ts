@@ -74,7 +74,7 @@ export interface SupplyBorrowData {
 const createQuery = (user: string) => {
     return `query {
   userTransactions(
-    first: 20
+    first: 1
     orderBy: timestamp
     orderDirection: desc
     where: {and: 
@@ -92,6 +92,9 @@ const createQuery = (user: string) => {
       variableTokenDebt
       reserve {
         underlyingAsset
+        aToken {
+          id
+        }
       }
     }
     ... on Repay {
@@ -99,6 +102,9 @@ const createQuery = (user: string) => {
       assetPriceUSD
       reserve {
         underlyingAsset
+        aToken {
+          id
+        }
       }
     }
     ... on Supply {
@@ -106,6 +112,9 @@ const createQuery = (user: string) => {
       assetPriceUSD
       reserve {
         underlyingAsset
+        aToken {
+          id
+        }
       }
     }
     

@@ -30,8 +30,17 @@ export const chainToTeleportConfig: Record<string, TeleportConfig> = {
     },
   },
   
+  optimism: {
+    tokenHolder: "0x05e14E44e3B296f12b21790CdE834BCE5bE5B8e0",
+    prover: {
+      erc20Addresses: "0x0b2c639c533813f4aa9d7837caf62653d097ff85",
+      erc20ChainIds: "10",
+      erc20BlockNumbers: "138585630",
+    },
+  },
+  
   mainnet: {
-    tokenHolder: "0xacD03D601e5bB1B275Bb94076fF46ED9D753435A",
+    tokenHolder: "0x05e14E44e3B296f12b21790CdE834BCE5bE5B8e0",
     prover: {
       erc20Addresses: "0x0b2c639c533813f4aa9d7837caf62653d097ff85",
       erc20ChainIds: "10",
