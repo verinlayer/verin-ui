@@ -2,9 +2,12 @@ import { createPublicClient, http, type Address } from 'viem';
 import { optimismSepolia, mainnet, base, baseSepolia, optimism } from 'viem/chains';
 
 // Subgraph configuration - using import.meta.env for Vite environment variables
-// const APIURL = `https://gateway.thegraph.com/api/${
+// aave subgraph
+const APIURL = `https://gateway.thegraph.com/api/${
+    import.meta.env.VITE_SUBGRAPH_API_KEY ?? ''
+}/subgraphs/id/DSfLz8oQBUeU5atALgUFQKMTSYV9mZAVYp4noLSXAfvb`;
 
-const APIURL = `https://subgraph.satsuma-prod.com/26f8b6e55b9f/multicall--913477/example2/version/v0.0.2-new-version/api`;
+// const APIURL = `https://subgraph.satsuma-prod.com/26f8b6e55b9f/multicall--913477/example2/version/v0.0.2-new-version/api`;
 // const APIURL = `https://api.studio.thegraph.com/query/89103/sample-for-teleport/version/latest`;
 
 // RPC client configuration for different chains
@@ -24,6 +27,10 @@ const rpcClients = {
   [baseSepolia.id]: createPublicClient({
     chain: baseSepolia,
     transport: http(baseSepolia.rpcUrls.default.http[0])
+  }),
+  [optimism.id]: createPublicClient({
+    chain: optimism,
+    transport: http(optimism.rpcUrls.default.http[0])
   })
 };
 
@@ -47,62 +54,94 @@ export interface SubgraphTransaction {
     underlyingAsset: string;
   };
   tokenAddress: string;
+  // Add any chain-specific fields if available in the subgraph
+  chainId?: string;
+  network?: string;
+}
+
+export interface SupplyBorrowData {
+  asset: string;
+  chainId: string;
+  supplyAmount: string;
+  borrowAmount: string;
+  repayAmount: string;
+  totalBorrowAmount: string;
+  assetPriceUSD?: string;
+  stableTokenDebt?: string;
+  variableTokenDebt?: string;
 }
 
 const createQuery = (user: string) => {
-//     return `query {
-//   userTransactions(
-//     first: 4
-//     orderBy: timestamp
-//     orderDirection: asc
-//     where: {and: 
-//       [{user: "${user.toLowerCase()}"},
-//       {or: [{action: Borrow},{action: Repay}]}]
-//     }
-//   ) {
-//     action
-//     txHash
-//     id
-//     ... on Borrow {
-//       assetPriceUSD
-//       amount
-//       stableTokenDebt
-//       variableTokenDebt
-//       reserve {
-//         underlyingAsset
-//       }
-//     }
-//     ... on Repay {
-//       amount
-//       assetPriceUSD
-//       reserve {
-//         underlyingAsset
-//       }
-//     }
-//   }
-// }
-// `;
-
-return `query {
+    return `query {
   userTransactions(
-    first: 2
+    first: 1
     orderBy: timestamp
     orderDirection: desc
-    
-    where: {and: [
-      {address: "${user.toLowerCase()}"},
-      {or: [
-        {tokenAddress: "0xd7bfa30cA5cBB252F228AB6Ba3b1b2814d752081"},
-        {tokenAddress: "0x64dF24D36d68583766aEeeD77F05EA6D9f399378"}
-      ]}
-    ]}
+    where: {and: 
+      [{user: "${user.toLowerCase()}"},
+      {or: [{action: Borrow},{action: Repay},{action: Supply}]}]
+    }
   ) {
+    action
     txHash
     id
-    tokenAddress
-    
+    ... on Borrow {
+      assetPriceUSD
+      amount
+      stableTokenDebt
+      variableTokenDebt
+      reserve {
+        underlyingAsset
+        aToken {
+          id
+        }
+      }
     }
-}`;
+    ... on Repay {
+      amount
+      assetPriceUSD
+      reserve {
+        underlyingAsset
+        aToken {
+          id
+        }
+      }
+    }
+    ... on Supply {
+      amount
+      assetPriceUSD
+      reserve {
+        underlyingAsset
+        aToken {
+          id
+        }
+      }
+    }
+    
+  }
+}
+`;
+
+  // return `query {
+  //   userTransactions(
+  //     first: 2
+  //     orderBy: timestamp
+  //     orderDirection: desc
+      
+  //     where: {and: [
+  //       {address: "${user.toLowerCase()}"},
+  //       {or: [
+  //         {tokenAddress: "0xd7bfa30cA5cBB252F228AB6Ba3b1b2814d752081"},
+  //         {tokenAddress: "0x64dF24D36d68583766aEeeD77F05EA6D9f399378"}
+  //       ]}
+  //     ]}
+  //   ) {
+  //     txHash
+  //     id
+  //     tokenAddress
+      
+  //     }
+  // }`;
 };
 
 // Get block number from transaction hash using RPC
@@ -112,6 +151,9 @@ export const getBlockNumberFromTxHash = async (txHash: string, chainId: number):
     if (!client) {
       throw new Error(`No RPC client configured for chain ID: ${chainId}`);
     }
+
+    console.log('chainId', chainId);
+    console.log('txHash', txHash);
 
     const receipt = await client.getTransactionReceipt({
       hash: txHash as `0x${string}`
@@ -137,8 +179,8 @@ export const queryUserTransactions = async (user: string): Promise<SubgraphTrans
     console.log('🔍 Querying subgraph for user:', user);
     console.log('📡 API URL:', APIURL);
     
-    const query = createQuery(user);
-    // const query = createQuery('0x05e14E44e3B296f12b21790CdE834BCE5bE5B8 e0');
+    // const query = createQuery(user);
+    const query = createQuery('0x05e14E44e3B296f12b21790CdE834BCE5bE5B8e0');
     console.log('📝 GraphQL Query:', query);
     
     const result = await fetch(APIURL, {
@@ -179,82 +221,92 @@ export const queryUserTransactions = async (user: string): Promise<SubgraphTrans
 // Get unique assets from transactions and create token configs
 export const createTokenConfigsFromTransactions = async (
   transactions: SubgraphTransaction[],
-  userAddress: string
+  userAddress: string,
+  currentChainId?: number
 ): Promise<TokenConfig[]> => {
   // Get unique assets from transactions
-  // const uniqueAssets = new Map<string, SubgraphTransaction[]>();
+  const uniqueAssets = new Map<string, SubgraphTransaction[]>();
   
-  // transactions.forEach(tx => {
-  //   const asset = tx.reserve.underlyingAsset.toLowerCase();
-  //   if (!uniqueAssets.has(asset)) {
-  //     uniqueAssets.set(asset, []);
-  //   }
-  //   uniqueAssets.get(asset)!.push(tx);
-  // });
+  transactions.forEach(tx => {
+    const asset = tx.reserve.underlyingAsset.toLowerCase();
+    if (!uniqueAssets.has(asset)) {
+      uniqueAssets.set(asset, []);
+    }
+    uniqueAssets.get(asset)!.push(tx);
+  });
 
-  // const tokenConfigs: TokenConfig[] = [];
-
-  // // Process each unique asset
-  // for (const [asset, assetTxs] of uniqueAssets) {
-  //   // Get the most recent transaction for this asset
-  //   const latestTx = assetTxs[assetTxs.length - 1];
-    
-  //   // Determine chain ID based on the asset (you may need to adjust this logic)
-  //   const chainId = getChainIdForAsset(asset);
-    
-  //   try {
-  //     // Get block number from the latest transaction
-  //     const blockNumber = await getBlockNumberFromTxHash(latestTx.txHash, chainId);
-      
-  //     // Calculate net balance (borrows - repays)
-  //     const netBalance = calculateNetBalance(assetTxs);
-      
-  //     // Validate all values before creating token config
-  //     if (netBalance < 0n) {
-  //       console.warn(`Negative balance detected for asset ${asset}, setting to 0`);
-  //     }
-      
-  //     if (blockNumber && blockNumber !== '0') {
-  //       tokenConfigs.push({
-  //         addr: asset,
-  //         chainId: chainId.toString(),
-  //         blockNumber: blockNumber,
-  //         balance: netBalance.toString()
-  //       });
-  //     } else {
-  //       console.warn(`Invalid block number for asset ${asset}, skipping`);
-  //     }
-      
-  //     console.log(`Created config for asset ${asset}:`, {
-  //       chainId,
-  //       blockNumber,
-  //       balance: netBalance.toString()
-  //     });
-  //   } catch (error) {
-  //     console.error(`Error processing asset ${asset}:`, error);
-  //     // Continue with other assets even if one fails
-  //   }
-  // }
   const tokenConfigs: TokenConfig[] = [];
-  
-  for (const tx of transactions) {
+
+  // Process each unique asset
+  for (const [asset, assetTxs] of uniqueAssets) {
+    // Get the most recent transaction for this asset
+    const latestTx = assetTxs[assetTxs.length - 1];
+    
+    // Determine chain ID based on the asset and transaction
+    const chainId = await getChainIdFromTransaction(latestTx.txHash, asset);
+    
+    console.log(`Processing asset ${asset}: determined chain ${chainId}, current chain: ${currentChainId}`);
+    
+    // Filter by current chain if specified
+    if (currentChainId && chainId !== currentChainId) {
+      console.log(`Skipping asset ${asset} on chain ${chainId} - not current chain ${currentChainId}`);
+      continue;
+    }
+    
     try {
-      // get block number
-      const blockNumber = await getBlockNumberFromTxHash(tx.txHash, 11155420);
-      if (blockNumber) {
+      // Get block number from the latest transaction
+      const blockNumber = await getBlockNumberFromTxHash(latestTx.txHash, chainId);
+      
+      // Calculate total borrow amount (without subtracting repays)
+      const totalBorrowAmount = calculateTotalBorrowAmount(assetTxs);
+      
+      // Validate all values before creating token config
+      if (totalBorrowAmount < 0n) {
+        console.warn(`Negative balance detected for asset ${asset}, setting to 0`);
+      }
+      
+      if (blockNumber && blockNumber !== '0') {
         tokenConfigs.push({
-          addr: tx.tokenAddress,
-          chainId: '11155420',  
+          addr: asset,
+          chainId: chainId.toString(),
           blockNumber: blockNumber,
-          balance: 0n.toString()
+          balance: totalBorrowAmount.toString()
         });
       } else {
-        console.warn(`Invalid block number for asset ${tx.tokenAddress}, skipping`);
+        console.warn(`Invalid block number for asset ${asset}, skipping`);
       }
+      
+      console.log(`Created config for asset ${asset}:`, {
+        chainId,
+        blockNumber,
+        balance: totalBorrowAmount.toString()
+      });
     } catch (error) {
-      console.error(`Error processing transaction ${tx.txHash}:`, error);
+      console.error(`Error processing asset ${asset}:`, error);
+      // Continue with other assets even if one fails
     }
   }
+
+  // const tokenConfigs: TokenConfig[] = [];
+  
+  // for (const tx of transactions) {
+  //   try {
+  //     // get block number
+  //     const blockNumber = await getBlockNumberFromTxHash(tx.txHash, 11155420);
+  //     if (blockNumber) {
+  //       tokenConfigs.push({
+  //         addr: tx.tokenAddress,
+  //         chainId: '11155420',  
+  //         blockNumber: blockNumber,
+  //         balance: 0n.toString()
+  //       });
+  //     } else {
+  //       console.warn(`Invalid block number for asset ${tx.tokenAddress}, skipping`);
+  //     }
+  //   } catch (error) {
+  //     console.error(`Error processing transaction ${tx.txHash}:`, error);
+  //   }
+  // }
 
   return tokenConfigs;
 };
@@ -267,12 +319,50 @@ const getChainIdForAsset = (asset: string): number => {
     // USDC on different chains
     '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48': mainnet.id, // USDC on Ethereum
     '0x0b2c639c533813f4aa9d7837caf62653d097ff85': base.id, // USDC on Base
+    '0x7f5c764cbc14f9669b88837ca1490cca17c31607': optimism.id, // USDC on Optimism
     // USDT on different chains  
     '0xdac17f958d2ee523a2206206994597c13d831ec7': mainnet.id, // USDT on Ethereum
+    '0x94b008aa00579c1307b0ef2c499ad98a8ce58e58': optimism.id, // USDT on Optimism
+    // WETH on different chains
+    '0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2': mainnet.id, // WETH on Ethereum
+    '0x4200000000000000000000000000000000000006': optimism.id, // WETH on Optimism
+    // DAI on different chains
+    '0x6b175474e89094c44da98b954eedeac495271d0f': mainnet.id, // DAI on Ethereum
+    '0xda10009cbd5d07dd0cecc66161fc93d7c9000da1': optimism.id, // DAI on Optimism
+    '0x4200000000000000000000000000000000000042': optimism.id, // OP on Optimism
     // Add more mappings as needed
   };
 
-  return assetToChainMap[asset.toLowerCase()] || optimismSepolia.id; // Default to OP Sepolia
+  return assetToChainMap[asset.toLowerCase()] || optimism.id; // Default to OP Mainnet
+};
+
+// Enhanced function to determine chain ID from transaction hash
+const getChainIdFromTransaction = async (txHash: string, asset: string): Promise<number> => {
+  // First try the asset mapping
+  const assetChainId = getChainIdForAsset(asset);
+  
+  // Try to verify by checking which RPC client can fetch the transaction
+  const chainsToCheck = [optimism.id, mainnet.id, base.id, baseSepolia.id, optimismSepolia.id];
+  
+  for (const chainId of chainsToCheck) {
+    try {
+      const client = rpcClients[chainId];
+      if (client) {
+        const receipt = await client.getTransactionReceipt({ hash: txHash as `0x${string}` });
+        if (receipt) {
+          console.log(`Transaction ${txHash} found on chain ${chainId}`);
+          return chainId;
+        }
+      }
+    } catch (error) {
+      // Transaction not found on this chain, continue checking
+      continue;
+    }
+  }
+  
+  // If we can't find the transaction, fall back to asset mapping
+  console.log(`Could not determine chain for transaction ${txHash}, using asset mapping: ${assetChainId}`);
+  return assetChainId;
 };
 
 // Safe BigInt conversion that handles negative values
@@ -286,31 +376,204 @@ const safeBigInt = (value: string | number): bigint => {
   }
 };
 
-// Calculate net balance from transactions
+// Calculate net balance from transactions (for backward compatibility)
 const calculateNetBalance = (transactions: SubgraphTransaction[]): bigint => {
-  // let netBalance = BigInt(0);
+  let netBalance = BigInt(0);
   
-  // transactions.forEach(tx => {
-  //   if (tx.action === 'Borrow') {
-  //     netBalance += safeBigInt(tx.amount);
-  //   } else if (tx.action === 'Repay') {
-  //     const repayAmount = safeBigInt(tx.amount);
-  //     // Only subtract if it won't make the balance negative
-  //     if (netBalance >= repayAmount) {
-  //       netBalance -= repayAmount;
-  //     } else {
-  //       netBalance = 0n; // Set to 0 if repay would make it negative
-  //     }
-  //   }
-  // });
+  transactions.forEach(tx => {
+    if (tx.action === 'Borrow') {
+      netBalance += safeBigInt(tx.amount);
+    } else if (tx.action === 'Repay') {
+      const repayAmount = safeBigInt(tx.amount);
+      // Only subtract if it won't make the balance negative
+      if (netBalance >= repayAmount) {
+        netBalance -= repayAmount;
+      } else {
+        netBalance = 0n; // Set to 0 if repay would make it negative
+      }
+    }
+  });
   
-  // // Ensure balance is never negative (return 0 if negative)
-  // return netBalance < 0n ? 0n : netBalance;
-  return 0n;
+  // Ensure balance is never negative (return 0 if negative)
+  return netBalance < 0n ? 0n : netBalance;
+  // return 0n;
+};
+
+// Calculate supply amount from transactions
+const calculateSupplyAmount = (transactions: SubgraphTransaction[]): bigint => {
+  let supplyAmount = BigInt(0);
+  
+  console.log(`Calculating supply amount for ${transactions.length} transactions`);
+  
+  transactions.forEach(tx => {
+    if (tx.action === 'Supply') {
+      const amount = safeBigInt(tx.amount);
+      supplyAmount += amount;
+      console.log(`Supply: +${amount} (total: ${supplyAmount})`);
+    } else if (tx.action === 'Withdraw') {
+      const withdrawAmount = safeBigInt(tx.amount);
+      // Only subtract if it won't make the balance negative
+      if (supplyAmount >= withdrawAmount) {
+        supplyAmount -= withdrawAmount;
+        console.log(`Withdraw: -${withdrawAmount} (total: ${supplyAmount})`);
+      } else {
+        supplyAmount = 0n; // Set to 0 if withdraw would make it negative
+        console.log(`Withdraw: -${withdrawAmount} (total: 0, was negative)`);
+      }
+    }
+  });
+  
+  console.log(`Final supply amount: ${supplyAmount}`);
+  // Ensure balance is never negative (return 0 if negative)
+  return supplyAmount < 0n ? 0n : supplyAmount;
+};
+
+// Calculate borrow amount from transactions (net amount after repays)
+const calculateBorrowAmount = (transactions: SubgraphTransaction[]): bigint => {
+  let borrowAmount = BigInt(0);
+  
+  transactions.forEach(tx => {
+    if (tx.action === 'Borrow') {
+      borrowAmount += safeBigInt(tx.amount);
+    } else if (tx.action === 'Repay') {
+      const repayAmount = safeBigInt(tx.amount);
+      // Only subtract if it won't make the balance negative
+      if (borrowAmount >= repayAmount) {
+        borrowAmount -= repayAmount;
+      } else {
+        borrowAmount = 0n; // Set to 0 if repay would make it negative
+      }
+    }
+  });
+  
+  // Ensure balance is never negative (return 0 if negative)
+  return borrowAmount < 0n ? 0n : borrowAmount;
+};
+
+// Calculate total borrow amount (sum of all borrows, ignoring repays)
+const calculateTotalBorrowAmount = (transactions: SubgraphTransaction[]): bigint => {
+  let totalBorrowAmount = BigInt(0);
+  
+  console.log(`Calculating total borrow amount for ${transactions.length} transactions`);
+  
+  transactions.forEach(tx => {
+    if (tx.action === 'Borrow') {
+      const amount = safeBigInt(tx.amount);
+      totalBorrowAmount += amount;
+      console.log(`Borrow: +${amount} (total: ${totalBorrowAmount})`);
+    }
+  });
+  
+  console.log(`Final total borrow amount: ${totalBorrowAmount}`);
+  return totalBorrowAmount;
+};
+
+// Calculate total repay amount (sum of all repays)
+const calculateRepayAmount = (transactions: SubgraphTransaction[]): bigint => {
+  let repayAmount = BigInt(0);
+  
+  console.log(`Calculating total repay amount for ${transactions.length} transactions`);
+  
+  transactions.forEach(tx => {
+    if (tx.action === 'Repay') {
+      const amount = safeBigInt(tx.amount);
+      repayAmount += amount;
+      console.log(`Repay: +${amount} (total: ${repayAmount})`);
+    }
+  });
+  
+  console.log(`Final total repay amount: ${repayAmount}`);
+  return repayAmount;
+};
+
+// Get supply and borrow data for display
+export const getSupplyBorrowDataForUser = async (userAddress: string, currentChainId?: number): Promise<SupplyBorrowData[]> => {
+  try {
+    console.log(`Fetching supply/borrow data for user: ${userAddress}`);
+    
+    // Query subgraph for user transactions
+    const transactions = await queryUserTransactions(userAddress);
+    
+    if (transactions.length === 0) {
+      console.log('No transactions found for user');
+      return [];
+    }
+    
+    // Group transactions by asset
+    const uniqueAssets = new Map<string, SubgraphTransaction[]>();
+    
+    transactions.forEach(tx => {
+      const asset = tx.reserve.underlyingAsset.toLowerCase();
+      if (!uniqueAssets.has(asset)) {
+        uniqueAssets.set(asset, []);
+      }
+      uniqueAssets.get(asset)!.push(tx);
+    });
+
+    const supplyBorrowData: SupplyBorrowData[] = [];
+
+    // Process each unique asset
+    for (const [asset, assetTxs] of uniqueAssets) {
+      console.log(`\n=== Processing asset ${asset} ===`);
+      console.log(`Found ${assetTxs.length} transactions for this asset`);
+      assetTxs.forEach((tx, index) => {
+        console.log(`  ${index + 1}. ${tx.action}: ${tx.amount} (tx: ${tx.txHash.slice(0, 10)}...)`);
+      });
+      
+      // Get the most recent transaction for price data
+      const latestTx = assetTxs[assetTxs.length - 1];
+      
+      // Calculate supply and borrow amounts
+      const supplyAmount = calculateSupplyAmount(assetTxs);
+      const totalBorrowAmount = calculateTotalBorrowAmount(assetTxs); // Total borrowed without subtracting repays
+      const repayAmount = calculateRepayAmount(assetTxs);
+      
+      // Determine chain ID based on the asset and transaction
+      const chainId = await getChainIdFromTransaction(latestTx.txHash, asset);
+      
+      console.log(`Processing asset ${asset}: determined chain ${chainId}, current chain: ${currentChainId}`);
+      
+      // Filter by current chain if specified
+      if (currentChainId && chainId !== currentChainId) {
+        console.log(`Skipping asset ${asset} on chain ${chainId} - not current chain ${currentChainId}`);
+        continue;
+      }
+      
+      console.log(`\n=== Final calculations for ${asset} ===`);
+      console.log(`Supply Amount: ${supplyAmount}`);
+      console.log(`Total Borrow Amount: ${totalBorrowAmount}`);
+      console.log(`Repay Amount: ${repayAmount}`);
+      console.log(`Net Borrow Amount: ${totalBorrowAmount - repayAmount}`);
+      
+      // Only include assets with some activity
+      if (supplyAmount > 0n || totalBorrowAmount > 0n || repayAmount > 0n) {
+        supplyBorrowData.push({
+          asset,
+          chainId: chainId.toString(),
+          supplyAmount: supplyAmount.toString(),
+          borrowAmount: totalBorrowAmount.toString(), // Use total borrowed amount (without subtracting repays)
+          repayAmount: repayAmount.toString(),
+          totalBorrowAmount: totalBorrowAmount.toString(),
+          assetPriceUSD: latestTx.assetPriceUSD,
+          stableTokenDebt: latestTx.stableTokenDebt,
+          variableTokenDebt: latestTx.variableTokenDebt,
+        });
+        console.log(`✅ Added to supply/borrow data`);
+      } else {
+        console.log(`❌ Skipped - no activity`);
+      }
+    }
+    
+    console.log(`Created ${supplyBorrowData.length} supply/borrow data entries`);
+    return supplyBorrowData;
+  } catch (error) {
+    console.error('Error getting supply/borrow data for user:', error);
+    throw error;
+  }
 };
 
 // Main function to get token configs for a user
-export const getTokenConfigsForUser = async (userAddress: string): Promise<TokenConfig[]> => {
+export const getTokenConfigsForUser = async (userAddress: string, currentChainId?: number): Promise<TokenConfig[]> => {
   try {
     console.log(`Fetching token configs for user: ${userAddress}`);
     
@@ -323,7 +586,7 @@ export const getTokenConfigsForUser = async (userAddress: string): Promise<Token
     }
     
     // Create token configs from transactions
-    const tokenConfigs = await createTokenConfigsFromTransactions(transactions, userAddress);
+    const tokenConfigs = await createTokenConfigsFromTransactions(transactions, userAddress, currentChainId);
     
     console.log(`Created ${tokenConfigs.length} token configs`);
     return tokenConfigs;

@@ -5,33 +5,46 @@ import { getStepPath } from "../../app/router/steps";
 import { StepKind } from "../../app/router/types";
 import { HodlerForm } from "../../shared/forms/HodlerForm";
 import { ConnectWallet } from "../../shared/components/ConnectWallet";
+import { SupplyBorrowDisplay, type SupplyBorrowData } from "../../shared/components/SupplyBorrowDisplay";
 import { loadTokensToProve, getTokensToProve, getFallbackTokensToProve, type TokenConfig } from "../../shared/lib/utils";
+import { getSupplyBorrowDataForUser } from "../../shared/lib/client";
 import { useAccount } from "wagmi";
 export const WelcomePage = () => {
-  const { address } = useAccount();
+  const { address, chain } = useAccount();
   console.log("address", address);
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingTokens, setIsLoadingTokens] = useState(false);
   const [tokensToProve, setTokensToProve] = useState<TokenConfig[]>([]);
+  const [supplyBorrowData, setSupplyBorrowData] = useState<SupplyBorrowData[]>([]);
+  const [isLoadingSupplyBorrow, setIsLoadingSupplyBorrow] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const defaultTokenHolder = import.meta.env
     .VITE_DEFAULT_TOKEN_HOLDER as `0x${string}`;
   const { callProver, result } = useProver();
 
 
-  // Load token configs when component mounts or address changes
+  // Load token configs and supply/borrow data when component mounts or address changes
   useEffect(() => {
-    const loadTokens = async () => {
+    const loadData = async () => {
       if (!address) return;
       
       setIsLoadingTokens(true);
+      setIsLoadingSupplyBorrow(true);
       setError(null);
       
       try {
-        console.log("🔄 Loading tokens for address:", address);
-        const tokens = await loadTokensToProve(address);
+        console.log("🔄 Loading data for address:", address);
+        console.log("🌐 Current chain:", chain?.name, "ID:", chain?.id);
+        
+        // Load both token configs and supply/borrow data in parallel
+        const [tokens, supplyBorrow] = await Promise.all([
+          loadTokensToProve(address, chain?.id),
+          getSupplyBorrowDataForUser(address, chain?.id)
+        ]);
+        
         setTokensToProve(tokens);
+        setSupplyBorrowData(supplyBorrow);
         
         // If no tokens found from subgraph, try fallback
         if (tokens.length === 0) {
@@ -43,19 +56,21 @@ export const WelcomePage = () => {
           setError(null); // Clear any previous errors
         }
       } catch (err) {
-        console.error("❌ Error loading tokens:", err);
+        console.error("❌ Error loading data:", err);
         const errorMessage = err instanceof Error ? err.message : 'Unknown error';
         setError(`Failed to load token data: ${errorMessage}. Using fallback configuration.`);
         // Use fallback tokens on error
         const fallbackTokens = getFallbackTokensToProve();
         setTokensToProve(fallbackTokens);
+        setSupplyBorrowData([]);
       } finally {
         setIsLoadingTokens(false);
+        setIsLoadingSupplyBorrow(false);
       }
     };
 
-    loadTokens();
-  }, [address]);
+    loadData();
+  }, [address, chain?.id]);
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -115,13 +130,30 @@ export const WelcomePage = () => {
         </div>
       )}
       
+      {/* Display current network info */}
+      {chain && (
+        <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+          <div className="flex items-center space-x-2">
+            <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+            <span className="text-blue-700 font-medium">
+              Showing data for: {chain.name} (Chain ID: {chain.id})
+            </span>
+          </div>
+        </div>
+      )}
+      
+      {/* Display supply and borrow data */}
+      <SupplyBorrowDisplay 
+        data={supplyBorrowData} 
+        isLoading={isLoadingSupplyBorrow} 
+      />
       
       <HodlerForm
         holderAddress={address}
         onSubmit={handleSubmit}
         isLoading={isLoading || isLoadingTokens}
         loadingLabel={isLoadingTokens ? "Loading tokens..." : "Generating proof..."}
-        submitLabel="Show cross-chain balance"
+        submitLabel="Get proof"
         isEditable={true}
       />
       
