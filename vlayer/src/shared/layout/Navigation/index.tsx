@@ -18,7 +18,7 @@ export const Navbar: React.FC<{ children: React.ReactNode }> = ({
 
   return (
     <nav
-      className="flex gap-10 justify-between max-w-[480px] w-full"
+      className="flex gap-10 justify-between w-full"
       style={{ opacity: currentStep?.backUrl ? 1 : 0 }}
     >
       {children}

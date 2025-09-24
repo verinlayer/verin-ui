@@ -5,7 +5,8 @@ import { getStepPath } from "../../app/router/steps";
 import { StepKind } from "../../app/router/types";
 import { HodlerForm } from "../../shared/forms/HodlerForm";
 import { ConnectWallet } from "../../shared/components/ConnectWallet";
-import { SupplyBorrowDisplay, type SupplyBorrowData } from "../../shared/components/SupplyBorrowDisplay";
+import { SupplyBorrowDisplay } from "../../shared/components/SupplyBorrowDisplay";
+import { type SupplyBorrowData } from "../../shared/lib/client";
 import { loadTokensToProve, getTokensToProve, getFallbackTokensToProve, type TokenConfig } from "../../shared/lib/utils";
 import { getSupplyBorrowDataForUser } from "../../shared/lib/client";
 import { useAccount } from "wagmi";
@@ -157,18 +158,18 @@ export const WelcomePage = () => {
         isEditable={true}
       />
       
-      {tokensToProve.length > 0 && (
+      {/* {tokensToProve.length > 0 && (
         <div className="mt-4 p-3 bg-gray-100 rounded text-sm">
           <p>Found {tokensToProve.length} token(s) to prove:</p>
           <ul className="mt-2 space-y-1">
             {tokensToProve.map((token, index) => (
               <li key={index} className="text-xs">
-                {token.addr.slice(0, 6)}...{token.addr.slice(-4)} on Chain {token.chainId}
+                {token.underlingTokenAddress.slice(0, 6)}...{token.underlingTokenAddress.slice(-4)} on Chain {token.chainId}
               </li>
             ))}
           </ul>
         </div>
-      )}
+      )} */}
     </div>
   );
 };

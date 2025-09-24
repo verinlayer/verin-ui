@@ -25,10 +25,12 @@ import { getTeleportConfig } from "./constants";
 import { 
   getSupplyBorrowDataForUser, 
   getTokenConfigsForUser,
+  getTokenConfigsForUserNew,
   getBlockNumberFromTxHash,
   queryUserTransactions,
   type SupplyBorrowData,
-  type SubgraphTransaction
+  type SubgraphTransaction,
+  type TokenConfig
 } from "./src/shared/lib/client";
 import { getAaveContractAddresses, validateContractAddresses } from "./config-aave";
 import debug from "debug";
@@ -115,7 +117,7 @@ if (transactions.length === 0) {
 
 log.info(`📊 Found ${transactions.length} transactions to process`);
 
-// Convert Aave data to Erc20Token struct format
+// Convert Aave data to TokenConfig struct format
 const tokensToCheck: {
   underlingTokenAddress: Address;
   aTokenAddress: Address;
@@ -159,9 +161,16 @@ for (const tx of transactions) {
   }
 
   // Create token entry with balance always 0
+  const aTokenAddress = tx.reserve.aToken?.id || tx.reserve.underlyingAsset;
+  log.info(`  🔍 aToken data:`, {
+    underlyingAsset: tx.reserve.underlyingAsset,
+    aTokenId: tx.reserve.aToken?.id,
+    finalATokenAddress: aTokenAddress
+  });
+  
   tokensToCheck.push({
     underlingTokenAddress: tx.reserve.underlyingAsset as Address,
-    aTokenAddress: (tx.reserve as any).aToken?.id as Address || tx.reserve.underlyingAsset as Address, // Use aToken.id from subgraph
+    aTokenAddress: aTokenAddress as Address, // Use aToken.id from subgraph
     chainId: BigInt(tx.chainId || currentChainId.toString()),
     blockNumber: blockNumber,
     balance: BigInt(0), // Always 0 as requested

@@ -1,18 +1,8 @@
 import React from 'react';
 import { formatUnits } from 'viem';
 import { getChainName } from '../lib/utils';
-
-export interface SupplyBorrowData {
-  asset: string;
-  chainId: string;
-  supplyAmount: string;
-  borrowAmount: string;
-  repayAmount: string;
-  totalBorrowAmount: string;
-  assetPriceUSD?: string;
-  stableTokenDebt?: string;
-  variableTokenDebt?: string;
-}
+import { TokenConfig, TokenType, getTokenTypeName, getTokenTypeColor, getTokenTypeIcon } from '../types/TeleportTypes';
+import { type SupplyBorrowData, type SubgraphTransaction } from '../lib/client';
 
 interface SupplyBorrowDisplayProps {
   data: SupplyBorrowData[];
@@ -83,6 +73,109 @@ const getTokenSymbol = (asset: string): string => {
   return tokenMap[asset.toLowerCase()] || 'UNKNOWN';
 };
 
+// New component for displaying TokenConfig structures
+interface TokenConfigDisplayProps {
+  tokens: TokenConfig[];
+  isLoading?: boolean;
+}
+
+export const TokenConfigDisplay: React.FC<TokenConfigDisplayProps> = ({ 
+  tokens, 
+  isLoading = false 
+}) => {
+  if (isLoading) {
+    return (
+      <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+        <div className="flex items-center space-x-2">
+          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+          <span className="text-blue-700">Loading token data...</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (tokens.length === 0) {
+    return (
+      <div className="mb-4 p-4 bg-gray-50 border border-gray-200 rounded-lg">
+        <p className="text-gray-600 text-sm">No token data found for this address.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mb-6 space-y-4">
+      <h3 className="text-lg font-semibold text-slate-900">Token Activity Summary</h3>
+      
+      <div className="space-y-4">
+        {tokens.map((token, index) => {
+          const tokenTypeName = getTokenTypeName(token.tokenType);
+          const tokenTypeColor = getTokenTypeColor(token.tokenType);
+          const tokenTypeIcon = getTokenTypeIcon(token.tokenType);
+          
+          return (
+            <div key={`${token.underlingTokenAddress}-${index}`} className={`bg-white border rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow ${tokenTypeColor}`}>
+              {/* Token Header */}
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center space-x-3">
+                  <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center border-2">
+                    <span className="text-lg">{tokenTypeIcon}</span>
+                  </div>
+                  <div>
+                    <div className="font-semibold text-slate-900">{tokenTypeName}</div>
+                    <div className="text-xs text-slate-500">{getChainName(token.chainId)}</div>
+                  </div>
+                </div>
+                <div className="text-xs text-slate-400 bg-slate-50 px-2 py-1 rounded">
+                  {token.underlingTokenAddress.slice(0, 6)}...{token.underlingTokenAddress.slice(-4)}
+                </div>
+              </div>
+              
+              {/* Token Details */}
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <span className="text-slate-600">Underlying Token:</span>
+                    <div className="font-mono text-xs break-all">{token.underlingTokenAddress}</div>
+                  </div>
+                  <div>
+                    <span className="text-slate-600">aToken Address:</span>
+                    <div className="font-mono text-xs break-all">{token.aTokenAddress}</div>
+                  </div>
+                </div>
+                
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <span className="text-slate-600">Chain ID:</span>
+                    <div className="font-semibold">{token.chainId}</div>
+                  </div>
+                  <div>
+                    <span className="text-slate-600">Block Number:</span>
+                    <div className="font-semibold">{token.blockNumber}</div>
+                  </div>
+                </div>
+                
+                <div className="text-sm">
+                  <span className="text-slate-600">Balance:</span>
+                  <div className="font-semibold text-lg">{token.balance}</div>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      
+      <div className="text-xs text-slate-500 bg-slate-50 p-3 rounded">
+        <p>💡 This data shows the Erc20Token structures that will be used for proving:</p>
+        <ul className="mt-1 ml-4 space-y-1">
+          <li>• <strong>ARESERVE:</strong> Supply positions (aTokens)</li>
+          <li>• <strong>AVARIABLEDEBT:</strong> Variable debt positions</li>
+          <li>• <strong>ASTABLEDEBT:</strong> Stable debt positions</li>
+        </ul>
+      </div>
+    </div>
+  );
+};
+
 export const SupplyBorrowDisplay: React.FC<SupplyBorrowDisplayProps> = ({ 
   data, 
   isLoading = false 
@@ -106,9 +199,53 @@ export const SupplyBorrowDisplay: React.FC<SupplyBorrowDisplayProps> = ({
     );
   }
 
+  // Calculate totals in USD value to avoid decimal mixing issues
+  const totalSupplyUSD = data.reduce((sum, item) => {
+    const decimals = getTokenDecimals(item.asset);
+    const amount = formatUnits(BigInt(item.supplyAmount), decimals);
+    const price = item.assetPriceUSD ? parseFloat(item.assetPriceUSD) : 0;
+    return sum + (parseFloat(amount) * price);
+  }, 0);
+
+  const totalBorrowUSD = data.reduce((sum, item) => {
+    const decimals = getTokenDecimals(item.asset);
+    const amount = formatUnits(BigInt(item.borrowAmount), decimals);
+    const price = item.assetPriceUSD ? parseFloat(item.assetPriceUSD) : 0;
+    return sum + (parseFloat(amount) * price);
+  }, 0);
+
+  const totalRepayUSD = data.reduce((sum, item) => {
+    const decimals = getTokenDecimals(item.asset);
+    const amount = formatUnits(BigInt(item.repayAmount), decimals);
+    const price = item.assetPriceUSD ? parseFloat(item.assetPriceUSD) : 0;
+    return sum + (parseFloat(amount) * price);
+  }, 0);
+
   return (
     <div className="mb-6 space-y-4">
       <h3 className="text-lg font-semibold text-slate-900">DeFi Activity Summary</h3>
+      
+      {/* Overall Totals */}
+      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-4">
+        <h4 className="text-md font-semibold text-slate-800 mb-3">Total Activity Across All Assets</h4>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="bg-green-100 rounded-lg p-3">
+            <div className="text-sm font-medium text-green-800">Total Supplied (USD)</div>
+            <div className="text-lg font-bold text-green-900">${totalSupplyUSD.toFixed(2)}</div>
+          </div>
+          <div className="bg-orange-100 rounded-lg p-3">
+            <div className="text-sm font-medium text-orange-800">Total Borrowed (USD)</div>
+            <div className="text-lg font-bold text-orange-900">${totalBorrowUSD.toFixed(2)}</div>
+          </div>
+          <div className="bg-blue-100 rounded-lg p-3">
+            <div className="text-sm font-medium text-blue-800">Total Repaid (USD)</div>
+            <div className="text-lg font-bold text-blue-900">${totalRepayUSD.toFixed(2)}</div>
+          </div>
+        </div>
+        <div className="mt-3 text-xs text-slate-600 bg-slate-50 p-2 rounded">
+          💡 Totals are shown in USD to avoid mixing different token decimals (e.g., USDT has 6 decimals, OP has 18 decimals)
+        </div>
+      </div>
       
       <div className="space-y-4">
         {data.map((item, index) => {
@@ -138,78 +275,114 @@ export const SupplyBorrowDisplay: React.FC<SupplyBorrowDisplayProps> = ({
                 </div>
               </div>
               
-              {/* Vertical Activity Summary */}
-              <div className="space-y-4">
+              {/* Horizontal Activity Summary - Same format as Total Activity */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                 {/* Supplied */}
-                <div className="bg-green-50 rounded-lg p-4">
-                  <div className="flex items-center space-x-3 mb-2">
-                    <div className="w-3 h-3 bg-green-500 rounded-full flex-shrink-0"></div>
-                    <span className="text-sm font-medium text-green-800">Supplied</span>
-                  </div>
-                  <div className="ml-6">
-                    <div className="font-semibold text-green-900 text-lg">{supplyFormatted} {tokenSymbol}</div>
-                    {supplyUSD && <div className="text-sm text-green-600 mt-1">{supplyUSD}</div>}
-                  </div>
+                <div className="bg-green-100 rounded-lg p-3">
+                  <div className="text-sm font-medium text-green-800">Supplied</div>
+                  <div className="text-lg font-bold text-green-900">{supplyFormatted} {tokenSymbol}</div>
+                  {supplyUSD && <div className="text-sm text-green-600 mt-1">{supplyUSD}</div>}
                 </div>
                 
                 {/* Total Borrowed */}
-                {totalBorrowFormatted !== '0' && (
-                  <div className="bg-orange-50 rounded-lg p-4">
-                    <div className="flex items-center space-x-3 mb-2">
-                      <div className="w-3 h-3 bg-orange-500 rounded-full flex-shrink-0"></div>
-                      <span className="text-sm font-medium text-orange-800">Total Borrowed</span>
-                    </div>
-                    <div className="ml-6">
-                      <div className="font-semibold text-orange-900 text-lg">{totalBorrowFormatted} {tokenSymbol}</div>
-                      {totalBorrowUSD && <div className="text-sm text-orange-600 mt-1">{totalBorrowUSD}</div>}
-                    </div>
-                  </div>
-                )}
+                <div className="bg-orange-100 rounded-lg p-3">
+                  <div className="text-sm font-medium text-orange-800">Total Borrowed</div>
+                  <div className="text-lg font-bold text-orange-900">{totalBorrowFormatted} {tokenSymbol}</div>
+                  {totalBorrowUSD && <div className="text-sm text-orange-600 mt-1">{totalBorrowUSD}</div>}
+                </div>
                 
                 {/* Total Repaid */}
-                {repayFormatted !== '0' && (
-                  <div className="bg-green-50 rounded-lg p-4">
-                    <div className="flex items-center space-x-3 mb-2">
-                      <div className="w-3 h-3 bg-green-500 rounded-full flex-shrink-0"></div>
-                      <span className="text-sm font-medium text-green-800">Total Repaid</span>
-                    </div>
-                    <div className="ml-6">
-                      <div className="font-semibold text-green-900 text-lg">{repayFormatted} {tokenSymbol}</div>
-                      {repayUSD && <div className="text-sm text-green-600 mt-1">{repayUSD}</div>}
-                    </div>
-                  </div>
-                )}
-                
-                {/* Health Factor (if available) */}
-                {item.stableTokenDebt && item.variableTokenDebt && (
-                  <div className="bg-slate-50 rounded-lg p-4">
-                    <div className="text-sm font-medium text-slate-700 mb-2">Debt Details</div>
-                    <div className="space-y-1 ml-4">
-                      <div className="flex justify-between text-xs text-slate-600">
-                        <span>Stable Debt:</span>
-                        <span>{formatTokenAmount(item.stableTokenDebt, item.asset)} {tokenSymbol}</span>
-                      </div>
-                      <div className="flex justify-between text-xs text-slate-600">
-                        <span>Variable Debt:</span>
-                        <span>{formatTokenAmount(item.variableTokenDebt, item.asset)} {tokenSymbol}</span>
-                      </div>
-                    </div>
-                  </div>
-                )}
+                <div className="bg-blue-100 rounded-lg p-3">
+                  <div className="text-sm font-medium text-blue-800">Total Repaid</div>
+                  <div className="text-lg font-bold text-blue-900">{repayFormatted} {tokenSymbol}</div>
+                  {repayUSD && <div className="text-sm text-blue-600 mt-1">{repayUSD}</div>}
+                </div>
               </div>
+              
+              {/* Health Factor (if available) */}
+              {item.stableTokenDebt && item.variableTokenDebt && (
+                <div className="bg-slate-50 rounded-lg p-4 mb-4">
+                  <div className="text-sm font-medium text-slate-700 mb-2">Debt Details</div>
+                  <div className="space-y-1 ml-4">
+                    <div className="flex justify-between text-xs text-slate-600">
+                      <span>Stable Debt:</span>
+                      <span>{formatTokenAmount(item.stableTokenDebt, item.asset)} {tokenSymbol}</span>
+                    </div>
+                    <div className="flex justify-between text-xs text-slate-600">
+                      <span>Variable Debt:</span>
+                      <span>{formatTokenAmount(item.variableTokenDebt, item.asset)} {tokenSymbol}</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+              
+              {/* Transaction Details */}
+              {item.transactions && item.transactions.length > 0 && (
+                <div className="bg-slate-50 rounded-lg p-4">
+                  <div className="text-sm font-medium text-slate-700 mb-3">Transaction Details ({item.transactions.length} transactions)</div>
+                  <div className="space-y-2 max-h-48 overflow-y-auto">
+                    {item.transactions.map((tx, txIndex) => (
+                      <div key={txIndex} className="bg-white rounded border p-3 text-xs">
+                        <div className="flex justify-between items-start mb-2">
+                          <div className="flex items-center space-x-2">
+                            <span className={`px-2 py-1 rounded text-xs font-medium ${
+                              tx.action === 'Supply' ? 'bg-green-100 text-green-800' :
+                              tx.action === 'Borrow' ? 'bg-orange-100 text-orange-800' :
+                              tx.action === 'Repay' ? 'bg-blue-100 text-blue-800' :
+                              'bg-gray-100 text-gray-800'
+                            }`}>
+                              {tx.action}
+                            </span>
+                            <span className="font-mono text-slate-600">
+                              {formatTokenAmount(tx.amount, item.asset)} {tokenSymbol}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="space-y-1 text-slate-600">
+                          <div className="flex justify-between">
+                            <span>Tx Hash:</span>
+                            <span className="font-mono text-xs">
+                              <a 
+                                href={`https://optimistic.etherscan.io/tx/${tx.txHash}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-blue-600 hover:text-blue-800 underline"
+                              >
+                                {tx.txHash.slice(0, 8)}...{tx.txHash.slice(-6)}
+                              </a>
+                            </span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span>Asset:</span>
+                            <span className="font-mono text-xs">
+                              {item.asset.slice(0, 8)}...{item.asset.slice(-6)}
+                            </span>
+                          </div>
+                          {tx.assetPriceUSD && (
+                            <div className="flex justify-between">
+                              <span>Price:</span>
+                              <span className="text-xs">${parseFloat(tx.assetPriceUSD).toFixed(4)}</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           );
         })}
       </div>
       
-      <div className="text-xs text-slate-500 bg-slate-50 p-3 rounded">
+      {/* <div className="text-xs text-slate-500 bg-slate-50 p-3 rounded">
         <p>💡 This data is fetched from the Aave subgraph and shows your DeFi activity breakdown:</p>
         <ul className="mt-1 ml-4 space-y-1">
           <li>• <strong>Supplied:</strong> Sum of all supply transactions</li>
           <li>• <strong>Total Borrowed:</strong> Sum of all borrow transactions</li>
           <li>• <strong>Total Repaid:</strong> Sum of all repay transactions</li>
         </ul>
-      </div>
+      </div> */}
     </div>
   );
 };
