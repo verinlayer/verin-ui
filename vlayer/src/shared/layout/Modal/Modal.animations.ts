@@ -3,6 +3,6 @@ const motionConfig = {
   animate: { opacity: 1, scale: 1 },
   exit: { opacity: 0, scale: 0.1 },
   transition: { ease: "easeOut", duration: 0.3 },
-};
+} as const;
 
 export { motionConfig };

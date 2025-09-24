@@ -36,10 +36,18 @@ const rpcClients = {
 
 // Types for our data structures
 export interface TokenConfig {
-  addr: string;
+  underlingTokenAddress: string;
+  aTokenAddress: string;
   chainId: string;
   blockNumber: string;
   balance: string;
+  tokenType: number; // 0 = ARESERVE, 1 = AVARIABLEDEBT, 2 = ASTABLEDEBT
+}
+
+export enum TokenType {
+  ARESERVE = 0,
+  AVARIABLEDEBT = 1,
+  ASTABLEDEBT = 2,
 }
 
 export interface SubgraphTransaction {
@@ -52,6 +60,9 @@ export interface SubgraphTransaction {
   variableTokenDebt?: string;
   reserve: {
     underlyingAsset: string;
+    aToken?: {
+      id: string;
+    };
   };
   tokenAddress: string;
   // Add any chain-specific fields if available in the subgraph
@@ -69,17 +80,19 @@ export interface SupplyBorrowData {
   assetPriceUSD?: string;
   stableTokenDebt?: string;
   variableTokenDebt?: string;
+  transactions?: SubgraphTransaction[]; // Add transaction details
 }
 
 const createQuery = (user: string) => {
     return `query {
   userTransactions(
-    first: 1
+    first: 20
     orderBy: timestamp
     orderDirection: desc
     where: {and: 
       [{user: "${user.toLowerCase()}"},
-      {or: [{action: Borrow},{action: Repay},{action: Supply}]}]
+      {or: [{action: Borrow},{action: Repay},{action: Supply}]},
+      {timestamp_lt: 1757870662}]
     }
   ) {
     action
@@ -144,7 +157,98 @@ const createQuery = (user: string) => {
   // }`;
 };
 
-// Get block number from transaction hash using RPC
+// Get block numbers from multiple transaction hashes using batch RPC calls
+export const getBlockNumbersFromTxHashes = async (txHashes: string[], chainId: number): Promise<Map<string, string>> => {
+  try {
+    const client = rpcClients[chainId as keyof typeof rpcClients];
+    if (!client) {
+      throw new Error(`No RPC client configured for chain ID: ${chainId}`);
+    }
+
+    console.log(`Batch fetching block numbers for ${txHashes.length} transactions on chain ${chainId}`);
+
+    // Get the RPC URL from the client
+    const rpcUrl = client.transport.url;
+    if (!rpcUrl) {
+      throw new Error(`No RPC URL found for chain ${chainId}`);
+    }
+
+    const blockNumbers = new Map<string, string>();
+    const BATCH_SIZE = 10; // RPC provider limit
+
+    // Process in chunks of 10 to respect RPC provider limits
+    for (let i = 0; i < txHashes.length; i += BATCH_SIZE) {
+      const chunk = txHashes.slice(i, i + BATCH_SIZE);
+      console.log(`Processing batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(txHashes.length / BATCH_SIZE)} with ${chunk.length} transactions`);
+
+      // Create batch RPC requests for this chunk
+      const batchRequests = chunk.map((txHash, index) => ({
+        jsonrpc: "2.0",
+        method: "eth_getTransactionReceipt",
+        params: [txHash],
+        id: i + index + 1
+      }));
+
+      try {
+        // Make batch request for this chunk
+        const response = await fetch(rpcUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(batchRequests)
+        });
+
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+
+        const results = await response.json();
+
+        // Process results for this chunk
+        for (let j = 0; j < results.length; j++) {
+          const result = results[j];
+          const txHash = chunk[j];
+
+          if (result.error) {
+            console.warn(`Error getting block number for tx ${txHash}:`, result.error);
+            continue;
+          }
+
+          if (result.result) {
+            const blockNumber = BigInt(result.result.blockNumber);
+            
+            // Validate block number is positive
+            if (blockNumber < 0n) {
+              console.warn(`Invalid block number for tx ${txHash}: ${blockNumber}`);
+              continue;
+            }
+
+            blockNumbers.set(txHash, blockNumber.toString());
+            console.log(`Tx ${txHash}: block ${blockNumber}`);
+          }
+        }
+
+        // Add a small delay between batches to be respectful to the RPC provider
+        if (i + BATCH_SIZE < txHashes.length) {
+          await new Promise(resolve => setTimeout(resolve, 100));
+        }
+      } catch (chunkError) {
+        console.warn(`Error processing batch ${Math.floor(i / BATCH_SIZE) + 1}:`, chunkError);
+        // Continue with next batch even if this one fails
+        continue;
+      }
+    }
+
+    console.log(`Successfully fetched ${blockNumbers.size} block numbers out of ${txHashes.length} requests`);
+    return blockNumbers;
+  } catch (error) {
+    console.error(`Error batch fetching block numbers for chain ${chainId}:`, error);
+    throw error;
+  }
+};
+
+// Get block number from transaction hash using RPC (single request)
 export const getBlockNumberFromTxHash = async (txHash: string, chainId: number): Promise<string> => {
   try {
     const client = rpcClients[chainId as keyof typeof rpcClients];
@@ -226,7 +330,7 @@ export const createTokenConfigsFromTransactions = async (
 ): Promise<TokenConfig[]> => {
   // Get unique assets from transactions
   const uniqueAssets = new Map<string, SubgraphTransaction[]>();
-  
+
   transactions.forEach(tx => {
     const asset = tx.reserve.underlyingAsset.toLowerCase();
     if (!uniqueAssets.has(asset)) {
@@ -234,6 +338,58 @@ export const createTokenConfigsFromTransactions = async (
     }
     uniqueAssets.get(asset)!.push(tx);
   });
+
+  // Collect all transaction hashes for batch processing
+  const allTxHashes: string[] = [];
+  const txHashToAsset = new Map<string, string>();
+  
+  for (const [asset, assetTxs] of uniqueAssets) {
+    const latestTx = assetTxs[assetTxs.length - 1];
+    allTxHashes.push(latestTx.txHash);
+    txHashToAsset.set(latestTx.txHash, asset);
+  }
+
+  // Batch fetch block numbers for all transactions
+  const blockNumbersMap = new Map<string, string>();
+  if (allTxHashes.length > 0) {
+    try {
+      // Group by chain ID for batch processing
+      const txHashesByChain = new Map<number, string[]>();
+      for (const txHash of allTxHashes) {
+        const asset = txHashToAsset.get(txHash)!;
+        const chainId = await getChainIdFromTransaction(txHash, asset);
+        if (!txHashesByChain.has(chainId)) {
+          txHashesByChain.set(chainId, []);
+        }
+        txHashesByChain.get(chainId)!.push(txHash);
+      }
+
+      // Batch fetch for each chain
+      for (const [chainId, txHashes] of txHashesByChain) {
+        try {
+          console.log(`Batch fetching ${txHashes.length} block numbers for chain ${chainId}`);
+          const chainBlockNumbers = await getBlockNumbersFromTxHashes(txHashes, chainId);
+          for (const [txHash, blockNumber] of chainBlockNumbers) {
+            blockNumbersMap.set(txHash, blockNumber);
+          }
+        } catch (error) {
+          console.warn(`Error batch fetching block numbers for chain ${chainId}:`, error);
+          // Fallback to individual requests
+          for (const txHash of txHashes) {
+            try {
+              const blockNumber = await getBlockNumberFromTxHash(txHash, chainId);
+              blockNumbersMap.set(txHash, blockNumber);
+            } catch (individualError) {
+              console.warn(`Could not get block number for tx ${txHash}:`, individualError);
+              blockNumbersMap.set(txHash, 'latest');
+            }
+          }
+        }
+      }
+    } catch (error) {
+      console.warn(`Error in batch processing, falling back to individual requests:`, error);
+    }
+  }
 
   const tokenConfigs: TokenConfig[] = [];
 
@@ -254,8 +410,8 @@ export const createTokenConfigsFromTransactions = async (
     }
     
     try {
-      // Get block number from the latest transaction
-      const blockNumber = await getBlockNumberFromTxHash(latestTx.txHash, chainId);
+      // Get block number from batch results or fallback
+      const blockNumber = blockNumbersMap.get(latestTx.txHash) || await getBlockNumberFromTxHash(latestTx.txHash, chainId);
       
       // Calculate total borrow amount (without subtracting repays)
       const totalBorrowAmount = calculateTotalBorrowAmount(assetTxs);
@@ -267,10 +423,12 @@ export const createTokenConfigsFromTransactions = async (
       
       if (blockNumber && blockNumber !== '0') {
         tokenConfigs.push({
-          addr: asset,
+          underlingTokenAddress: asset,
+          aTokenAddress: asset, // Default to same address
           chainId: chainId.toString(),
           blockNumber: blockNumber,
-          balance: totalBorrowAmount.toString()
+          balance: totalBorrowAmount.toString(),
+          tokenType: 0 // Default to ARESERVE for legacy compatibility
         });
       } else {
         console.warn(`Invalid block number for asset ${asset}, skipping`);
@@ -557,8 +715,9 @@ export const getSupplyBorrowDataForUser = async (userAddress: string, currentCha
           assetPriceUSD: latestTx.assetPriceUSD,
           stableTokenDebt: latestTx.stableTokenDebt,
           variableTokenDebt: latestTx.variableTokenDebt,
+          transactions: assetTxs, // Include transaction details
         });
-        console.log(`✅ Added to supply/borrow data`);
+        console.log(`✅ Added to supply/borrow data with ${assetTxs.length} transactions`);
       } else {
         console.log(`❌ Skipped - no activity`);
       }
@@ -592,6 +751,111 @@ export const getTokenConfigsForUser = async (userAddress: string, currentChainId
     return tokenConfigs;
   } catch (error) {
     console.error('Error getting token configs for user:', error);
+    throw error;
+  }
+};
+
+// New function to get TokenConfig structures for a user (matching smart contract structure)
+export const getTokenConfigsForUserNew = async (userAddress: string, currentChainId?: number): Promise<TokenConfig[]> => {
+  try {
+    console.log(`Fetching TokenConfig structures for user: ${userAddress}`);
+    
+    // Query subgraph for user transactions
+    const transactions = await queryUserTransactions(userAddress);
+    
+    if (transactions.length === 0) {
+      console.log('No transactions found for user');
+      return [];
+    }
+    
+    // Group transactions by chain ID for batch processing
+    const transactionsByChain = new Map<number, SubgraphTransaction[]>();
+    transactions.forEach(tx => {
+      const chainId = parseInt(tx.chainId || currentChainId?.toString() || '1');
+      if (!transactionsByChain.has(chainId)) {
+        transactionsByChain.set(chainId, []);
+      }
+      transactionsByChain.get(chainId)!.push(tx);
+    });
+    
+    // Batch fetch block numbers for each chain
+    const blockNumbersMap = new Map<string, string>();
+    for (const [chainId, chainTransactions] of transactionsByChain) {
+      try {
+        const txHashes = chainTransactions.map(tx => tx.txHash);
+        console.log(`Batch fetching ${txHashes.length} block numbers for chain ${chainId}`);
+        const chainBlockNumbers = await getBlockNumbersFromTxHashes(txHashes, chainId);
+        
+        // Merge into main map
+        for (const [txHash, blockNumber] of chainBlockNumbers) {
+          blockNumbersMap.set(txHash, blockNumber);
+        }
+      } catch (error) {
+        console.warn(`Error batch fetching block numbers for chain ${chainId}:`, error);
+        // Fallback to individual requests for this chain
+        for (const tx of chainTransactions) {
+          try {
+            const blockNumber = await getBlockNumberFromTxHash(tx.txHash, chainId);
+            blockNumbersMap.set(tx.txHash, blockNumber);
+          } catch (individualError) {
+            console.warn(`Could not get block number for tx ${tx.txHash}:`, individualError);
+            blockNumbersMap.set(tx.txHash, 'latest'); // Fallback
+          }
+        }
+      }
+    }
+    
+    const tokenConfigs: TokenConfig[] = [];
+    
+    // Process each transaction individually (matching proveAave.ts approach)
+    for (const tx of transactions) {
+      console.log(`Processing transaction: ${tx.action} - ${tx.amount} (tx: ${tx.txHash.slice(0, 10)}...)`);
+      
+      // Get block number from batch results
+      const blockNumber = blockNumbersMap.get(tx.txHash) || 'latest';
+      console.log(`Block number from tx ${tx.txHash}: ${blockNumber}`);
+      
+      // Determine token type based on action
+      let tokenType: number;
+      switch (tx.action) {
+        case 'Supply':
+          tokenType = TokenType.ARESERVE;
+          break;
+        case 'Borrow':
+          tokenType = TokenType.AVARIABLEDEBT;
+          break;
+        case 'Repay':
+          tokenType = TokenType.AVARIABLEDEBT; // Repay affects variable debt
+          break;
+        default:
+          console.warn(`Unknown action: ${tx.action}, skipping`);
+          continue;
+      }
+      
+      // Create TokenConfig entry with balance always 0 (matching proveAave.ts)
+      const aTokenAddress = tx.reserve.aToken?.id || tx.reserve.underlyingAsset;
+      console.log(`aToken data:`, {
+        underlyingAsset: tx.reserve.underlyingAsset,
+        aTokenId: tx.reserve.aToken?.id,
+        finalATokenAddress: aTokenAddress
+      });
+      
+      tokenConfigs.push({
+        underlingTokenAddress: tx.reserve.underlyingAsset,
+        aTokenAddress: aTokenAddress, // Use aToken.id from subgraph
+        chainId: tx.chainId || currentChainId?.toString() || '1',
+        blockNumber: blockNumber,
+        balance: '0', // Always 0 as in proveAave.ts
+        tokenType: tokenType,
+      });
+      
+      console.log(`Added ${tx.action} token: ${tx.amount} ${tx.reserve.underlyingAsset} (type: ${tokenType})`);
+    }
+    
+    console.log(`Created ${tokenConfigs.length} TokenConfig structures`);
+    return tokenConfigs;
+  } catch (error) {
+    console.error('Error getting TokenConfig structures for user:', error);
     throw error;
   }
 };

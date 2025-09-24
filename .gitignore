@@ -16,3 +16,4 @@ docs/
 .env.testnet
 .env.dev
 .env.mainnet
+.env**

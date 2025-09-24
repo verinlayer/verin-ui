@@ -1,4 +1,4 @@
-import { getTokenConfigsForUser, type TokenConfig } from './client';
+import { getTokenConfigsForUserNew, type TokenConfig } from './client';
 
 // Re-export TokenConfig for use in other components
 export type { TokenConfig } from './client';
@@ -30,7 +30,7 @@ export let tokensToProve: TokenConfig[] = [];
 export const loadTokensToProve = async (userAddress: string, currentChainId?: number): Promise<TokenConfig[]> => {
   try {
     console.log(`Loading token configs for user: ${userAddress}`);
-    tokensToProve = await getTokenConfigsForUser(userAddress, currentChainId);
+    tokensToProve = await getTokenConfigsForUserNew(userAddress, currentChainId);
     console.log(`Loaded ${tokensToProve.length} token configs:`, tokensToProve);
     return tokensToProve;
   } catch (error) {
@@ -61,5 +61,5 @@ export const parseProverResult = (proverResult: string) =>
   JSON.parse(proverResult) as [
     unknown,
     `0x${string}`,
-    { addr: string; chainId: string; blockNumber: string; balance: string }[],
+    TokenConfig[],
   ];
