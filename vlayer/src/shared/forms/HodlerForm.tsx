@@ -18,18 +18,10 @@ export const HodlerForm = ({
   return (
     <form onSubmit={onSubmit}>
       <div className="mb-4 w-full block">
-        <label
-          htmlFor="holderAddress"
-          className="block text-sm font-medium mb-1 text-slate-900"
-        >
-          Address or ENS of token holder:
-        </label>
         <input
           name="holderAddress"
-          type="text"
+          type="hidden"
           defaultValue={holderAddress}
-          className="w-full p-2 border border-gray-300 rounded-md bg-gray-50 text-slate-900"
-          disabled={!isEditable}
         />
       </div>
       <div className="mt-5 flex justify-center">

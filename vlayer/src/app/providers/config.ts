@@ -2,8 +2,9 @@ import { WagmiAdapter } from "@reown/appkit-adapter-wagmi";
 import { getChainSpecs } from "@vlayer/sdk";
 import { Chain } from "viem";
 import { createAppKit } from "@reown/appkit/react";
+import { injected, metaMask } from "wagmi/connectors";
 
-const appKitProjectId = `88cd40e876a44270a55cd4e034d55478`;
+const appKitProjectId = import.meta.env.VITE_WALLETCONNECT_PROJECT_ID || `88cd40e876a44270a55cd4e034d55478`;
 let chain = null;
 
 try {
@@ -22,28 +23,40 @@ try {
 const chains: [Chain, ...Chain[]] = [chain];
 const networks = chains;
 
+// Create connectors array - focus on core wallet connectors
+const connectors = [
+  injected(), // Supports MetaMask, Rabby, and other injected wallets
+  metaMask(), // Explicit MetaMask connector
+];
+
 const wagmiAdapter = new WagmiAdapter({
   projectId: appKitProjectId,
   chains,
   networks,
+  connectors,
 });
 
-createAppKit({
-  adapters: [wagmiAdapter],
-  projectId: appKitProjectId,
-  networks,
-  defaultNetwork: chain,
-  metadata: {
-    name: "vlayer-time-travel-proof-example",
-    description: "vlayer Time Travel Example",
-    url: "https://vlayer.xyz",
-    icons: ["https://avatars.githubusercontent.com/u/179229932"],
-  },
-  themeVariables: {
-    "--w3m-color-mix": "#551fbc",
-    "--w3m-color-mix-strength": 40,
-  },
-});
+// Only create AppKit if we have a valid project ID
+if (appKitProjectId && appKitProjectId !== '88cd40e876a44270a55cd4e034d55478') {
+  createAppKit({
+    adapters: [wagmiAdapter],
+    projectId: appKitProjectId,
+    networks,
+    defaultNetwork: chain,
+    metadata: {
+      name: "vlayer-time-travel-proof-example",
+      description: "vlayer Time Travel Example",
+      url: "https://vlayer.xyz",
+      icons: ["https://avatars.githubusercontent.com/u/179229932"],
+    },
+    themeVariables: {
+      "--w3m-color-mix": "#551fbc",
+      "--w3m-color-mix-strength": 40,
+    },
+  });
+} else {
+  console.warn("WalletConnect Project ID not configured. Only injected wallets will be available.");
+}
 
 const proverConfig = {
   proverUrl: import.meta.env.VITE_PROVER_URL,

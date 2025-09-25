@@ -53,7 +53,8 @@ export const Modal = ({ children }: { children: React.ReactNode }) => {
           {...motionConfig}
         >
           <Navigation />
-          <ErrorBoundary FallbackComponent={StepErrorBoundaryComponent}>
+          <div className="pt-20 w-full">
+            <ErrorBoundary FallbackComponent={StepErrorBoundaryComponent}>
             <AnimatePresence>
               {currentStep?.headerIcon && (
                 <motion.img
@@ -75,7 +76,8 @@ export const Modal = ({ children }: { children: React.ReactNode }) => {
                 {children}
               </modalContext.Provider>
             </div>
-          </ErrorBoundary>
+            </ErrorBoundary>
+          </div>
         </motion.div>
       </div>
     </dialog>

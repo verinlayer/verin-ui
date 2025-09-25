@@ -242,9 +242,9 @@ export const SupplyBorrowDisplay: React.FC<SupplyBorrowDisplayProps> = ({
             <div className="text-lg font-bold text-blue-900">${totalRepayUSD.toFixed(2)}</div>
           </div>
         </div>
-        <div className="mt-3 text-xs text-slate-600 bg-slate-50 p-2 rounded">
+        {/* <div className="mt-3 text-xs text-slate-600 bg-slate-50 p-2 rounded">
           💡 Totals are shown in USD to avoid mixing different token decimals (e.g., USDT has 6 decimals, OP has 18 decimals)
-        </div>
+        </div> */}
       </div>
       
       <div className="space-y-4">
@@ -350,12 +350,6 @@ export const SupplyBorrowDisplay: React.FC<SupplyBorrowDisplayProps> = ({
                               >
                                 {tx.txHash.slice(0, 8)}...{tx.txHash.slice(-6)}
                               </a>
-                            </span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span>Asset:</span>
-                            <span className="font-mono text-xs">
-                              {item.asset.slice(0, 8)}...{item.asset.slice(-6)}
                             </span>
                           </div>
                           {tx.assetPriceUSD && (

@@ -123,24 +123,24 @@ const getFaucetUrl = (chainId: number) => {
     .otherwise(() => null);
 };
 
-const FaucetInfo = ({ chain }: { chain: Chain }) => {
-  const faucet = useMemo(() => getFaucetUrl(chain.id), [chain.id]);
-  return (
-    <p className="text-red-400 text-center mt-4">
-      Insufficient balance in your wallet. <br />
-      {faucet ? (
-        <>
-          Please fund your account with{" "}
-          <a href={faucet} target="_blank" className="font-bold">
-            {chain.name} Faucet
-          </a>
-        </>
-      ) : (
-        <>
-          Please fill your wallet with {chain.nativeCurrency.name} from
-          {chain.name}
-        </>
-      )}
-    </p>
-  );
-};
+// const FaucetInfo = ({ chain }: { chain: Chain }) => {
+//   const faucet = useMemo(() => getFaucetUrl(chain.id), [chain.id]);
+//   return (
+//     <p className="text-red-400 text-center mt-4">
+//       Insufficient balance in your wallet. <br />
+//       {faucet ? (
+//         <>
+//           Please fund your account with{" "}
+//           <a href={faucet} target="_blank" className="font-bold">
+//             {chain.name} Faucet
+//           </a>
+//         </>
+//       ) : (
+//         <>
+//           Please fill your wallet with {chain.nativeCurrency.name} from
+//           {chain.name}
+//         </>
+//       )}
+//     </p>
+//   );
+// };

@@ -2,11 +2,18 @@ import * as React from "react";
 import { ChevronLeftIcon } from "@heroicons/react/24/outline";
 import { useCurrentStep } from "../../hooks/useCurrentStep";
 import { useNavigate } from "react-router";
+import { useAccount, useDisconnect } from "wagmi";
+import { useState } from "react";
 
 export const Navigation: React.FC = () => {
   return (
     <Navbar>
-      <BackButton />
+      <div className="flex items-center">
+        <BackButton />
+      </div>
+      <div className="flex items-center">
+        <WalletInfo />
+      </div>
     </Navbar>
   );
 };
@@ -15,13 +22,19 @@ export const Navbar: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
   const { currentStep } = useCurrentStep();
+  const { isConnected } = useAccount();
+
+  // Always show navigation if wallet is connected, or if there's a back button
+  const shouldShow = currentStep?.backUrl || isConnected;
 
   return (
     <nav
-      className="flex gap-10 justify-between w-full"
-      style={{ opacity: currentStep?.backUrl ? 1 : 0 }}
+      className="fixed top-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-sm border-b border-gray-200 px-4 py-3"
+      style={{ opacity: shouldShow ? 1 : 0 }}
     >
-      {children}
+      <div className="flex gap-10 justify-between w-full max-w-7xl mx-auto">
+        {children}
+      </div>
     </nav>
   );
 };
@@ -30,17 +43,91 @@ export const BackButton: React.FC = () => {
   const { currentStep } = useCurrentStep();
   const navigate = useNavigate();
 
+  // Only show back button if there's a backUrl
+  if (!currentStep?.backUrl) {
+    return null;
+  }
+
   return (
     <button
       onClick={() => {
-        if (currentStep?.backUrl) {
-          void navigate(currentStep.backUrl);
-        }
+        void navigate(currentStep.backUrl!);
       }}
       className="flex gap-1.5 justify-center items-center px-2 py-0 my-auto h-8 text-xs leading-3 text-center text-gray-800 whitespace-nowrap rounded-lg shadow-sm min-h-[32px]"
     >
       <ChevronLeftIcon className="w-4 h-4" />
       <span className="self-stretch my-auto">Back</span>
     </button>
+  );
+};
+
+export const WalletInfo: React.FC = () => {
+  const { isConnected, address, chain } = useAccount();
+  const { disconnect } = useDisconnect();
+  const [showDropdown, setShowDropdown] = useState(false);
+
+  console.log("WalletInfo state:", { isConnected, address, chain: chain?.name, chainId: chain?.id });
+
+  if (!isConnected || !address) {
+    return null;
+  }
+
+  // Better chain name detection
+  const getChainName = () => {
+    if (chain?.name) {
+      return chain.name;
+    }
+    
+    // Fallback to chain ID mapping
+    const chainIdToName: Record<number, string> = {
+      1: "Ethereum Mainnet",
+      10: "Optimism",
+      11155420: "Optimism Sepolia",
+      8453: "Base",
+      84532: "Base Sepolia",
+      42161: "Arbitrum One",
+      421614: "Arbitrum Sepolia",
+    };
+    
+    return chainIdToName[chain?.id || 0] || `Chain ${chain?.id || 'Unknown'}`;
+  };
+
+  return (
+    <div className="relative">
+      <button
+        onClick={() => setShowDropdown(!showDropdown)}
+        className="flex items-center space-x-2 bg-white border border-gray-200 rounded-lg px-3 py-2 hover:bg-gray-50 transition-colors"
+      >
+        <div className="flex items-center space-x-2">
+          <div className="text-sm font-medium text-gray-900">
+            {getChainName()}
+          </div>
+          <div className="text-xs text-gray-500">
+            {address.slice(0, 6)}...{address.slice(-4)}
+          </div>
+        </div>
+        <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+      </button>
+      
+      {showDropdown && (
+        <div className="absolute right-0 mt-2 w-48 bg-white border border-gray-200 rounded-lg shadow-lg z-50">
+          <div className="p-2">
+            <div className="px-3 py-2 text-sm text-gray-700 border-b">
+              <div className="font-medium">{getChainName()}</div>
+              <div className="text-xs text-gray-500">{address}</div>
+            </div>
+            <button
+              onClick={() => {
+                disconnect();
+                setShowDropdown(false);
+              }}
+              className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded"
+            >
+              Disconnect
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
   );
 };
