@@ -22,7 +22,6 @@ const HIGHLIGHTED_TOKENS = {
 export const ShowBalancePage = () => {
   const navigate = useNavigate();
   const { address } = useAccount();
-  // const address = '0x05e14E44e3B296f12b21790CdE834BCE5bE5B8e0';
   const [tokensToProve, setTokens] = useState<TokenConfig[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [proverResult] = useLocalStorage("proverResult", "");
@@ -73,21 +72,6 @@ export const ShowBalancePage = () => {
 
   return (
     <form onSubmit={handleSubmit}>
-      <div className="mb-4 w-full block">
-        <label
-          htmlFor="holderAddress"
-          className="block text-sm font-medium mb-1 text-slate-900"
-        >
-          Address or ENS of token holder:
-        </label>
-        <input
-          name="holderAddress"
-          type="text"
-          defaultValue={address}
-          className="w-full p-2 border border-gray-300 rounded-md bg-gray-50 text-slate-900"
-          disabled
-        />
-      </div>
 
       {/* Display TokenConfig structures */}
       <TokenConfigDisplay tokens={tokensToProve} isLoading={isLoading} />

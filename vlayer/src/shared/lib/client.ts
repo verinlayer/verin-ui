@@ -86,13 +86,13 @@ export interface SupplyBorrowData {
 const createQuery = (user: string) => {
     return `query {
   userTransactions(
-    first: 20
+    first: 1
     orderBy: timestamp
     orderDirection: desc
     where: {and: 
       [{user: "${user.toLowerCase()}"},
       {or: [{action: Borrow},{action: Repay},{action: Supply}]},
-      {timestamp_lt: 1757870662}]
+      {timestamp_lt: 1758315176}]
     }
   ) {
     action
@@ -283,8 +283,7 @@ export const queryUserTransactions = async (user: string): Promise<SubgraphTrans
     console.log('🔍 Querying subgraph for user:', user);
     console.log('📡 API URL:', APIURL);
     
-    // const query = createQuery(user);
-    const query = createQuery('0x05e14E44e3B296f12b21790CdE834BCE5bE5B8e0');
+    const query = createQuery(user);
     console.log('📝 GraphQL Query:', query);
     
     const result = await fetch(APIURL, {

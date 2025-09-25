@@ -29,10 +29,10 @@ export const aaveContractAddresses: Record<string, AaveConfig> = {
     verifier: "0x7E07cedF47975bC76210E8AbE155d1BD58d71473",
   },
   optimism: {
-    whaleBadgeNFT: "0x1BA3B66108CD2CD17f71091B368397C4C7C006AF",
-    registry: "0xE2fe992C22Db37771ed5EdEA08b96dC071263827",
-    prover: "0x41d1da43de6a5aF46964C2c37572800c2a64CfEB",
-    verifier: "0x7E07cedF47975bC76210E8AbE155d1BD58d71473",
+    whaleBadgeNFT: "0x196379121F74D4c438bD8A3BeD35F40FC47971d6",
+    registry: "0x8CAFdd6A534542a94B286D9eD151207ac9853171",
+    prover: "0xD6fDB097CC62Be3DC050fA7225D98F3741399dE0",
+    verifier: "0x49F08053963A088aD826576ae9C5B08B9864a44C",
   },
   base: {
     whaleBadgeNFT: "0x0000000000000000000000000000000000000000", // Replace with actual address

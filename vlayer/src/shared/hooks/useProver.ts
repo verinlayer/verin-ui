@@ -26,7 +26,8 @@ export const useProver = () => {
   } = useCallProver({
     address: import.meta.env.VITE_PROVER_ADDRESS,
     proverAbi: proverSpec.abi,
-    functionName: "crossChainBalanceOf",
+    // functionName: "crossChainBalanceOf",
+    functionName: "proveAaveData",
     vgasLimit: Number(import.meta.env.VITE_GAS_LIMIT),
     chainId: chain?.id,
   });

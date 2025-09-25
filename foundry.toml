@@ -7,8 +7,8 @@ fs_permissions = [{ access = "read", path = "./testdata"}]
 [dependencies]
 "@openzeppelin-contracts" = "5.0.1"
 forge-std = "1.9.4"
-risc0-ethereum = { version = "2.2.2", url = "https://github.com/vlayer-xyz/risc0-ethereum/releases/download/v2.2.2-soldeer/contracts.zip" }
-vlayer = "1.4.2"
+risc0-ethereum = { version = "3.0.0", url = "https://github.com/vlayer-xyz/risc0-ethereum/releases/download/v3.0.0-soldeer/contracts.zip" }
+vlayer = "1.5.0"
 
 [soldeer]
 # whether soldeer manages remappings

@@ -11,8 +11,8 @@ import { loadTokensToProve, getTokensToProve, getFallbackTokensToProve, type Tok
 import { getSupplyBorrowDataForUser } from "../../shared/lib/client";
 import { useAccount } from "wagmi";
 export const WelcomePage = () => {
-  const { address, chain } = useAccount();
-  console.log("address", address);
+  const { address, chain, isConnected, isConnecting } = useAccount();
+  console.log("Wallet state:", { address, isConnected, isConnecting, chain: chain?.name });
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingTokens, setIsLoadingTokens] = useState(false);
@@ -107,7 +107,25 @@ export const WelcomePage = () => {
     }
   }, [result]);
 
-  if (!address) {
+  // Show loading state while checking wallet connection
+  if (isConnecting) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[400px]">
+        <div className="text-center max-w-md">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <h2 className="text-xl font-semibold text-gray-900 mb-2">
+            Checking Wallet Connection...
+          </h2>
+          <p className="text-gray-600">
+            Please wait while we check your wallet connection status.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show connect wallet if not connected
+  if (!isConnected || !address) {
     return <ConnectWallet />;
   }
 
@@ -131,17 +149,6 @@ export const WelcomePage = () => {
         </div>
       )}
       
-      {/* Display current network info */}
-      {chain && (
-        <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-          <div className="flex items-center space-x-2">
-            <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-            <span className="text-blue-700 font-medium">
-              Showing data for: {chain.name} (Chain ID: {chain.id})
-            </span>
-          </div>
-        </div>
-      )}
       
       {/* Display supply and borrow data */}
       <SupplyBorrowDisplay 
