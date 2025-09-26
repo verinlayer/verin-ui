@@ -6,6 +6,7 @@ import {WhaleBadgeNFT} from "../src/vlayer/WhaleBadgeNFT.sol";
 import {SimpleTeleportProver} from "../src/vlayer/SimpleTeleportProver.sol";
 import {SimpleTeleportVerifier} from "../src/vlayer/SimpleTeleportVerifier.sol";
 import {Registry} from "../src/vlayer/constants/Registry.sol";
+import {CreditModel} from "../src/vlayer/CreditModel.sol";
 
 /**
  * @title DeployTeleport
@@ -23,7 +24,7 @@ contract DeployTeleport is Script {
         // Get the deployer's private key
         uint256 deployerPrivateKey = vm.envUint("DEPLOYER_PRIVATE_KEY");
         address deployer = vm.addr(deployerPrivateKey);
-        
+
         console.log("Deploying contracts with address:", deployer);
         console.log("Deployer balance:", deployer.balance);
 
@@ -31,8 +32,8 @@ contract DeployTeleport is Script {
 
         // Step 1: Deploy WhaleBadgeNFT (no dependencies)
         console.log("\n=== Deploying WhaleBadgeNFT ===");
-        whaleBadgeNFT = new WhaleBadgeNFT();
-        console.log("WhaleBadgeNFT deployed at:", address(whaleBadgeNFT));
+        // whaleBadgeNFT = new WhaleBadgeNFT();
+        // console.log("WhaleBadgeNFT deployed at:", address(whaleBadgeNFT));
 
         // Step 2: Deploy Registry (no dependencies)
         console.log("\n=== Deploying Registry ===");
@@ -44,12 +45,17 @@ contract DeployTeleport is Script {
         prover = new SimpleTeleportProver();
         console.log("SimpleTeleportProver deployed at:", address(prover));
 
-        // Step 4: Deploy SimpleTeleportVerifier (depends on prover, whaleBadgeNFT, and registry)
+        // Step 4: Deploy CreditModel (no dependencies)
+        console.log("\n=== Deploying CreditModel ===");
+        CreditModel creditModel = new CreditModel();
+        console.log("CreditModel deployed at:", address(creditModel));
+
+        // Step 5: Deploy SimpleTeleportVerifier (depends on prover, registry, and creditModel)
         console.log("\n=== Deploying SimpleTeleportVerifier ===");
         verifier = new SimpleTeleportVerifier(
             address(prover),
-            whaleBadgeNFT,
-            registry
+            registry,
+            address(creditModel)
         );
         console.log("SimpleTeleportVerifier deployed at:", address(verifier));
 
@@ -61,13 +67,12 @@ contract DeployTeleport is Script {
         console.log("Registry:", address(registry));
         console.log("SimpleTeleportProver:", address(prover));
         console.log("SimpleTeleportVerifier:", address(verifier));
-        
+
         // Verify contract addresses are set correctly
         console.log("\n=== Verification ===");
         console.log("Verifier prover address:", verifier.prover());
         console.log("Verifier registry address:", address(verifier.registry()));
-        console.log("Verifier reward address:", address(verifier.reward()));
-        
+
         // Log registry admin role
         console.log("Registry admin role granted to:", deployer);
     }
@@ -78,12 +83,12 @@ contract DeployTeleport is Script {
     function deployRegistry() external {
         uint256 deployerPrivateKey = vm.envUint("DEPLOYER_PRIVATE_KEY");
         address deployer = vm.addr(deployerPrivateKey);
-        
+
         vm.startBroadcast(deployerPrivateKey);
-        
+
         registry = new Registry(deployer);
         console.log("Registry deployed at:", address(registry));
-        
+
         vm.stopBroadcast();
     }
 
@@ -94,25 +99,29 @@ contract DeployTeleport is Script {
     function deployCore(address registryAddress) external {
         uint256 deployerPrivateKey = vm.envUint("DEPLOYER_PRIVATE_KEY");
         address deployer = vm.addr(deployerPrivateKey);
-        
+
         vm.startBroadcast(deployerPrivateKey);
-        
+
         // Deploy WhaleBadgeNFT
         whaleBadgeNFT = new WhaleBadgeNFT();
         console.log("WhaleBadgeNFT deployed at:", address(whaleBadgeNFT));
-        
+
         // Deploy Prover
         prover = new SimpleTeleportProver();
         console.log("SimpleTeleportProver deployed at:", address(prover));
-        
+
+        // Deploy CreditModel
+        CreditModel creditModel = new CreditModel();
+        console.log("CreditModel deployed at:", address(creditModel));
+
         // Deploy Verifier with existing registry
         verifier = new SimpleTeleportVerifier(
             address(prover),
-            whaleBadgeNFT,
-            Registry(registryAddress)
+            Registry(registryAddress),
+            address(creditModel)
         );
         console.log("SimpleTeleportVerifier deployed at:", address(verifier));
-        
+
         vm.stopBroadcast();
     }
 }

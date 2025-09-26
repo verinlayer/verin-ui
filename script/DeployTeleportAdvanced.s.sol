@@ -6,6 +6,7 @@ import {WhaleBadgeNFT} from "../src/vlayer/WhaleBadgeNFT.sol";
 import {SimpleTeleportProver} from "../src/vlayer/SimpleTeleportProver.sol";
 import {SimpleTeleportVerifier} from "../src/vlayer/SimpleTeleportVerifier.sol";
 import {Registry} from "../src/vlayer/constants/Registry.sol";
+import {CreditModel} from "../src/vlayer/CreditModel.sol";
 
 /**
  * @title DeployTeleportAdvanced
@@ -29,7 +30,7 @@ contract DeployTeleportAdvanced is Script {
 
     function run() external {
         DeploymentConfig memory config = _loadConfig();
-        
+
         console.log("=== SimpleTeleport Protocol Deployment ===");
         console.log("Environment:", config.environment);
         console.log("Admin address:", config.admin);
@@ -54,28 +55,28 @@ contract DeployTeleportAdvanced is Script {
         } catch {
             admin = msg.sender;
         }
-        
+
         bool verifyContracts;
         try vm.envBool("VERIFY_CONTRACTS") returns (bool _verify) {
             verifyContracts = _verify;
         } catch {
             verifyContracts = true;
         }
-        
+
         string memory environment;
         try vm.envString("ENVIRONMENT") returns (string memory _env) {
             environment = _env;
         } catch {
             environment = "development";
         }
-        
+
         uint256 gasPrice;
         try vm.envUint("GAS_PRICE") returns (uint256 _gasPrice) {
             gasPrice = _gasPrice;
         } catch {
             gasPrice = 0;
         }
-        
+
         return DeploymentConfig({
             admin: admin,
             verifyContracts: verifyContracts,
@@ -101,26 +102,30 @@ contract DeployTeleportAdvanced is Script {
         prover = new SimpleTeleportProver();
         console.log("   [OK] SimpleTeleportProver deployed at:", address(prover));
 
-        // Step 4: Deploy SimpleTeleportVerifier
-        console.log("\n4. Deploying SimpleTeleportVerifier...");
+        // Step 4: Deploy CreditModel
+        console.log("\n4. Deploying CreditModel...");
+        CreditModel creditModel = new CreditModel();
+        console.log("   [OK] CreditModel deployed at:", address(creditModel));
+
+        // Step 5: Deploy SimpleTeleportVerifier
+        console.log("\n5. Deploying SimpleTeleportVerifier...");
         verifier = new SimpleTeleportVerifier(
             address(prover),
-            whaleBadgeNFT,
-            registry
+            registry,
+            address(creditModel)
         );
         console.log("   [OK] SimpleTeleportVerifier deployed at:", address(verifier));
     }
 
     function _postDeploymentSetup(DeploymentConfig memory config) internal view {
         console.log("\n=== Post-Deployment Verification ===");
-        
+
         // Verify contract addresses
         require(verifier.prover() == address(prover), "Prover address mismatch");
         require(address(verifier.registry()) == address(registry), "Registry address mismatch");
-        require(address(verifier.reward()) == address(whaleBadgeNFT), "WhaleBadgeNFT address mismatch");
-        
+
         console.log("[OK] All contract addresses verified");
-        
+
         // Log deployment summary
         console.log("\n=== Deployment Summary ===");
         console.log("Environment:", config.environment);
@@ -128,18 +133,17 @@ contract DeployTeleportAdvanced is Script {
         console.log("Registry:", address(registry));
         console.log("SimpleTeleportProver:", address(prover));
         console.log("SimpleTeleportVerifier:", address(verifier));
-        
+
         // Log contract interactions
         console.log("\n=== Contract Interactions ===");
         console.log("Verifier -> Prover:", verifier.prover());
         console.log("Verifier -> Registry:", address(verifier.registry()));
-        console.log("Verifier -> WhaleBadgeNFT:", address(verifier.reward()));
-        
+
         // Log registry configuration
         console.log("\n=== Registry Configuration ===");
         console.log("Admin:", config.admin);
         console.log("Aave Pool Address:", registry.AAVE_POOL_ADDRESS());
-        
+
         if (config.verifyContracts) {
             console.log("\n=== Contract Verification Commands ===");
             console.log("forge verify-contract", address(whaleBadgeNFT), "WhaleBadgeNFT");
@@ -154,19 +158,20 @@ contract DeployTeleportAdvanced is Script {
      */
     function deployWithAdmin(address admin) external {
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
-        
+
         vm.startBroadcast(deployerPrivateKey);
-        
+
         console.log("Deploying with custom admin:", admin);
-        
+
         // Deploy all contracts
         whaleBadgeNFT = new WhaleBadgeNFT();
         registry = new Registry(admin);
         prover = new SimpleTeleportProver();
-        verifier = new SimpleTeleportVerifier(address(prover), whaleBadgeNFT, registry);
-        
+        CreditModel creditModel = new CreditModel();
+        verifier = new SimpleTeleportVerifier(address(prover), registry, address(creditModel));
+
         vm.stopBroadcast();
-        
+
         console.log("Deployment completed with admin:", admin);
     }
 
@@ -176,12 +181,12 @@ contract DeployTeleportAdvanced is Script {
     function deployRegistryOnly() external {
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
         address deployer = vm.addr(deployerPrivateKey);
-        
+
         vm.startBroadcast(deployerPrivateKey);
-        
+
         registry = new Registry(deployer);
         console.log("Registry deployed at:", address(registry));
-        
+
         vm.stopBroadcast();
     }
 
@@ -191,9 +196,9 @@ contract DeployTeleportAdvanced is Script {
     function deployToNetwork(string memory network) external {
         // Set the network
         vm.createSelectFork(network);
-        
+
         console.log("Deploying to network:", network);
-        
+
         // Run normal deployment
         this.run();
     }

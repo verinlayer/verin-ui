@@ -88,7 +88,7 @@ export const ShowBalancePage = () => {
 
       <div className="mt-5 flex justify-center">
         <button type="submit" id="nextButton" disabled={isLoading}>
-          {isLoading ? "Loading..." : "Continue to Mint"}
+          {isLoading ? "Loading..." : "Continue to Claim your proof"}
         </button>
       </div>
     </form>

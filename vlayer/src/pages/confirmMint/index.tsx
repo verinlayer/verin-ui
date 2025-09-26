@@ -1,5 +1,61 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import verifierSpec from "../../../../out/SimpleTeleportVerifier.sol/SimpleTeleportVerifier.json";
+// Note: You may need to update this import path based on your build output
+// import verifierSpec from "../../../../out/SimpleTeleportVerifier.sol/SimpleTeleportVerifier.json";
+
+// Temporary ABI for SimpleTeleportVerifier - replace with actual ABI from compiled contract
+const verifierSpec = {
+  abi: [
+    {
+      "inputs": [
+        {
+          "components": [
+            {
+              "components": [
+                {"name": "verifierSelector", "type": "bytes4"},
+                {"name": "seal", "type": "bytes32[8]"},
+                {"name": "mode", "type": "uint8"}
+              ],
+              "name": "seal",
+              "type": "tuple"
+            },
+            {"name": "callGuestId", "type": "bytes32"},
+            {"name": "length", "type": "uint32"},
+            {
+              "components": [
+                {"name": "proverContractAddress", "type": "address"},
+                {"name": "functionSelector", "type": "bytes4"},
+                {"name": "settleChainId", "type": "uint256"},
+                {"name": "settleBlockNumber", "type": "uint256"},
+                {"name": "settleBlockHash", "type": "bytes32"}
+              ],
+              "name": "callAssumptions",
+              "type": "tuple"
+            }
+          ],
+          "name": "proof",
+          "type": "tuple"
+        },
+        {"name": "claimer", "type": "address"},
+        {
+          "components": [
+            {"name": "underlingTokenAddress", "type": "address"},
+            {"name": "aTokenAddress", "type": "address"},
+            {"name": "chainId", "type": "uint256"},
+            {"name": "blockNumber", "type": "uint256"},
+            {"name": "balance", "type": "uint256"},
+            {"name": "tokenType", "type": "uint8"}
+          ],
+          "name": "tokens",
+          "type": "tuple[]"
+        }
+      ],
+      "name": "claim",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    }
+  ]
+};
 import { useLocalStorage } from "usehooks-ts";
 import { useAccount, useBalance, useWriteContract } from "wagmi";
 import { useNavigate } from "react-router";
@@ -123,24 +179,24 @@ const getFaucetUrl = (chainId: number) => {
     .otherwise(() => null);
 };
 
-// const FaucetInfo = ({ chain }: { chain: Chain }) => {
-//   const faucet = useMemo(() => getFaucetUrl(chain.id), [chain.id]);
-//   return (
-//     <p className="text-red-400 text-center mt-4">
-//       Insufficient balance in your wallet. <br />
-//       {faucet ? (
-//         <>
-//           Please fund your account with{" "}
-//           <a href={faucet} target="_blank" className="font-bold">
-//             {chain.name} Faucet
-//           </a>
-//         </>
-//       ) : (
-//         <>
-//           Please fill your wallet with {chain.nativeCurrency.name} from
-//           {chain.name}
-//         </>
-//       )}
-//     </p>
-//   );
-// };
+const FaucetInfo = ({ chain }: { chain: Chain }) => {
+  const faucet = useMemo(() => getFaucetUrl(chain.id), [chain.id]);
+  return (
+    <p className="text-red-400 text-center mt-4">
+      Insufficient balance in your wallet. <br />
+      {faucet ? (
+        <>
+          Please fund your account with{" "}
+          <a href={faucet} target="_blank" className="font-bold">
+            {chain.name} Faucet
+          </a>
+        </>
+      ) : (
+        <>
+          Please fill your wallet with {chain.nativeCurrency.name} from{" "}
+          {chain.name}
+        </>
+      )}
+    </p>
+  );
+};

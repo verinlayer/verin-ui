@@ -18,6 +18,8 @@ export interface FormattedUserInfo {
   borrowTimes: string;
   supplyTimes: string;
   repayTimes: string;
+  firstActivityBlock: string;
+  liquidations: string;
 }
 
 export interface AllUserInfo {

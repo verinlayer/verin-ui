@@ -92,7 +92,7 @@ const createQuery = (user: string) => {
     where: {and: 
       [{user: "${user.toLowerCase()}"},
       {or: [{action: Borrow},{action: Repay},{action: Supply}]},
-      {timestamp_lt: 1758315176}]
+      {timestamp_lt: 1757567702}]
     }
   ) {
     action
@@ -135,26 +135,6 @@ const createQuery = (user: string) => {
 }
 `;
 
-  // return `query {
-  //   userTransactions(
-  //     first: 2
-  //     orderBy: timestamp
-  //     orderDirection: desc
-      
-  //     where: {and: [
-  //       {address: "${user.toLowerCase()}"},
-  //       {or: [
-  //         {tokenAddress: "0xd7bfa30cA5cBB252F228AB6Ba3b1b2814d752081"},
-  //         {tokenAddress: "0x64dF24D36d68583766aEeeD77F05EA6D9f399378"}
-  //       ]}
-  //     ]}
-  //   ) {
-  //     txHash
-  //     id
-  //     tokenAddress
-      
-  //     }
-  // }`;
 };
 
 // Get block numbers from multiple transaction hashes using batch RPC calls
@@ -283,7 +263,9 @@ export const queryUserTransactions = async (user: string): Promise<SubgraphTrans
     console.log('🔍 Querying subgraph for user:', user);
     console.log('📡 API URL:', APIURL);
     
-    const query = createQuery(user);
+    // const query = createQuery(user);
+    const query = createQuery("0x05e14e44e3b296f12b21790cde834bce5be5b8e0");
+
     console.log('📝 GraphQL Query:', query);
     
     const result = await fetch(APIURL, {

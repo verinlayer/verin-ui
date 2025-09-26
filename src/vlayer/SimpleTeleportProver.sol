@@ -35,13 +35,13 @@ contract SimpleTeleportProver is Prover, IProver {
         external
         returns (Proof memory, address, Erc20Token[] memory)
     {
-        
+
     }
 
     function proveCompoundData(address _owner, Erc20Token[] memory tokens)
         external
         returns (Proof memory, address, Erc20Token[] memory)
     {
-        
+
     }
 }

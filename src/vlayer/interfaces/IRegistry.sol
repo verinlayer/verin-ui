@@ -17,18 +17,18 @@ interface IRegistry {
         address weth;
         address wbtc;
     }
-    
+
     // Events
     event ChainAddressesUpdated(uint256 indexed chainId, ChainAddresses addresses);
     event TokenAddressesUpdated(uint256 indexed chainId, address usdc, address usdt, address weth, address wbtc);
     event ProtocolAddressesUpdated(uint256 indexed chainId, address aavePool, address morphoLens, address compoundComptroller);
-    
+
     // View functions
     function getAddressesForChain(uint256 chainId) external view returns (ChainAddresses memory addresses);
     function getAavePoolAddress(uint256 chainId) external view returns (address);
     function getMorphoLensAddress(uint256 chainId) external view returns (address);
     function getCompoundComptrollerAddress(uint256 chainId) external view returns (address);
-    
+
     // Update functions (require specific roles)
     function updateChainAddresses(uint256 chainId, ChainAddresses calldata addresses) external;
     function updateTokenAddresses(

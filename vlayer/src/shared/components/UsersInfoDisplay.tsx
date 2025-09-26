@@ -102,6 +102,14 @@ export const UsersInfoDisplay: React.FC<UsersInfoDisplayProps> = ({
             <span className="font-medium">Latest Block:</span>
             <span className="ml-2">{data.latestBlock}</span>
           </div>
+          <div>
+            <span className="font-medium">First Activity Block:</span>
+            <span className="ml-2">{data.firstActivityBlock}</span>
+          </div>
+          <div>
+            <span className="font-medium">Liquidations:</span>
+            <span className="ml-2">{data.liquidations}</span>
+          </div>
         </div>
       </div>
     );
@@ -175,3 +183,4 @@ export const UsersInfoDisplay: React.FC<UsersInfoDisplayProps> = ({
 };
 
 export default UsersInfoDisplay;
+

@@ -43,6 +43,8 @@ async function main() {
       console.log(`  Borrow Times: ${info.borrowTimes.toString()}`);
       console.log(`  Supply Times: ${info.supplyTimes.toString()}`);
       console.log(`  Repay Times: ${info.repayTimes.toString()}`);
+      console.log(`  First Activity Block: ${info.firstActivityBlock.toString()}`);
+      console.log(`  Liquidations: ${info.liquidations.toString()}`);
       console.log('');
       console.log('Formatted Data:');
       console.log(`  Borrowed Amount: ${formatted.borrowedAmount}`);
@@ -53,6 +55,8 @@ async function main() {
       console.log(`  Borrow Times: ${formatted.borrowTimes}`);
       console.log(`  Supply Times: ${formatted.supplyTimes}`);
       console.log(`  Repay Times: ${formatted.repayTimes}`);
+      console.log(`  First Activity Block: ${formatted.firstActivityBlock}`);
+      console.log(`  Liquidations: ${formatted.liquidations}`);
 
     } else {
       // Query all protocols
@@ -88,6 +92,8 @@ async function main() {
           console.log(`Supply Times: ${formatted.supplyTimes}`);
           console.log(`Repay Times: ${formatted.repayTimes}`);
           console.log(`Latest Block: ${formatted.latestBlock}`);
+          console.log(`First Activity Block: ${formatted.firstActivityBlock}`);
+          console.log(`Liquidations: ${formatted.liquidations}`);
         } else {
           console.log('❌ No data available');
         }
@@ -133,3 +139,4 @@ if (process.argv.includes('--help') || process.argv.includes('-h')) {
 
 // Run the main function
 main().catch(console.error);
+

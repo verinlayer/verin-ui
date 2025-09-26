@@ -3,6 +3,8 @@ pragma solidity ^0.8.21;
 
 import {Script, console} from "forge-std/Script.sol";
 import {SimpleTeleportVerifier} from "../src/vlayer/SimpleTeleportVerifier.sol";
+import {Protocol} from "../src/vlayer/types/TeleportTypes.sol";
+import {UserInfo} from "../src/vlayer/types/UserInfo.sol";
 
 /**
  * @title GetUsersInfo
@@ -14,9 +16,9 @@ contract GetUsersInfo is Script {
     address constant VERIFIER_ADDRESS = 0x49F08053963A088aD826576ae9C5B08B9864a44C;
 
     // Protocol enum values
-    uint256 constant AAVE = 0;
-    uint256 constant MORPHO = 1;
-    uint256 constant COMPOUND = 2;
+    uint8 constant AAVE = 0;
+    uint8 constant MORPHO = 1;
+    uint8 constant COMPOUND = 2;
 
     function run() external view {
         // Get the verifier contract instance
@@ -33,15 +35,15 @@ contract GetUsersInfo is Script {
 
         // Query Aave data
         console.log("=== AAVE Protocol Data ===");
-        queryUserInfo(verifier, userAddress, AAVE);
+        queryUserInfo(verifier, userAddress, Protocol.AAVE);
 
         // Query Morpho data
         console.log("=== MORPHO Protocol Data ===");
-        queryUserInfo(verifier, userAddress, MORPHO);
+        queryUserInfo(verifier, userAddress, Protocol.MORPHO);
 
         // Query Compound data
         console.log("=== COMPOUND Protocol Data ===");
-        queryUserInfo(verifier, userAddress, COMPOUND);
+        queryUserInfo(verifier, userAddress, Protocol.COMPOUND);
     }
 
     /**
@@ -53,18 +55,19 @@ contract GetUsersInfo is Script {
     function queryUserInfo(
         SimpleTeleportVerifier verifier,
         address user,
-        uint256 protocol
+        Protocol protocol
     ) internal view {
-        (
-            uint256 borrowedAmount,
-            uint256 suppliedAmount,
-            uint256 repaidAmount,
-            uint256 latestBlock,
-            uint256 latestBalance,
-            uint256 borrowTimes,
-            uint256 supplyTimes,
-            uint256 repayTimes
-        ) = verifier.usersInfo(user, protocol);
+        UserInfo memory userInfo = verifier.usersInfo(user, protocol);
+        uint256 borrowedAmount = userInfo.borrowedAmount;
+        uint256 suppliedAmount = userInfo.suppliedAmount;
+        uint256 repaidAmount = userInfo.repaidAmount;
+        uint256 latestBlock = userInfo.latestBlock;
+        uint256 latestBalance = userInfo.latestBalance;
+        uint256 borrowTimes = userInfo.borrowTimes;
+        uint256 supplyTimes = userInfo.supplyTimes;
+        uint256 repayTimes = userInfo.repayTimes;
+        uint256 firstActivityBlock = userInfo.firstActivityBlock;
+        uint256 liquidations = userInfo.liquidations;
 
         console.log("  Borrowed Amount:", borrowedAmount);
         console.log("  Supplied Amount:", suppliedAmount);
@@ -74,6 +77,8 @@ contract GetUsersInfo is Script {
         console.log("  Borrow Times:", borrowTimes);
         console.log("  Supply Times:", supplyTimes);
         console.log("  Repay Times:", repayTimes);
+        console.log("  First Activity Block:", firstActivityBlock);
+        console.log("  Liquidations:", liquidations);
         console.log("");
     }
 
@@ -82,15 +87,15 @@ contract GetUsersInfo is Script {
      * @param userAddress The user address to query
      * @param protocol The protocol type (0=AAVE, 1=MORPHO, 2=COMPOUND)
      */
-    function querySpecificUser(address userAddress, uint256 protocol) external view {
+    function querySpecificUser(address userAddress, Protocol protocol) external view {
         SimpleTeleportVerifier verifier = SimpleTeleportVerifier(VERIFIER_ADDRESS);
 
         string memory protocolName;
-        if (protocol == AAVE) {
+        if (protocol == Protocol.AAVE) {
             protocolName = "AAVE";
-        } else if (protocol == MORPHO) {
+        } else if (protocol == Protocol.MORPHO) {
             protocolName = "MORPHO";
-        } else if (protocol == COMPOUND) {
+        } else if (protocol == Protocol.COMPOUND) {
             protocolName = "COMPOUND";
         } else {
             protocolName = "UNKNOWN";
@@ -111,8 +116,8 @@ contract GetUsersInfo is Script {
         console.log("=== All Protocol Data for User:", userAddress);
         console.log("");
 
-        queryUserInfo(verifier, userAddress, AAVE);
-        queryUserInfo(verifier, userAddress, MORPHO);
-        queryUserInfo(verifier, userAddress, COMPOUND);
+        queryUserInfo(verifier, userAddress, Protocol.AAVE);
+        queryUserInfo(verifier, userAddress, Protocol.MORPHO);
+        queryUserInfo(verifier, userAddress, Protocol.COMPOUND);
     }
 }

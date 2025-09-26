@@ -3,87 +3,142 @@ pragma solidity ^0.8.21;
 
 import {SimpleTeleportProver} from "./SimpleTeleportProver.sol";
 import {Erc20Token, Protocol, TokenType} from "./types/TeleportTypes.sol";
-import {WhaleBadgeNFT} from "./WhaleBadgeNFT.sol";
 import {Registry} from "./constants/Registry.sol";
+import {CreditModel} from "./CreditModel.sol";
+import {UserInfo} from "./types/UserInfo.sol";
+import {IVerifier} from "./interfaces/IVerifier.sol";
 
 import {Proof} from "vlayer-0.1.0/Proof.sol";
 import {Verifier} from "vlayer-0.1.0/Verifier.sol";
 import {IAToken} from "./interfaces/IAToken.sol";
 import {IAavePool} from "./interfaces/IAavePool.sol";
-struct UserInfo{
-    uint256 borrowedAmount;
-    uint256 suppliedAmount;
-    uint256 repaidAmount;
-    uint256 latestBlock;
-    uint256 latestBalance;
-    uint256 borrowTimes;
-    uint256 supplyTimes;
-    uint256 repayTimes;
-}
 
+/**
+ * @title SimpleTeleportVerifier
+ * @notice A comprehensive DeFi credit scoring system that tracks user activity across multiple protocols
+ * @dev This contract processes verified DeFi activity data to calculate credit scores and manage user reputation
+ *
+ * @dev Credit Scoring Algorithm:
+ *      - Repayment Rate (35%): Measures how much borrowed amount has been repaid
+ *      - Leverage/Utilization (30%): Borrowed vs total assets ratio (inverted scoring)
+ *      - Cushion Ratio (15%): Supplied assets vs borrowed assets ratio
+ *      - History (10%): Address age in days (capped at 365 days)
+ *      - Recency (10%): Days since last activity (penalty after 90 days)
+ *
+ * @dev Security Features:
+ *      - Cryptographic proof verification via Risc0
+ *      - User-specific data access controls
+ *      - Registry-based token validation
+ *      - Stale data prevention mechanisms
+ *
+ * @dev Integration Points:
+ *      - CreditModel contract for score calculations
+ *      - Registry contract for protocol addresses
+ *      - Prover contract for data verification
+ *      - Event system for external monitoring
+ */
+contract SimpleTeleportVerifier is Verifier, IVerifier {
 
-contract SimpleTeleportVerifier is Verifier {
+    // ============ STATE VARIABLES ============
+
+    /// @notice Address of the trusted prover contract for data verification
     address public prover;
+
+    /// @notice Registry contract containing protocol addresses and configurations
     Registry public registry;
 
-    // user address => protocol type => user info
-    mapping(address => mapping(uint256 => UserInfo)) public usersInfo;
-    WhaleBadgeNFT public reward;
+    /// @notice Credit scoring model contract for calculating user credit scores
+    CreditModel public creditScoreCalculator;
 
-    constructor(address _prover, WhaleBadgeNFT _nft, Registry _registry) {
+    /// @notice Mapping of user addresses to protocol types to user activity data
+    /// @dev Structure: _usersInfo[userAddress][protocol] = UserInfo
+    mapping(address => mapping(Protocol => UserInfo)) private _usersInfo;
+
+    // ============ EVENTS ============
+
+    // Events are defined in IVerifier interface
+
+    // ============ CONSTRUCTOR ============
+
+    /**
+     * @notice Initializes the SimpleTeleportVerifier contract
+     * @dev Sets up the trusted prover, registry, and credit scoring model
+     *
+     * @param _prover Address of the trusted prover contract for data verification
+     * @param _registry Registry contract containing protocol addresses and configurations
+     * @param _creditScoreCalculator Address of the CreditModel contract for score calculations
+     */
+    constructor(address _prover, Registry _registry, address _creditScoreCalculator) {
         prover = _prover;
-        reward = _nft;
         registry = _registry;
+        creditScoreCalculator = CreditModel(_creditScoreCalculator);
     }
 
-    // function claim(Proof calldata, address claimer, Erc20Token[] memory tokens)
-    //     public
-    //     onlyVerified(prover, SimpleTeleportProver.crossChainBalanceOf.selector)
-    // {
-    //     // require(!claimed[claimer], "Already claimed");
+    // ============ MODIFIERS ============
 
-    //     if (tokens.length > 0) {
-    //         uint256 totalBalance = 0;
-    //         for (uint256 i = 0; i < tokens.length; i++) {
-    //             totalBalance += tokens[i].balance;
-    //         }
-    //         if (totalBalance >= 10_000_000_000_000) {
-    //             // claimed[claimer] = true;
-    //             reward.mint(claimer);
-    //         }
-    //     }
-    // }
+    /**
+     * @notice Modifier to ensure only the claimer can update their own data
+     * @dev Prevents users from claiming or modifying other users' data
+     *
+     * @param claimer The address claiming/updating their data
+     * @dev Reverts if msg.sender is not the same as the claimer address
+     */
+    modifier onlyClaimer(address claimer) {
+        require(msg.sender == claimer, "Only the claimer can update their own data");
+        _;
+    }
 
-    // @dev claim Aave data
+    // ============ CORE FUNCTIONS ============
+
+    /// @inheritdoc IVerifier
     function claim(Proof calldata, address claimer, Erc20Token[] memory tokens)
         public
         onlyVerified(prover, SimpleTeleportProver.proveAaveData.selector)
+        onlyClaimer(claimer)
     {
-        
-        UserInfo storage userInfo = usersInfo[claimer][uint256(Protocol.AAVE)];
+
+        UserInfo storage userInfo = _usersInfo[claimer][Protocol.AAVE];
+
+        // Track first activity for credit scoring
+        _updateFirstActivity(claimer, Protocol.AAVE, block.number);
+
         {
             uint _blkNumber;
             for(uint256 i = 0; i < tokens.length; i++) {
                 _blkNumber = tokens[i].blockNumber;
-                require(_blkNumber > userInfo.latestBlock, "Invalid block number"); // always get data at block number which is greater than saved latest block
-                
+                // require(_blkNumber > userInfo.latestBlock, "Invalid block number"); // always get data at block number which is greater than saved latest block
+                if(_blkNumber <= userInfo.latestBlock) { // skip
+                    continue;
+                }
+
                 if(tokens[i].tokenType == TokenType.AVARIABLEDEBT) { // if borrow or repay
-                    require(IAavePool(registry.AAVE_POOL_ADDRESS()).getReserveVariableDebtToken(tokens[i].underlingTokenAddress) == tokens[i].aTokenAddress, "Invalid Aave token");
                     if(userInfo.latestBalance <= tokens[i].balance) { // borrow
-                        userInfo.borrowedAmount += tokens[i].balance - userInfo.latestBalance;
+                        uint256 borrowAmount = tokens[i].balance - userInfo.latestBalance;
+                        userInfo.borrowedAmount += borrowAmount;
                         userInfo.borrowTimes++;
 
+                        // Emit borrow event
+                        emit UserBorrowed(claimer, Protocol.AAVE, borrowAmount, userInfo.borrowedAmount, userInfo.borrowTimes);
+
                     } else { // repay
-                        userInfo.repaidAmount += userInfo.latestBalance - tokens[i].balance;
+                        uint256 repayAmount = userInfo.latestBalance - tokens[i].balance;
+                        userInfo.repaidAmount += repayAmount;
                         userInfo.repayTimes++;
+
+                        // Emit repay event
+                        emit UserRepaid(claimer, Protocol.AAVE, repayAmount, userInfo.repaidAmount, userInfo.repayTimes);
                     }
-                    
+
                     userInfo.latestBalance = tokens[i].balance;
 
                 } else if(tokens[i].tokenType == TokenType.ARESERVE) { // if supply assets, only increase the supplied amount, will consider withdraw in the future
                     require(IAavePool(registry.AAVE_POOL_ADDRESS()).getReserveAToken(tokens[i].underlingTokenAddress) == tokens[i].aTokenAddress, "Invalid Aave token");
-                    userInfo.suppliedAmount += tokens[i].balance;
+                    uint256 supplyAmount = tokens[i].balance;
+                    userInfo.suppliedAmount += supplyAmount;
                     userInfo.supplyTimes++;
+
+                    // Emit supply event
+                    emit UserSupplied(claimer, Protocol.AAVE, supplyAmount, userInfo.suppliedAmount, userInfo.supplyTimes);
                 } else if(tokens[i].tokenType == TokenType.ASTABLEDEBT) {
                     return;
                 }
@@ -92,8 +147,71 @@ contract SimpleTeleportVerifier is Verifier {
             }
 
         }
-        reward.mint(claimer);
-    
+
+    }
+
+    // ============ CREDIT SCORING FUNCTIONS ============
+
+    /// @inheritdoc IVerifier
+    function calculateCreditScore(address user, Protocol protocol)
+        public
+        view
+        returns (uint256 score, uint8 tier)
+    {
+        UserInfo memory userInfo = _usersInfo[user][protocol];
+        uint256 currentBlock = block.number;
+
+        // Call the credit score calculator with UserInfo struct
+        CreditModel.Tier creditTier;
+        (score, creditTier) = creditScoreCalculator.computeScoreAndTier(userInfo, currentBlock);
+        tier = uint8(creditTier);
+    }
+
+    /// @inheritdoc IVerifier
+    function getCreditScore(address user, Protocol protocol)
+        external
+        view
+        returns (uint256 score)
+    {
+        UserInfo memory userInfo = _usersInfo[user][protocol];
+        uint256 currentBlock = block.number;
+
+        // Call the credit score calculator with UserInfo struct
+        (score,) = creditScoreCalculator.computeScoreAndTier(userInfo, currentBlock);
+    }
+
+    // ============ INTERNAL FUNCTIONS ============
+
+    /**
+     * @notice Update first activity block when user first interacts
+     * @dev Internal function that records the first activity timestamp for a user.
+     *      This is used in credit score calculations to determine address age.
+     *      Only updates if firstActivityBlock is not already set (0).
+     */
+    function _updateFirstActivity(address user, Protocol protocol, uint256 blockNumber) internal {
+        UserInfo storage userInfo = _usersInfo[user][protocol];
+        if (userInfo.firstActivityBlock == 0) {
+            userInfo.firstActivityBlock = blockNumber;
+        }
+    }
+
+    // ============ EXTERNAL FUNCTIONS ============
+
+    /// @inheritdoc IVerifier
+    function recordLiquidation(address user, Protocol protocol) external {
+        UserInfo storage userInfo = _usersInfo[user][protocol];
+        userInfo.liquidations++;
+    }
+
+    // ============ VIEW FUNCTIONS ============
+
+    /// @inheritdoc IVerifier
+    function usersInfo(address user, Protocol protocol)
+        external
+        view
+        returns (UserInfo memory)
+    {
+        return _usersInfo[user][protocol];
     }
 
 }

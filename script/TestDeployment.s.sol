@@ -7,6 +7,7 @@ import {WhaleBadgeNFT} from "../src/vlayer/WhaleBadgeNFT.sol";
 import {SimpleTeleportProver} from "../src/vlayer/SimpleTeleportProver.sol";
 import {SimpleTeleportVerifier} from "../src/vlayer/SimpleTeleportVerifier.sol";
 import {Registry} from "../src/vlayer/constants/Registry.sol";
+import {CreditModel} from "../src/vlayer/CreditModel.sol";
 
 /**
  * @title TestDeployment
@@ -16,7 +17,7 @@ import {Registry} from "../src/vlayer/constants/Registry.sol";
 contract TestDeployment is Script, Test {
     function run() external {
         address deployer = vm.addr(vm.envUint("PRIVATE_KEY"));
-        
+
         console.log("Testing SimpleTeleport deployment...");
         console.log("Deployer:", deployer);
 
@@ -26,17 +27,18 @@ contract TestDeployment is Script, Test {
         WhaleBadgeNFT whaleBadgeNFT = new WhaleBadgeNFT();
         Registry registry = new Registry(deployer);
         SimpleTeleportProver prover = new SimpleTeleportProver();
+        CreditModel creditModel = new CreditModel();
         SimpleTeleportVerifier verifier = new SimpleTeleportVerifier(
             address(prover),
-            whaleBadgeNFT,
-            registry
+            registry,
+            address(creditModel)
         );
 
         vm.stopBroadcast();
 
         // Test contract interactions
         console.log("\n=== Testing Contract Interactions ===");
-        
+
         // Test WhaleBadgeNFT
         assertEq(whaleBadgeNFT.name(), "WhaleBadgeNFT");
         assertEq(whaleBadgeNFT.symbol(), "Whale");
@@ -55,12 +57,11 @@ contract TestDeployment is Script, Test {
         // Test Verifier
         assertEq(verifier.prover(), address(prover));
         assertEq(address(verifier.registry()), address(registry));
-        assertEq(address(verifier.reward()), address(whaleBadgeNFT));
         console.log("[OK] SimpleTeleportVerifier initialized correctly");
 
         // Test Registry functions
         console.log("\n=== Testing Registry Functions ===");
-        
+
         // Test getAddressesForChain for mainnet
         Registry.ChainAddresses memory mainnetAddresses = registry.getAddressesForChain(1);
         assertEq(mainnetAddresses.aavePool, 0x794a61358D6845594F94dc1DB02A252b5b4814aD);
@@ -78,7 +79,7 @@ contract TestDeployment is Script, Test {
 
         console.log("\n=== All Tests Passed! ===");
         console.log("Deployment and basic functionality verified successfully.");
-        
+
         // Log contract addresses for reference
         console.log("\n=== Contract Addresses ===");
         console.log("WhaleBadgeNFT:", address(whaleBadgeNFT));

@@ -6,6 +6,7 @@ import {WhaleBadgeNFT} from "../src/vlayer/WhaleBadgeNFT.sol";
 import {SimpleTeleportProver} from "../src/vlayer/SimpleTeleportProver.sol";
 import {SimpleTeleportVerifier} from "../src/vlayer/SimpleTeleportVerifier.sol";
 import {Registry} from "../src/vlayer/constants/Registry.sol";
+import {CreditModel} from "../src/vlayer/CreditModel.sol";
 
 /**
  * @title DeployTeleportTest
@@ -16,7 +17,7 @@ contract DeployTeleportTest is Script {
     function run() external {
         // Use the first account as deployer and admin
         address deployer = vm.addr(vm.envUint("PRIVATE_KEY"));
-        
+
         console.log("Deploying SimpleTeleport contracts...");
         console.log("Deployer:", deployer);
 
@@ -34,11 +35,15 @@ contract DeployTeleportTest is Script {
         SimpleTeleportProver prover = new SimpleTeleportProver();
         console.log("SimpleTeleportProver:", address(prover));
 
-        // 4. Deploy SimpleTeleportVerifier
+        // 4. Deploy CreditModel
+        CreditModel creditModel = new CreditModel();
+        console.log("CreditModel:", address(creditModel));
+
+        // 5. Deploy SimpleTeleportVerifier
         SimpleTeleportVerifier verifier = new SimpleTeleportVerifier(
             address(prover),
-            whaleBadgeNFT,
-            registry
+            registry,
+            address(creditModel)
         );
         console.log("SimpleTeleportVerifier:", address(verifier));
 
@@ -47,7 +52,6 @@ contract DeployTeleportTest is Script {
         // Verify deployment
         require(verifier.prover() == address(prover), "Prover address mismatch");
         require(address(verifier.registry()) == address(registry), "Registry address mismatch");
-        require(address(verifier.reward()) == address(whaleBadgeNFT), "WhaleBadgeNFT address mismatch");
 
         console.log("\n[SUCCESS] Deployment successful!");
         console.log("All contracts deployed and verified.");
