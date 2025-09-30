@@ -7,9 +7,12 @@ import proverSpec from "../../../../out/SimpleTeleportProver.sol/SimpleTeleportP
 import { useEffect } from "react";
 import { useLocalStorage } from "usehooks-ts";
 import { UseChainError, CallProverError } from "../errors/appErrors";
+import { getAaveContractAddresses } from "../../../config-aave";
+import { useAccount } from "wagmi";
 
 export const useProver = () => {
   const [, setProverResult] = useLocalStorage("proverResult", "");
+  const { chain: wagmiChain } = useAccount();
 
   const { chain, error: chainError } = useChain(
     import.meta.env.VITE_CHAIN_NAME,
@@ -19,12 +22,41 @@ export const useProver = () => {
     throw new UseChainError(chainError);
   }
 
+  // Get contract addresses from config based on current chain
+  let proverAddress: `0x${string}` = import.meta.env.VITE_PROVER_ADDRESS as `0x${string}`; // fallback to env
+  try {
+    if (wagmiChain?.name) {
+      // Map chain names to our config keys
+      let chainName = 'optimism'; // default
+      const chainNameLower = wagmiChain.name.toLowerCase();
+      if (chainNameLower.includes('optimism') && !chainNameLower.includes('sepolia')) {
+        chainName = 'optimism';
+      } else if (chainNameLower.includes('optimism') && chainNameLower.includes('sepolia')) {
+        chainName = 'optimismSepolia';
+      } else if (chainNameLower.includes('ethereum') && !chainNameLower.includes('sepolia')) {
+        chainName = 'mainnet';
+      } else if (chainNameLower.includes('base') && !chainNameLower.includes('sepolia')) {
+        chainName = 'base';
+      } else if (chainNameLower.includes('base') && chainNameLower.includes('sepolia')) {
+        chainName = 'baseSepolia';
+      } else if (chainNameLower.includes('anvil') || chainNameLower.includes('localhost')) {
+        chainName = 'anvil';
+      }
+      
+      const addresses = getAaveContractAddresses(chainName);
+      proverAddress = addresses.prover;
+      console.log(`Using prover address from config: ${proverAddress} for chain: ${wagmiChain.name}`);
+    }
+  } catch (err) {
+    console.warn("Could not get prover address from config, using env variable:", err);
+  }
+
   const {
     callProver,
     data: provingHash,
     error: provingError,
   } = useCallProver({
-    address: import.meta.env.VITE_PROVER_ADDRESS,
+    address: proverAddress,
     proverAbi: proverSpec.abi,
     // functionName: "crossChainBalanceOf",
     functionName: "proveAaveData",

@@ -31,7 +31,7 @@ contract DeployTeleport is Script {
         vm.startBroadcast(deployerPrivateKey);
 
         // Step 1: Deploy WhaleBadgeNFT (no dependencies)
-        console.log("\n=== Deploying WhaleBadgeNFT ===");
+        // console.log("\n=== Deploying WhaleBadgeNFT ===");
         // whaleBadgeNFT = new WhaleBadgeNFT();
         // console.log("WhaleBadgeNFT deployed at:", address(whaleBadgeNFT));
 
@@ -66,6 +66,7 @@ contract DeployTeleport is Script {
         console.log("WhaleBadgeNFT:", address(whaleBadgeNFT));
         console.log("Registry:", address(registry));
         console.log("SimpleTeleportProver:", address(prover));
+        console.log("CreditModel:", address(creditModel));
         console.log("SimpleTeleportVerifier:", address(verifier));
 
         // Verify contract addresses are set correctly

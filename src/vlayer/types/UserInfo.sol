@@ -13,6 +13,6 @@ struct UserInfo {
     uint256 borrowTimes;
     uint256 supplyTimes;
     uint256 repayTimes;
-    uint256 firstActivityBlock; // For credit score calculation
-    uint256 liquidations;       // For credit score penalty
+    uint256 firstActivityBlock;
+    uint256 liquidations;
 }

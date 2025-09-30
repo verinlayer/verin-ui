@@ -1,4 +1,6 @@
 // Types matching the smart contract structure
+// Import the token symbol function from the centralized utility
+import { getTokenSymbol } from '../utils/tokenDecimals';
 export interface TokenConfig {
   underlingTokenAddress: string;
   aTokenAddress: string;
@@ -20,15 +22,35 @@ export enum TokenType {
   ASTABLEDEBT = 2,
 }
 
-// Helper function to get token type name
-export const getTokenTypeName = (tokenType: number): string => {
+// Helper function to get token symbol based on underlying asset address
+export const getTokenTypeName = (tokenType: number, underlyingTokenAddress?: string): string => {
+  // If we have the underlying token address, try to get the actual token symbol
+  if (underlyingTokenAddress) {
+    const symbol = getTokenSymbol(underlyingTokenAddress);
+    
+    // If we found a valid symbol, return it with the token type context
+    if (symbol && symbol !== 'UNKNOWN') {
+      switch (tokenType) {
+        case TokenType.ARESERVE:
+          return `${symbol} Supply`;
+        case TokenType.AVARIABLEDEBT:
+          return `${symbol} Debt`;
+        case TokenType.ASTABLEDEBT:
+          return `${symbol} Stable Debt`;
+        default:
+          return symbol;
+      }
+    }
+  }
+  
+  // Fallback to generic token type names
   switch (tokenType) {
     case TokenType.ARESERVE:
-      return 'ARESERVE';
+      return 'Supply';
     case TokenType.AVARIABLEDEBT:
-      return 'AVARIABLEDEBT';
+      return 'Variable Debt';
     case TokenType.ASTABLEDEBT:
-      return 'ASTABLEDEBT';
+      return 'Stable Debt';
     default:
       return 'UNKNOWN';
   }

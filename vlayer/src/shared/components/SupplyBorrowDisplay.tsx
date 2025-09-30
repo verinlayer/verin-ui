@@ -3,30 +3,14 @@ import { formatUnits } from 'viem';
 import { getChainName } from '../lib/utils';
 import { TokenConfig, TokenType, getTokenTypeName, getTokenTypeColor, getTokenTypeIcon } from '../types/TeleportTypes';
 import { type SupplyBorrowData, type SubgraphTransaction } from '../lib/client';
+import { getTokenDecimals, getTokenSymbol } from '../utils/tokenDecimals';
 
 interface SupplyBorrowDisplayProps {
   data: SupplyBorrowData[];
   isLoading?: boolean;
 }
 
-const getTokenDecimals = (asset: string): number => {
-  // Token decimal mappings
-  const tokenDecimals: Record<string, number> = {
-    '0xd7bfa30ca5cbb252f228ab6ba3b1b2814d752081': 6, // USDT on OP Sepolia
-    '0xdac17f958d2ee523a2206206994597c13d831ec7': 6, // USDT on Ethereum
-    '0x94b008aa00579c1307b0ef2c499ad98a8ce58e58': 6, // USDT on Optimism
-    '0x64dff24d36d68583766aeeed77f05ea6d9f399378': 6, // USDC on OP Sepolia
-    '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48': 6, // USDC on Ethereum
-    '0x7f5c764cbc14f9669b88837ca1490cca17c31607': 6, // USDC on Optimism
-    '0x4200000000000000000000000000000000000042': 18, // OP on Optimism
-    '0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2': 18, // WETH on Ethereum
-    '0x4200000000000000000000000000000000000006': 18, // WETH on Optimism
-    '0x6b175474e89094c44da98b954eedeac495271d0f': 18, // DAI on Ethereum
-    '0xda10009cbd5d07dd0cecc66161fc93d7c9000da1': 18, // DAI on Optimism
-  };
-  
-  return tokenDecimals[asset.toLowerCase()] || 18; // Default to 18 decimals
-};
+// Token decimal handling is now centralized in ../utils/tokenDecimals.ts
 
 const formatTokenAmount = (value: string, asset: string) => {
   try {
@@ -59,19 +43,7 @@ const formatUSD = (value: string, asset: string, priceUSD?: string) => {
   }
 };
 
-const getTokenSymbol = (asset: string): string => {
-  // Common token mappings
-  const tokenMap: Record<string, string> = {
-    '0xd7bfa30ca5cbb252f228ab6ba3b1b2814d752081': 'USDT', // OP Sepolia
-    '0xdac17f958d2ee523a2206206994597c13d831ec7': 'USDT', // Ethereum Mainnet
-    '0x64dff24d36d68583766aeeed77f05ea6d9f399378': 'USDC', // OP Sepolia
-    '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48': 'USDC', // Ethereum Mainnet
-    '0x94b008aa00579c1307b0ef2c499ad98a8ce58e58': 'USDT', // Optimism
-    '0x4200000000000000000000000000000000000042': 'OP', // Optimism
-  };
-  
-  return tokenMap[asset.toLowerCase()] || 'UNKNOWN';
-};
+// Token symbol handling is now centralized in ../utils/tokenDecimals.ts
 
 // New component for displaying TokenConfig structures
 interface TokenConfigDisplayProps {
@@ -108,7 +80,7 @@ export const TokenConfigDisplay: React.FC<TokenConfigDisplayProps> = ({
       
       <div className="space-y-4">
         {tokens.map((token, index) => {
-          const tokenTypeName = getTokenTypeName(token.tokenType);
+          const tokenTypeName = getTokenTypeName(token.tokenType, token.underlingTokenAddress);
           const tokenTypeColor = getTokenTypeColor(token.tokenType);
           const tokenTypeIcon = getTokenTypeIcon(token.tokenType);
           
@@ -125,9 +97,9 @@ export const TokenConfigDisplay: React.FC<TokenConfigDisplayProps> = ({
                     <div className="text-xs text-slate-500">{getChainName(token.chainId)}</div>
                   </div>
                 </div>
-                <div className="text-xs text-slate-400 bg-slate-50 px-2 py-1 rounded">
+                {/* <div className="text-xs text-slate-400 bg-slate-50 px-2 py-1 rounded">
                   {token.underlingTokenAddress.slice(0, 6)}...{token.underlingTokenAddress.slice(-4)}
-                </div>
+                </div> */}
               </div>
               
               {/* Token Details */}
@@ -164,14 +136,14 @@ export const TokenConfigDisplay: React.FC<TokenConfigDisplayProps> = ({
         })}
       </div>
       
-      <div className="text-xs text-slate-500 bg-slate-50 p-3 rounded">
+      {/* <div className="text-xs text-slate-500 bg-slate-50 p-3 rounded">
         <p>💡 This data shows the Erc20Token structures that will be used for proving:</p>
         <ul className="mt-1 ml-4 space-y-1">
           <li>• <strong>ARESERVE:</strong> Supply positions (aTokens)</li>
           <li>• <strong>AVARIABLEDEBT:</strong> Variable debt positions</li>
           <li>• <strong>ASTABLEDEBT:</strong> Stable debt positions</li>
         </ul>
-      </div>
+      </div> */}
     </div>
   );
 };
@@ -223,11 +195,11 @@ export const SupplyBorrowDisplay: React.FC<SupplyBorrowDisplayProps> = ({
 
   return (
     <div className="mb-6 space-y-4">
-      <h3 className="text-lg font-semibold text-slate-900">DeFi Activity Summary</h3>
+      <h3 className="text-lg font-semibold text-slate-900">Summary of Unclaimed DeFi Data</h3>
       
       {/* Overall Totals */}
       <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-4">
-        <h4 className="text-md font-semibold text-slate-800 mb-3">Total Activity Across All Assets</h4>
+        {/* <h4 className="text-md font-semibold text-slate-800 mb-3">Total Activity Across All Assets</h4> */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="bg-green-100 rounded-lg p-3">
             <div className="text-sm font-medium text-green-800">Total Supplied (USD)</div>

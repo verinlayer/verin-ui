@@ -6,10 +6,12 @@ import { StepKind } from "../../app/router/types";
 import { HodlerForm } from "../../shared/forms/HodlerForm";
 import { ConnectWallet } from "../../shared/components/ConnectWallet";
 import { SupplyBorrowDisplay } from "../../shared/components/SupplyBorrowDisplay";
+import { ClaimSupplyBorrowDisplay } from "../../shared/components/ClaimSupplyBorrowDisplay";
 import { type SupplyBorrowData } from "../../shared/lib/client";
 import { loadTokensToProve, getTokensToProve, getFallbackTokensToProve, type TokenConfig } from "../../shared/lib/utils";
-import { getSupplyBorrowDataForUser } from "../../shared/lib/client";
+import { getSupplyBorrowDataForUser, getUnclaimedSupplyBorrowData } from "../../shared/lib/client";
 import { useAccount } from "wagmi";
+import { getAaveContractAddresses } from "../../../config-aave";
 export const WelcomePage = () => {
   const { address, chain, isConnected, isConnecting } = useAccount();
   console.log("Wallet state:", { address, isConnected, isConnecting, chain: chain?.name });
@@ -18,7 +20,9 @@ export const WelcomePage = () => {
   const [isLoadingTokens, setIsLoadingTokens] = useState(false);
   const [tokensToProve, setTokensToProve] = useState<TokenConfig[]>([]);
   const [supplyBorrowData, setSupplyBorrowData] = useState<SupplyBorrowData[]>([]);
+  const [unclaimedSupplyBorrowData, setUnclaimedSupplyBorrowData] = useState<SupplyBorrowData[]>([]);
   const [isLoadingSupplyBorrow, setIsLoadingSupplyBorrow] = useState(false);
+  const [isLoadingUnclaimed, setIsLoadingUnclaimed] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const defaultTokenHolder = import.meta.env
     .VITE_DEFAULT_TOKEN_HOLDER as `0x${string}`;
@@ -32,20 +36,52 @@ export const WelcomePage = () => {
       
       setIsLoadingTokens(true);
       setIsLoadingSupplyBorrow(true);
+      setIsLoadingUnclaimed(true);
       setError(null);
       
       try {
         console.log("🔄 Loading data for address:", address);
         console.log("🌐 Current chain:", chain?.name, "ID:", chain?.id);
         
-        // Load both token configs and supply/borrow data in parallel
-        const [tokens, supplyBorrow] = await Promise.all([
+        // Get contract addresses for the current chain
+        let verifierAddress: string | undefined;
+        try {
+          // Map chain names to our config keys
+          let chainName = 'optimism'; // default
+          if (chain?.name) {
+            const chainNameLower = chain.name.toLowerCase();
+            if (chainNameLower.includes('optimism') && !chainNameLower.includes('sepolia')) {
+              chainName = 'optimism';
+            } else if (chainNameLower.includes('optimism') && chainNameLower.includes('sepolia')) {
+              chainName = 'optimismSepolia';
+            } else if (chainNameLower.includes('ethereum') && !chainNameLower.includes('sepolia')) {
+              chainName = 'mainnet';
+            } else if (chainNameLower.includes('base') && !chainNameLower.includes('sepolia')) {
+              chainName = 'base';
+            } else if (chainNameLower.includes('base') && chainNameLower.includes('sepolia')) {
+              chainName = 'baseSepolia';
+            } else if (chainNameLower.includes('anvil') || chainNameLower.includes('localhost')) {
+              chainName = 'anvil';
+            }
+          }
+          
+          console.log(`Using chain config: ${chainName} for chain: ${chain?.name}`);
+          const addresses = getAaveContractAddresses(chainName);
+          verifierAddress = addresses.verifier;
+        } catch (err) {
+          console.warn("Could not get contract addresses:", err);
+        }
+        
+        // Load token configs, claimed data, and unclaimed data in parallel
+        const [tokens, supplyBorrow, unclaimedData] = await Promise.all([
           loadTokensToProve(address, chain?.id),
-          getSupplyBorrowDataForUser(address, chain?.id)
+          getSupplyBorrowDataForUser(address, chain?.id),
+          getUnclaimedSupplyBorrowData(address, chain?.id, verifierAddress)
         ]);
         
         setTokensToProve(tokens);
         setSupplyBorrowData(supplyBorrow);
+        setUnclaimedSupplyBorrowData(unclaimedData);
         
         // If no tokens found from subgraph, try fallback
         if (tokens.length === 0) {
@@ -64,9 +100,11 @@ export const WelcomePage = () => {
         const fallbackTokens = getFallbackTokensToProve();
         setTokensToProve(fallbackTokens);
         setSupplyBorrowData([]);
+        setUnclaimedSupplyBorrowData([]);
       } finally {
         setIsLoadingTokens(false);
         setIsLoadingSupplyBorrow(false);
+        setIsLoadingUnclaimed(false);
       }
     };
 
@@ -92,7 +130,8 @@ export const WelcomePage = () => {
       }
       
       console.log("Calling prover with tokens:", currentTokens);
-      await callProver([holderAddress, currentTokens]);
+      // await callProver([holderAddress, currentTokens]);
+      await callProver(['0x05e14e44e3b296f12b21790cde834bce5be5b8e0', currentTokens]);
     } catch (err) {
       console.error("Error calling prover:", err);
       setError("Failed to generate proof. Please try again.");
@@ -149,11 +188,15 @@ export const WelcomePage = () => {
         </div>
       )}
       
-      
-      {/* Display supply and borrow data */}
-      <SupplyBorrowDisplay 
-        data={supplyBorrowData} 
+      {/* Display claimed supply and borrow data */}
+      <ClaimSupplyBorrowDisplay 
         isLoading={isLoadingSupplyBorrow} 
+      />
+      
+      {/* Display unclaimed supply and borrow data */}
+      <SupplyBorrowDisplay 
+        data={unclaimedSupplyBorrowData} 
+        isLoading={isLoadingUnclaimed} 
       />
       
       <HodlerForm

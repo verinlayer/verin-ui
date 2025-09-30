@@ -1,61 +1,14 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
+import { getAaveContractAddresses } from "../../../config-aave";
 // Note: You may need to update this import path based on your build output
 // import verifierSpec from "../../../../out/SimpleTeleportVerifier.sol/SimpleTeleportVerifier.json";
 
 // Temporary ABI for SimpleTeleportVerifier - replace with actual ABI from compiled contract
-const verifierSpec = {
-  abi: [
-    {
-      "inputs": [
-        {
-          "components": [
-            {
-              "components": [
-                {"name": "verifierSelector", "type": "bytes4"},
-                {"name": "seal", "type": "bytes32[8]"},
-                {"name": "mode", "type": "uint8"}
-              ],
-              "name": "seal",
-              "type": "tuple"
-            },
-            {"name": "callGuestId", "type": "bytes32"},
-            {"name": "length", "type": "uint32"},
-            {
-              "components": [
-                {"name": "proverContractAddress", "type": "address"},
-                {"name": "functionSelector", "type": "bytes4"},
-                {"name": "settleChainId", "type": "uint256"},
-                {"name": "settleBlockNumber", "type": "uint256"},
-                {"name": "settleBlockHash", "type": "bytes32"}
-              ],
-              "name": "callAssumptions",
-              "type": "tuple"
-            }
-          ],
-          "name": "proof",
-          "type": "tuple"
-        },
-        {"name": "claimer", "type": "address"},
-        {
-          "components": [
-            {"name": "underlingTokenAddress", "type": "address"},
-            {"name": "aTokenAddress", "type": "address"},
-            {"name": "chainId", "type": "uint256"},
-            {"name": "blockNumber", "type": "uint256"},
-            {"name": "balance", "type": "uint256"},
-            {"name": "tokenType", "type": "uint8"}
-          ],
-          "name": "tokens",
-          "type": "tuple[]"
-        }
-      ],
-      "name": "claim",
-      "outputs": [],
-      "stateMutability": "nonpayable",
-      "type": "function"
-    }
-  ]
-};
+import verifierAbi from "../../../../out/SimpleTeleportVerifier.sol/SimpleTeleportVerifier.json";
+
+
+const verifierSpec = { abi: verifierAbi.abi, bytecode: verifierAbi.bytecode };
+
 import { useLocalStorage } from "usehooks-ts";
 import { useAccount, useBalance, useWriteContract } from "wagmi";
 import { useNavigate } from "react-router";
@@ -95,7 +48,7 @@ export const ConfirmMintPage = () => {
 
   useEffect(() => {
     if (mintError) {
-      if (mintError.message.includes("already been minted")) {
+      if (mintError.message.includes("already been claimed")) {
         throw new AlreadyMintedError();
       } else if (mintError.message.includes("User rejected the request")) {
         setIsLoading(false);
@@ -109,8 +62,38 @@ export const ConfirmMintPage = () => {
     e.preventDefault();
     const [proof, owner, tokens] = parseProverResult(proverResult);
     setIsLoading(true);
+    
+    // Get verifier address from config based on current chain
+    let verifierAddress: `0x${string}` = import.meta.env.VITE_VERIFIER_ADDRESS as `0x${string}`; // fallback to env
+    try {
+      if (chain?.name) {
+        // Map chain names to our config keys
+        let chainName = 'optimism'; // default
+        const chainNameLower = chain.name.toLowerCase();
+        if (chainNameLower.includes('optimism') && !chainNameLower.includes('sepolia')) {
+          chainName = 'optimism';
+        } else if (chainNameLower.includes('optimism') && chainNameLower.includes('sepolia')) {
+          chainName = 'optimismSepolia';
+        } else if (chainNameLower.includes('ethereum') && !chainNameLower.includes('sepolia')) {
+          chainName = 'mainnet';
+        } else if (chainNameLower.includes('base') && !chainNameLower.includes('sepolia')) {
+          chainName = 'base';
+        } else if (chainNameLower.includes('base') && chainNameLower.includes('sepolia')) {
+          chainName = 'baseSepolia';
+        } else if (chainNameLower.includes('anvil') || chainNameLower.includes('localhost')) {
+          chainName = 'anvil';
+        }
+        
+        const addresses = getAaveContractAddresses(chainName);
+        verifierAddress = addresses.verifier;
+        console.log(`Using verifier address from config: ${verifierAddress} for chain: ${chain.name}`);
+      }
+    } catch (err) {
+      console.warn("Could not get verifier address from config, using env variable:", err);
+    }
+    
     writeContract({
-      address: import.meta.env.VITE_VERIFIER_ADDRESS,
+      address: verifierAddress,
       abi: verifierSpec.abi,
       functionName: "claim",
       args: [proof, owner, tokens],
@@ -128,14 +111,14 @@ export const ConfirmMintPage = () => {
   return (
     <form onSubmit={handleSubmit}>
       <p className="desc w-full text-center">
-        NFT of DeFi activity across {currentTokens.length} token(s) on {new Set(currentTokens.map(t => t.chainId)).size} chain(s)
+        DeFi activity across {currentTokens.length} token(s) on {new Set(currentTokens.map(t => t.chainId)).size} chain(s)
       </p>
       <div className="mb-4 w-full block">
         <label
           htmlFor="holderAddress"
           className="block text-sm font-medium mb-1 text-slate-900"
         >
-          You will mint NFT for wallet:
+          You will claim proof for wallet:
         </label>
         <input
           name="holderAddress"
@@ -162,10 +145,10 @@ export const ConfirmMintPage = () => {
       </div>
       <div className="mt-5 flex justify-center">
         <button type="submit" id="nextButton" disabled={isLoading}>
-          {isLoading ? "Minting..." : "Mint token"}
+          {isLoading ? "Claiming..." : "Claim proof"}
         </button>
       </div>
-      {!enoughBalance && chain && <FaucetInfo chain={chain} />}
+      {/* {!enoughBalance && chain && <FaucetInfo chain={chain} />} */}
     </form>
   );
 };

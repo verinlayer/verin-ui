@@ -59,7 +59,7 @@ export const ShowBalancePage = () => {
 
   // Group tokens by type for better display
   const tokensByType = tokensToProve.reduce((groups, token) => {
-    const tokenTypeName = getTokenTypeName(token.tokenType);
+    const tokenTypeName = getTokenTypeName(token.tokenType, token.underlingTokenAddress);
     if (!groups[tokenTypeName]) {
       groups[tokenTypeName] = [];
     }
