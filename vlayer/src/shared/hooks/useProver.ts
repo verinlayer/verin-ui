@@ -14,12 +14,17 @@ export const useProver = () => {
   const [, setProverResult] = useLocalStorage("proverResult", "");
   const { chain: wagmiChain } = useAccount();
 
+  // Try to get the expected chain, but don't throw error if it doesn't match
   const { chain, error: chainError } = useChain(
     import.meta.env.VITE_CHAIN_NAME,
   );
 
+  // Log the chain mismatch but don't throw error
   if (chainError) {
-    throw new UseChainError(chainError);
+    console.warn('Chain mismatch:', chainError);
+    console.log('Expected chain:', import.meta.env.VITE_CHAIN_NAME);
+    console.log('Connected chain:', wagmiChain?.name);
+    // Don't throw error - let the app continue with the connected chain
   }
 
   // Get contract addresses from config based on current chain

@@ -167,6 +167,13 @@ export const ClaimSupplyBorrowDisplay: React.FC<ClaimSupplyBorrowDisplayProps> =
     const fetchUserInfo = async () => {
       if (!address || !chain) return;
 
+      // Only fetch data if connected to Optimism (chain ID 10)
+      if (chain.id !== 10) {
+        console.log('Skipping claimed data fetch - not connected to Optimism:', chain.name);
+        setError('Please connect to Optimism network to view claimed data');
+        return;
+      }
+
       setIsLoadingData(true);
       setError(null);
 

@@ -4,7 +4,7 @@ import { useNavigate } from "react-router";
 import { getStepPath } from "../../app/router/steps";
 import { StepKind } from "../../app/router/types";
 import { HodlerForm } from "../../shared/forms/HodlerForm";
-import { ConnectWallet } from "../../shared/components/ConnectWallet";
+import { ConnectWalletButton } from "../../shared/components/ConnectWalletButton";
 import { SupplyBorrowDisplay } from "../../shared/components/SupplyBorrowDisplay";
 import { ClaimSupplyBorrowDisplay } from "../../shared/components/ClaimSupplyBorrowDisplay";
 import { type SupplyBorrowData } from "../../shared/lib/client";
@@ -15,6 +15,10 @@ import { getAaveContractAddresses } from "../../../config-aave";
 export const WelcomePage = () => {
   const { address, chain, isConnected, isConnecting } = useAccount();
   console.log("Wallet state:", { address, isConnected, isConnecting, chain: chain?.name });
+  
+  // Check if connected to Optimism (required chain)
+  const isOptimismChain = chain?.id === 10; // Optimism chain ID is 10
+  const isWrongChain = isConnected && !isOptimismChain;
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingTokens, setIsLoadingTokens] = useState(false);
@@ -29,10 +33,17 @@ export const WelcomePage = () => {
   const { callProver, result } = useProver();
 
 
+
   // Load token configs and supply/borrow data when component mounts or address changes
   useEffect(() => {
     const loadData = async () => {
       if (!address) return;
+      
+      // Don't load data if connected to wrong chain
+      if (isWrongChain) {
+        console.log('Skipping data load - connected to wrong chain:', chain?.name);
+        return;
+      }
       
       setIsLoadingTokens(true);
       setIsLoadingSupplyBorrow(true);
@@ -109,7 +120,7 @@ export const WelcomePage = () => {
     };
 
     loadData();
-  }, [address, chain?.id]);
+  }, [address, chain?.id, isWrongChain]);
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -165,11 +176,51 @@ export const WelcomePage = () => {
 
   // Show connect wallet if not connected
   if (!isConnected || !address) {
-    return <ConnectWallet />;
+    return <ConnectWalletButton />;
   }
 
   return (
     <div>
+      {/* Wrong Chain Error */}
+      {isWrongChain && (
+        <div className="mb-6 p-6 bg-red-100 border border-red-400 text-red-700 rounded-lg">
+          <div className="flex items-start">
+            <svg className="w-6 h-6 text-red-500 mr-3 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+            </svg>
+            <div className="flex-1">
+              <h3 className="text-lg font-bold mb-2">⚠️ Wrong Network Detected</h3>
+              <p className="text-sm mb-3">
+                You are connected to <span className="font-semibold font-mono">{chain?.name}</span>, 
+                but this app requires <span className="font-semibold font-mono text-green-700">Optimism (OP Mainnet)</span>.
+              </p>
+              <div className="bg-white border border-red-300 rounded p-3 mb-3">
+                <p className="text-sm font-medium mb-2">To fix this:</p>
+                <ol className="text-sm space-y-1 list-decimal list-inside">
+                  <li>Open your wallet (MetaMask, Zerion, etc.)</li>
+                  <li>Switch to Optimism network</li>
+                  <li>Refresh this page</li>
+                </ol>
+              </div>
+              <div className="flex space-x-3">
+                <button
+                  onClick={() => window.location.reload()}
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-md transition-colors"
+                >
+                  Refresh Page
+                </button>
+                <button
+                  onClick={() => navigate('/wallet-connect')}
+                  className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-md transition-colors"
+                >
+                  Connect to Optimism
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      
       {error && (
         <div className={`mb-4 p-3 border rounded ${
           error.includes('✅') 
@@ -198,6 +249,7 @@ export const WelcomePage = () => {
         data={unclaimedSupplyBorrowData} 
         isLoading={isLoadingUnclaimed} 
       />
+      
       
       <HodlerForm
         holderAddress={address}

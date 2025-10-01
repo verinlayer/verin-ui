@@ -2,9 +2,13 @@ import { WagmiAdapter } from "@reown/appkit-adapter-wagmi";
 import { getChainSpecs } from "@vlayer/sdk";
 import { Chain } from "viem";
 import { createAppKit } from "@reown/appkit/react";
-import { injected, metaMask } from "wagmi/connectors";
+import { injected, metaMask, walletConnect, safe } from "wagmi/connectors";
+import { mainnet, optimism, base, optimismSepolia } from '@reown/appkit/networks'
+
 
 const appKitProjectId = import.meta.env.VITE_WALLETCONNECT_PROJECT_ID || `88cd40e876a44270a55cd4e034d55478`;
+
+
 let chain = null;
 
 try {
@@ -23,10 +27,24 @@ try {
 const chains: [Chain, ...Chain[]] = [chain];
 const networks = chains;
 
-// Create connectors array - focus on core wallet connectors
+// Create connectors array following Wagmi guide
 const connectors = [
-  injected(), // Supports MetaMask, Rabby, and other injected wallets
-  metaMask(), // Explicit MetaMask connector
+  // injected(), // Supports MetaMask, Rabby, and other injected wallets
+  walletConnect({ 
+    projectId: appKitProjectId,
+    showQrModal: true,
+    qrModalOptions: {
+      themeMode: 'light'
+    },
+    metadata: {
+      name: 'Teleport DeFi',
+      description: 'DeFi Activity Proof Generator',
+      url: 'https://vlayer.xyz',
+      icons: ['https://avatars.githubusercontent.com/u/179229932']
+    }
+  }),
+  // metaMask(), // Explicit MetaMask connector
+  // safe(), // Safe wallet support
 ];
 
 const wagmiAdapter = new WagmiAdapter({
