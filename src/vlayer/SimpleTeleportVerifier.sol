@@ -54,6 +54,9 @@ contract SimpleTeleportVerifier is Verifier, IVerifier {
     /// @dev Structure: _usersInfo[userAddress][protocol] = UserInfo
     mapping(address => mapping(Protocol => UserInfo)) private _usersInfo;
 
+    // user address => protocol => aToken address => block number => amount: to track if a token at a block number has been proven or not
+    mapping(address => mapping(Protocol => mapping(address => mapping(uint256 => bool)))) isExisted;
+
     // ============ EVENTS ============
 
     // Events are defined in IVerifier interface
@@ -106,12 +109,17 @@ contract SimpleTeleportVerifier is Verifier, IVerifier {
             uint _blkNumber;
             for(uint256 i = 0; i < tokens.length; i++) {
                 _blkNumber = tokens[i].blockNumber;
+
+                // Check if data already exists for this token at this block
+                require(!isExisted[claimer][Protocol.AAVE][tokens[i].aTokenAddress][_blkNumber],
+                    "Data already exists for this token at this block");
                 // require(_blkNumber > userInfo.latestBlock, "Invalid block number"); // always get data at block number which is greater than saved latest block
                 if(_blkNumber <= userInfo.latestBlock) { // skip
                     continue;
                 }
 
                 if(tokens[i].tokenType == TokenType.AVARIABLEDEBT) { // if borrow or repay
+                    require(IAavePool(registry.AAVE_POOL_ADDRESS()).getReserveVariableDebtToken(tokens[i].underlingTokenAddress) == tokens[i].aTokenAddress, "Invalid Aave token");
                     if(userInfo.latestBalance <= tokens[i].balance) { // borrow
                         uint256 borrowAmount = tokens[i].balance - userInfo.latestBalance;
                         userInfo.borrowedAmount += borrowAmount;
@@ -144,6 +152,9 @@ contract SimpleTeleportVerifier is Verifier, IVerifier {
                 }
 
                 userInfo.latestBlock = _blkNumber;
+
+                // Mark this data as existed to prevent duplicate claims
+                isExisted[claimer][Protocol.AAVE][tokens[i].aTokenAddress][_blkNumber] = true;
             }
 
         }
