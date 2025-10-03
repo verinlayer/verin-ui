@@ -2,7 +2,6 @@
 pragma solidity ^0.8.21;
 
 import {Script, console} from "forge-std/Script.sol";
-import {WhaleBadgeNFT} from "../src/vlayer/WhaleBadgeNFT.sol";
 import {SimpleTeleportProver} from "../src/vlayer/SimpleTeleportProver.sol";
 import {SimpleTeleportVerifier} from "../src/vlayer/SimpleTeleportVerifier.sol";
 import {Registry} from "../src/vlayer/constants/Registry.sol";
@@ -16,7 +15,6 @@ import {UniswapV2PriceOracle} from "../src/vlayer/UniswapV2PriceOracle.sol";
  */
 contract DeployTeleportAdvanced is Script {
     // Contract instances
-    WhaleBadgeNFT public whaleBadgeNFT;
     Registry public registry;
     SimpleTeleportProver public prover;
     SimpleTeleportVerifier public verifier;
@@ -87,28 +85,23 @@ contract DeployTeleportAdvanced is Script {
     }
 
     function _deployContracts(DeploymentConfig memory config) internal {
-        // Step 1: Deploy WhaleBadgeNFT
-        console.log("\n1. Deploying WhaleBadgeNFT...");
-        whaleBadgeNFT = new WhaleBadgeNFT();
-        console.log("   [OK] WhaleBadgeNFT deployed at:", address(whaleBadgeNFT));
-
-        // Step 2: Deploy Registry
+        // Step 1: Deploy Registry
         console.log("\n2. Deploying Registry...");
         registry = new Registry(config.admin);
         console.log("   [OK] Registry deployed at:", address(registry));
         console.log("   [OK] Admin role granted to:", config.admin);
 
-        // Step 3: Deploy SimpleTeleportProver
+        // Step 2: Deploy SimpleTeleportProver
         console.log("\n3. Deploying SimpleTeleportProver...");
         prover = new SimpleTeleportProver();
         console.log("   [OK] SimpleTeleportProver deployed at:", address(prover));
 
-        // Step 4: Deploy CreditModel
+        // Step 3: Deploy CreditModel
         console.log("\n4. Deploying CreditModel...");
         CreditModel creditModel = new CreditModel();
         console.log("   [OK] CreditModel deployed at:", address(creditModel));
 
-        // Step 5: Deploy SimpleTeleportVerifier
+        // Step 4: Deploy SimpleTeleportVerifier
         console.log("\n5. Deploying SimpleTeleportVerifier...");
         // Deploy UniswapV2PriceOracle
         address uniswapV2Factory = address(0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f); // Mainnet factory
@@ -135,7 +128,6 @@ contract DeployTeleportAdvanced is Script {
         // Log deployment summary
         console.log("\n=== Deployment Summary ===");
         console.log("Environment:", config.environment);
-        console.log("WhaleBadgeNFT:", address(whaleBadgeNFT));
         console.log("Registry:", address(registry));
         console.log("SimpleTeleportProver:", address(prover));
         console.log("SimpleTeleportVerifier:", address(verifier));
@@ -152,7 +144,6 @@ contract DeployTeleportAdvanced is Script {
 
         if (config.verifyContracts) {
             console.log("\n=== Contract Verification Commands ===");
-            console.log("forge verify-contract", address(whaleBadgeNFT), "WhaleBadgeNFT");
             console.log("forge verify-contract", address(registry), "Registry");
             console.log("forge verify-contract", address(prover), "SimpleTeleportProver");
             console.log("forge verify-contract", address(verifier), "SimpleTeleportVerifier");
@@ -170,7 +161,6 @@ contract DeployTeleportAdvanced is Script {
         console.log("Deploying with custom admin:", admin);
 
         // Deploy all contracts
-        whaleBadgeNFT = new WhaleBadgeNFT();
         registry = new Registry(admin);
         prover = new SimpleTeleportProver();
         CreditModel creditModel = new CreditModel();

@@ -3,7 +3,7 @@ import {
   useCallProver,
   useWaitForProvingResult,
 } from "@vlayer/react";
-import proverSpec from "../../../../out/SimpleTeleportProver.sol/SimpleTeleportProver";
+import proverSpec from "../../contracts/SimpleTeleportProver.json";
 import { useEffect } from "react";
 import { useLocalStorage } from "usehooks-ts";
 import { UseChainError, CallProverError } from "../errors/appErrors";

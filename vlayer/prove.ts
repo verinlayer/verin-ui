@@ -1,7 +1,6 @@
 import { createVlayerClient, type ProveArgs } from "@vlayer/sdk";
 import proverSpec from "../out/SimpleTeleportProver.sol/SimpleTeleportProver";
 import verifierSpec from "../out/SimpleTeleportVerifier.sol/SimpleTeleportVerifier";
-import whaleBadgeNFTSpec from "../out/WhaleBadgeNFT.sol/WhaleBadgeNFT";
 import {
   createContext,
   deployVlayerContracts,
@@ -51,16 +50,6 @@ const vlayer = createVlayerClient({
   token: config.token,
 });
 log.info("⏳ Deploying helper contracts...");
-const deployWhaleBadgeHash = await ethClient.deployContract({
-  abi: whaleBadgeNFTSpec.abi,
-  bytecode: whaleBadgeNFTSpec.bytecode.object,
-  account,
-});
-
-const whaleBadgeNFTAddress = await waitForContractDeploy({
-  client: ethClient,
-  hash: deployWhaleBadgeHash,
-});
 
 const tokensToCheck: {
   addr: Address;
@@ -80,7 +69,7 @@ const { prover, verifier } = await deployVlayerContracts({
   proverSpec,
   verifierSpec,
   proverArgs: [],
-  verifierArgs: [whaleBadgeNFTAddress],
+  verifierArgs: [],
 });
 
 const proveArgs = {

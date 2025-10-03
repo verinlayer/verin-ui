@@ -2,7 +2,6 @@
 pragma solidity ^0.8.21;
 
 import {Script, console} from "forge-std/Script.sol";
-import {WhaleBadgeNFT} from "../src/vlayer/WhaleBadgeNFT.sol";
 import {SimpleTeleportProver} from "../src/vlayer/SimpleTeleportProver.sol";
 import {SimpleTeleportVerifier} from "../src/vlayer/SimpleTeleportVerifier.sol";
 import {Registry} from "../src/vlayer/constants/Registry.sol";
@@ -16,7 +15,6 @@ import {UniswapV2PriceOracle} from "../src/vlayer/UniswapV2PriceOracle.sol";
  */
 contract DeployTeleport is Script {
     // Contract instances
-    WhaleBadgeNFT public whaleBadgeNFT;
     Registry public registry;
     SimpleTeleportProver public prover;
     SimpleTeleportVerifier public verifier;
@@ -68,7 +66,6 @@ contract DeployTeleport is Script {
 
         // Log deployment summary
         console.log("\n=== Deployment Summary ===");
-        console.log("WhaleBadgeNFT:", address(whaleBadgeNFT));
         console.log("Registry:", address(registry));
         console.log("SimpleTeleportProver:", address(prover));
         console.log("CreditModel:", address(creditModel));
@@ -99,7 +96,7 @@ contract DeployTeleport is Script {
     }
 
     /**
-     * @notice Deploy only the core contracts (WhaleBadgeNFT, Prover, Verifier)
+     * @notice Deploy only the core contracts (Prover, Verifier)
      * @dev Assumes Registry is already deployed
      */
     function deployCore(address registryAddress) external {
@@ -108,9 +105,6 @@ contract DeployTeleport is Script {
 
         vm.startBroadcast(deployerPrivateKey);
 
-        // Deploy WhaleBadgeNFT
-        whaleBadgeNFT = new WhaleBadgeNFT();
-        console.log("WhaleBadgeNFT deployed at:", address(whaleBadgeNFT));
 
         // Deploy Prover
         prover = new SimpleTeleportProver();

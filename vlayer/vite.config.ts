@@ -17,5 +17,7 @@ export default defineConfig(({ mode }) => {
     },
     envDir: '.', // Look for .env files in the project root
     envPrefix: 'VITE_', // Only expose variables prefixed with VITE_
+    base: '/', // This is usually the default and correct for Vercel/Netlify root deployments
+
   };
 });
