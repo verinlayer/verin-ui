@@ -2,7 +2,6 @@
 pragma solidity ^0.8.21;
 
 import {Script, console} from "forge-std/Script.sol";
-import {WhaleBadgeNFT} from "../src/vlayer/WhaleBadgeNFT.sol";
 import {SimpleTeleportProver} from "../src/vlayer/SimpleTeleportProver.sol";
 import {SimpleTeleportVerifier} from "../src/vlayer/SimpleTeleportVerifier.sol";
 import {Registry} from "../src/vlayer/constants/Registry.sol";
@@ -24,23 +23,19 @@ contract DeployTeleportTest is Script {
 
         vm.startBroadcast();
 
-        // 1. Deploy WhaleBadgeNFT
-        WhaleBadgeNFT whaleBadgeNFT = new WhaleBadgeNFT();
-        console.log("WhaleBadgeNFT:", address(whaleBadgeNFT));
-
-        // 2. Deploy Registry
+        // 1. Deploy Registry
         Registry registry = new Registry(deployer);
         console.log("Registry:", address(registry));
 
-        // 3. Deploy SimpleTeleportProver
+        // 2. Deploy SimpleTeleportProver
         SimpleTeleportProver prover = new SimpleTeleportProver();
         console.log("SimpleTeleportProver:", address(prover));
 
-        // 4. Deploy CreditModel
+        // 3. Deploy CreditModel
         CreditModel creditModel = new CreditModel();
         console.log("CreditModel:", address(creditModel));
 
-        // 5. Deploy SimpleTeleportVerifier
+        // 4. Deploy SimpleTeleportVerifier
         // Deploy UniswapV2PriceOracle
         address uniswapV2Factory = address(0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f); // Mainnet factory
         UniswapV2PriceOracle priceOracle = new UniswapV2PriceOracle(uniswapV2Factory, address(registry));

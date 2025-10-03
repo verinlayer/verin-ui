@@ -4,7 +4,6 @@ pragma solidity ^0.8.21;
 import {Test, console} from "forge-std/Test.sol";
 import {SimpleTeleportVerifier} from "../src/vlayer/SimpleTeleportVerifier.sol";
 import {SimpleTeleportProver} from "../src/vlayer/SimpleTeleportProver.sol";
-import {WhaleBadgeNFT} from "../src/vlayer/WhaleBadgeNFT.sol";
 import {Registry} from "../src/vlayer/constants/Registry.sol";
 import {CreditModel} from "../src/vlayer/CreditModel.sol";
 import {UniswapV2PriceOracle} from "../src/vlayer/UniswapV2PriceOracle.sol";
@@ -23,7 +22,6 @@ import {IAavePool} from "../src/vlayer/interfaces/IAavePool.sol";
 contract SimpleTeleportVerifierMinimalTest is Test {
     SimpleTeleportVerifier public verifier;
     SimpleTeleportProver public prover;
-    WhaleBadgeNFT public whaleBadgeNFT;
     Registry public registry;
     
     address public deployer;
@@ -39,7 +37,6 @@ contract SimpleTeleportVerifierMinimalTest is Test {
         mockAavePool = makeAddr("mockAavePool");
         
         vm.startPrank(deployer);
-        whaleBadgeNFT = new WhaleBadgeNFT();
         registry = new Registry(deployer);
         prover = new SimpleTeleportProver();
         CreditModel creditModel = new CreditModel();
@@ -107,14 +104,6 @@ contract SimpleTeleportVerifierMinimalTest is Test {
         assertEq(repayTimes, 0);
     }
 
-    function testWhaleBadgeNFTMinting() public {
-        uint256 initialBalance = whaleBadgeNFT.balanceOf(user1);
-        whaleBadgeNFT.mint(user1);
-        uint256 finalBalance = whaleBadgeNFT.balanceOf(user1);
-        
-        assertEq(finalBalance, initialBalance + 1);
-        assertEq(whaleBadgeNFT.ownerOf(1), user1);
-    }
     
     function testRegistryAddresses() public view {
         assertEq(registry.AAVE_POOL_ADDRESS(), 0x794a61358D6845594F94dc1DB02A252b5b4814aD);
