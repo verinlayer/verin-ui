@@ -13,7 +13,11 @@ struct Erc20Token {
 enum Protocol {
     AAVE,
     MORPHO,
-    COMPOUND
+    COMPOUND,
+    SPARK,
+    FLUID,
+    MAPPLE,
+    GEARBOX
 }
 
 enum TokenType {

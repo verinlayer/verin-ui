@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.17;
 
-import {UserInfo} from "./types/UserInfo.sol";
+import {IVerifier} from "./interfaces/IVerifier.sol";
 
 /// @title CreditModel
 /// @notice Gas-optimized on-chain credit score calculator (0..100) and tier mapping.
@@ -116,7 +116,7 @@ contract CreditModel {
     /// @return score100 The credit score (0-100)
     /// @return tier The credit tier (A, B, C, D)
     function computeScoreAndTier(
-        UserInfo memory userInfo,
+        IVerifier.UserInfo memory userInfo,
         uint256 currentBlock
     ) external pure returns (uint256 score100, Tier tier) {
         // Calculate address age in days (assuming 12 seconds per block)

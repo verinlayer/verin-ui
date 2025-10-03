@@ -4,9 +4,11 @@ pragma solidity ^0.8.21;
 import {SimpleTeleportProver} from "./SimpleTeleportProver.sol";
 import {Erc20Token, Protocol, TokenType} from "./types/TeleportTypes.sol";
 import {Registry} from "./constants/Registry.sol";
+import {IRegistry} from "./interfaces/IRegistry.sol";
 import {CreditModel} from "./CreditModel.sol";
-import {UserInfo} from "./types/UserInfo.sol";
 import {IVerifier} from "./interfaces/IVerifier.sol";
+import {IUniswapV2PriceOracle} from "./interfaces/IUniswapV2PriceOracle.sol";
+
 
 import {Proof} from "vlayer-0.1.0/Proof.sol";
 import {Verifier} from "vlayer-0.1.0/Verifier.sol";
@@ -50,8 +52,11 @@ contract SimpleTeleportVerifier is Verifier, IVerifier {
     /// @notice Credit scoring model contract for calculating user credit scores
     CreditModel public creditScoreCalculator;
 
+    /// @notice Uniswap V2 price oracle for converting token amounts to USD
+    IUniswapV2PriceOracle public priceOracle;
+
     /// @notice Mapping of user addresses to protocol types to user activity data
-    /// @dev Structure: _usersInfo[userAddress][protocol] = UserInfo
+    /// @dev Structure: _usersInfo[userAddress][protocol] = IVerifier.UserInfo
     mapping(address => mapping(Protocol => UserInfo)) private _usersInfo;
 
     // user address => protocol => aToken address => block number => amount: to track if a token at a block number has been proven or not
@@ -65,16 +70,18 @@ contract SimpleTeleportVerifier is Verifier, IVerifier {
 
     /**
      * @notice Initializes the SimpleTeleportVerifier contract
-     * @dev Sets up the trusted prover, registry, and credit scoring model
+     * @dev Sets up the trusted prover, registry, credit scoring model, and price oracle
      *
      * @param _prover Address of the trusted prover contract for data verification
      * @param _registry Registry contract containing protocol addresses and configurations
      * @param _creditScoreCalculator Address of the CreditModel contract for score calculations
+     * @param _priceOracle Address of the UniswapV2PriceOracle contract for price conversions
      */
-    constructor(address _prover, Registry _registry, address _creditScoreCalculator) {
+    constructor(address _prover, Registry _registry, address _creditScoreCalculator, address _priceOracle) {
         prover = _prover;
         registry = _registry;
         creditScoreCalculator = CreditModel(_creditScoreCalculator);
+        priceOracle = IUniswapV2PriceOracle(_priceOracle);
     }
 
     // ============ MODIFIERS ============
@@ -120,8 +127,22 @@ contract SimpleTeleportVerifier is Verifier, IVerifier {
 
                 if(tokens[i].tokenType == TokenType.AVARIABLEDEBT) { // if borrow or repay
                     require(IAavePool(registry.AAVE_POOL_ADDRESS()).getReserveVariableDebtToken(tokens[i].underlingTokenAddress) == tokens[i].aTokenAddress, "Invalid Aave token");
+                    
+                    // Get USDC and USDT addresses for current chain
+                    IRegistry.ChainAddresses memory chainAddresses = registry.getAddressesForChain(block.chainid);
+                    
+                    uint256 borrowAmount;
+                    uint256 repayAmount;
+                    
                     if(userInfo.latestBalance <= tokens[i].balance) { // borrow
-                        uint256 borrowAmount = tokens[i].balance - userInfo.latestBalance;
+                        borrowAmount = tokens[i].balance - userInfo.latestBalance;
+                        
+                        // Convert to USD if not USDC or USDT
+                        if(tokens[i].underlingTokenAddress != chainAddresses.usdc && tokens[i].underlingTokenAddress != chainAddresses.usdt) {
+                            (uint256 usdAmount,) = priceOracle.getPriceInUSDC(tokens[i].underlingTokenAddress, borrowAmount);
+                            borrowAmount = usdAmount;
+                        }
+                        
                         userInfo.borrowedAmount += borrowAmount;
                         userInfo.borrowTimes++;
 
@@ -129,7 +150,14 @@ contract SimpleTeleportVerifier is Verifier, IVerifier {
                         emit UserBorrowed(claimer, Protocol.AAVE, borrowAmount, userInfo.borrowedAmount, userInfo.borrowTimes);
 
                     } else { // repay
-                        uint256 repayAmount = userInfo.latestBalance - tokens[i].balance;
+                        repayAmount = userInfo.latestBalance - tokens[i].balance;
+                        
+                        // Convert to USD if not USDC or USDT
+                        if(tokens[i].underlingTokenAddress != chainAddresses.usdc && tokens[i].underlingTokenAddress != chainAddresses.usdt) {
+                            (uint256 usdAmount,) = priceOracle.getPriceInUSDC(tokens[i].underlingTokenAddress, repayAmount);
+                            repayAmount = usdAmount;
+                        }
+                        
                         userInfo.repaidAmount += repayAmount;
                         userInfo.repayTimes++;
 
@@ -141,7 +169,18 @@ contract SimpleTeleportVerifier is Verifier, IVerifier {
 
                 } else if(tokens[i].tokenType == TokenType.ARESERVE) { // if supply assets, only increase the supplied amount, will consider withdraw in the future
                     require(IAavePool(registry.AAVE_POOL_ADDRESS()).getReserveAToken(tokens[i].underlingTokenAddress) == tokens[i].aTokenAddress, "Invalid Aave token");
+                    
+                    // Get USDC and USDT addresses for current chain
+                    IRegistry.ChainAddresses memory chainAddresses = registry.getAddressesForChain(block.chainid);
+                    
                     uint256 supplyAmount = tokens[i].balance;
+                    
+                    // Convert to USD if not USDC or USDT
+                    if(tokens[i].underlingTokenAddress != chainAddresses.usdc && tokens[i].underlingTokenAddress != chainAddresses.usdt) {
+                        (uint256 usdAmount,) = priceOracle.getPriceInUSDC(tokens[i].underlingTokenAddress, supplyAmount);
+                        supplyAmount = usdAmount;
+                    }
+                    
                     userInfo.suppliedAmount += supplyAmount;
                     userInfo.supplyTimes++;
 
