@@ -8,7 +8,6 @@ import { join } from "path";
 const CONFIG_FILE = "config-aave.ts";
 
 interface ContractAddresses {
-  whaleBadgeNFT: string;
   registry: string;
   prover: string;
   verifier: string;
@@ -32,7 +31,6 @@ const updateConfigFile = (chainName: string, addresses: ContractAddresses) => {
     
     // Replace the addresses for the specified chain
     const chainConfig = `  ${chainName}: {
-    whaleBadgeNFT: "${addresses.whaleBadgeNFT}",
     registry: "${addresses.registry}",
     prover: "${addresses.prover}",
     verifier: "${addresses.verifier}",
@@ -66,7 +64,6 @@ const main = async () => {
   console.log("(Press Enter to skip and keep current values)\n");
   
   const addresses: ContractAddresses = {
-    whaleBadgeNFT: prompt(`WhaleBadgeNFT address: `),
     registry: prompt(`Registry address: `),
     prover: prompt(`SimpleTeleportProver address: `),
     verifier: prompt(`SimpleTeleportVerifier address: `),

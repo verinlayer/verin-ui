@@ -25,5 +25,27 @@
     "paths": {
       "types/*": ["../../../packages/sdk/src/api/lib/types/*"]
     }
-  }
+  },
+  "include": [
+    "src/**/*.ts",
+    "src/**/*.tsx",
+    "index.html",
+    "vite.config.ts"
+  ],
+  "exclude": [
+    "deploy.ts",
+    "prove.ts",
+    "proveAave.ts",
+    "get-aave-token-addresses.ts",
+    "loadFixtures.ts",
+    "setup-aave.ts",
+    "scripts/**/*",
+    "tests/**/*",
+    "**/*.test.ts",
+    "**/*.spec.ts",
+    "**/node_modules/**",
+    "**/dist/**",
+    "**/out/**",
+    "**/*.js"
+  ]
 }

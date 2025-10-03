@@ -1,6 +1,5 @@
 import proverSpec from "../out/SimpleTeleportProver.sol/SimpleTeleportProver";
 import verifierSpec from "../out/SimpleTeleportVerifier.sol/SimpleTeleportVerifier";
-import whaleBadgeNFTSpec from "../out/WhaleBadgeNFT.sol/WhaleBadgeNFT";
 import {
   createContext,
   deployVlayerContracts,
@@ -27,16 +26,7 @@ if (!account) {
 }
 
 console.log("⏳ Deploying helper contracts...");
-// const deployWhaleBadgeHash = await ethClient.deployContract({
-//   abi: whaleBadgeNFTSpec.abi,
-//   bytecode: whaleBadgeNFTSpec.bytecode.object,
-//   account,
-// });
 
-// const whaleBadgeNFTAddress = await waitForContractDeploy({
-//   client: ethClient,
-//   hash: deployWhaleBadgeHash,
-// });
 
 // const { prover, verifier } = await deployVlayerContracts({
 //   proverSpec,

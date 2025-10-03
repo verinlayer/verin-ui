@@ -2,7 +2,6 @@ import { createVlayerClient, type ProveArgs } from "@vlayer/sdk";
 // Note: These imports will be available after running forge build
 // import proverSpec from "../out/SimpleTeleportProver.sol/SimpleTeleportProver";
 // import verifierSpec from "../out/SimpleTeleportVerifier.sol/SimpleTeleportVerifier";
-// import whaleBadgeNFTSpec from "../out/WhaleBadgeNFT.sol/WhaleBadgeNFT";
 // import registrySpec from "../out/Registry.sol/Registry";
 
 // Load contract specs from compiled contracts
@@ -11,7 +10,6 @@ import verifierAbi from "../out/SimpleTeleportVerifier.sol/SimpleTeleportVerifie
 
 const proverSpec = { abi: proverAbi.abi, bytecode: proverAbi.bytecode };
 const verifierSpec = { abi: verifierAbi.abi, bytecode: verifierAbi.bytecode };
-const whaleBadgeNFTSpec = { abi: [] as any, bytecode: { object: "0x" } };
 const registrySpec = { abi: [] as any, bytecode: { object: "0x" } };
 import {
   createContext,
@@ -87,10 +85,9 @@ if (!validateContractAddresses(contractAddresses)) {
   );
 }
 
-const { whaleBadgeNFT: WHALE_BADGE_NFT_ADDRESS, registry: REGISTRY_ADDRESS, prover: PROVER_ADDRESS, verifier: VERIFIER_ADDRESS } = contractAddresses;
+const { registry: REGISTRY_ADDRESS, prover: PROVER_ADDRESS, verifier: VERIFIER_ADDRESS } = contractAddresses;
 
 log.info("📋 Using pre-deployed contracts:");
-log.info(`  WhaleBadgeNFT: ${WHALE_BADGE_NFT_ADDRESS}`);
 log.info(`  Registry: ${REGISTRY_ADDRESS}`);
 log.info(`  Prover: ${PROVER_ADDRESS}`);
 log.info(`  Verifier: ${VERIFIER_ADDRESS}`);

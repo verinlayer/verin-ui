@@ -1,11 +1,7 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { getAaveContractAddresses } from "../../../config-aave";
-// Note: You may need to update this import path based on your build output
-// import verifierSpec from "../../../../out/SimpleTeleportVerifier.sol/SimpleTeleportVerifier.json";
-
-// Temporary ABI for SimpleTeleportVerifier - replace with actual ABI from compiled contract
-import verifierAbi from "../../../../out/SimpleTeleportVerifier.sol/SimpleTeleportVerifier.json";
-
+// Import actual ABI from compiled contract
+import verifierAbi from "../../contracts/SimpleTeleportVerifier.json";
 
 const verifierSpec = { abi: verifierAbi.abi, bytecode: verifierAbi.bytecode };
 
