@@ -3,6 +3,7 @@ import { ErrorBoundary } from "react-error-boundary";
 import { AppErrorBoundaryComponent } from "../../shared/errors/ErrorBoundary";
 import { Layout } from "../../shared/layout/Layout";
 import { getAllSteps } from "./steps";
+import WalletConnect from "../../pages/wallet-connect";
 
 const Router = () => {
   return (
@@ -18,6 +19,7 @@ const Router = () => {
               />
             ))}
           </Route>
+          <Route path="/wallet-connect" element={<WalletConnect />} />
         </Routes>
       </ErrorBoundary>
     </BrowserRouter>

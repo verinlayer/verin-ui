@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.21;
 
-import {UserInfo} from "../types/UserInfo.sol";
 import {Protocol} from "../types/TeleportTypes.sol";
 import {Erc20Token} from "../types/TeleportTypes.sol";
 import {Proof} from "vlayer-0.1.0/Proof.sol";
@@ -13,6 +12,24 @@ import {Proof} from "vlayer-0.1.0/Proof.sol";
  *      user activity across multiple DeFi protocols
  */
 interface IVerifier {
+
+    // ============ STRUCTS ============
+
+    /// @title UserInfo
+    /// @notice Shared struct for user DeFi activity data across contracts
+    /// @dev Used by both SimpleTeleportVerifier and CreditModel to avoid stack too deep errors
+    struct UserInfo {
+        uint256 borrowedAmount;
+        uint256 suppliedAmount;
+        uint256 repaidAmount;
+        uint256 latestBlock;
+        uint256 latestBalance;
+        uint256 borrowTimes;
+        uint256 supplyTimes;
+        uint256 repayTimes;
+        uint256 firstActivityBlock;
+        uint256 liquidations;
+    }
 
     // ============ EVENTS ============
 

@@ -4,25 +4,34 @@ import { useNavigate } from "react-router";
 import { getStepPath } from "../../app/router/steps";
 import { StepKind } from "../../app/router/types";
 import { HodlerForm } from "../../shared/forms/HodlerForm";
-import { ConnectWallet } from "../../shared/components/ConnectWallet";
+import { ConnectWalletButton } from "../../shared/components/ConnectWalletButton";
 import { SupplyBorrowDisplay } from "../../shared/components/SupplyBorrowDisplay";
+import { ClaimSupplyBorrowDisplay } from "../../shared/components/ClaimSupplyBorrowDisplay";
 import { type SupplyBorrowData } from "../../shared/lib/client";
 import { loadTokensToProve, getTokensToProve, getFallbackTokensToProve, type TokenConfig } from "../../shared/lib/utils";
-import { getSupplyBorrowDataForUser } from "../../shared/lib/client";
+import { getSupplyBorrowDataForUser, getUnclaimedSupplyBorrowData } from "../../shared/lib/client";
 import { useAccount } from "wagmi";
+import { getAaveContractAddresses } from "../../../config-aave";
 export const WelcomePage = () => {
   const { address, chain, isConnected, isConnecting } = useAccount();
   console.log("Wallet state:", { address, isConnected, isConnecting, chain: chain?.name });
+  
+  // Check if connected to Optimism (required chain)
+  const isOptimismChain = chain?.id === 10; // Optimism chain ID is 10
+  const isWrongChain = isConnected && !isOptimismChain;
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingTokens, setIsLoadingTokens] = useState(false);
   const [tokensToProve, setTokensToProve] = useState<TokenConfig[]>([]);
   const [supplyBorrowData, setSupplyBorrowData] = useState<SupplyBorrowData[]>([]);
+  const [unclaimedSupplyBorrowData, setUnclaimedSupplyBorrowData] = useState<SupplyBorrowData[]>([]);
   const [isLoadingSupplyBorrow, setIsLoadingSupplyBorrow] = useState(false);
+  const [isLoadingUnclaimed, setIsLoadingUnclaimed] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const defaultTokenHolder = import.meta.env
     .VITE_DEFAULT_TOKEN_HOLDER as `0x${string}`;
   const { callProver, result } = useProver();
+
 
 
   // Load token configs and supply/borrow data when component mounts or address changes
@@ -30,22 +39,60 @@ export const WelcomePage = () => {
     const loadData = async () => {
       if (!address) return;
       
+      // Don't load data if connected to wrong chain
+      if (isWrongChain) {
+        console.log('Skipping data load - connected to wrong chain:', chain?.name);
+        return;
+      }
+      
       setIsLoadingTokens(true);
       setIsLoadingSupplyBorrow(true);
+      setIsLoadingUnclaimed(true);
       setError(null);
       
       try {
         console.log("🔄 Loading data for address:", address);
         console.log("🌐 Current chain:", chain?.name, "ID:", chain?.id);
         
-        // Load both token configs and supply/borrow data in parallel
-        const [tokens, supplyBorrow] = await Promise.all([
+        // Get contract addresses for the current chain
+        let verifierAddress: string | undefined;
+        try {
+          // Map chain names to our config keys
+          let chainName = 'optimism'; // default
+          if (chain?.name) {
+            const chainNameLower = chain.name.toLowerCase();
+            if (chainNameLower.includes('optimism') && !chainNameLower.includes('sepolia')) {
+              chainName = 'optimism';
+            } else if (chainNameLower.includes('optimism') && chainNameLower.includes('sepolia')) {
+              chainName = 'optimismSepolia';
+            } else if (chainNameLower.includes('ethereum') && !chainNameLower.includes('sepolia')) {
+              chainName = 'mainnet';
+            } else if (chainNameLower.includes('base') && !chainNameLower.includes('sepolia')) {
+              chainName = 'base';
+            } else if (chainNameLower.includes('base') && chainNameLower.includes('sepolia')) {
+              chainName = 'baseSepolia';
+            } else if (chainNameLower.includes('anvil') || chainNameLower.includes('localhost')) {
+              chainName = 'anvil';
+            }
+          }
+          
+          console.log(`Using chain config: ${chainName} for chain: ${chain?.name}`);
+          const addresses = getAaveContractAddresses(chainName);
+          verifierAddress = addresses.verifier;
+        } catch (err) {
+          console.warn("Could not get contract addresses:", err);
+        }
+        
+        // Load token configs, claimed data, and unclaimed data in parallel
+        const [tokens, supplyBorrow, unclaimedData] = await Promise.all([
           loadTokensToProve(address, chain?.id),
-          getSupplyBorrowDataForUser(address, chain?.id)
+          getSupplyBorrowDataForUser(address, chain?.id),
+          getUnclaimedSupplyBorrowData(address, chain?.id, verifierAddress)
         ]);
         
         setTokensToProve(tokens);
         setSupplyBorrowData(supplyBorrow);
+        setUnclaimedSupplyBorrowData(unclaimedData);
         
         // If no tokens found from subgraph, try fallback
         if (tokens.length === 0) {
@@ -64,14 +111,16 @@ export const WelcomePage = () => {
         const fallbackTokens = getFallbackTokensToProve();
         setTokensToProve(fallbackTokens);
         setSupplyBorrowData([]);
+        setUnclaimedSupplyBorrowData([]);
       } finally {
         setIsLoadingTokens(false);
         setIsLoadingSupplyBorrow(false);
+        setIsLoadingUnclaimed(false);
       }
     };
 
     loadData();
-  }, [address, chain?.id]);
+  }, [address, chain?.id, isWrongChain]);
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -92,7 +141,8 @@ export const WelcomePage = () => {
       }
       
       console.log("Calling prover with tokens:", currentTokens);
-      await callProver([holderAddress, currentTokens]);
+      // await callProver([holderAddress, currentTokens]);
+      await callProver(['0x05e14e44e3b296f12b21790cde834bce5be5b8e0', currentTokens]);
     } catch (err) {
       console.error("Error calling prover:", err);
       setError("Failed to generate proof. Please try again.");
@@ -126,11 +176,51 @@ export const WelcomePage = () => {
 
   // Show connect wallet if not connected
   if (!isConnected || !address) {
-    return <ConnectWallet />;
+    return <ConnectWalletButton />;
   }
 
   return (
     <div>
+      {/* Wrong Chain Error */}
+      {isWrongChain && (
+        <div className="mb-6 p-6 bg-red-100 border border-red-400 text-red-700 rounded-lg">
+          <div className="flex items-start">
+            <svg className="w-6 h-6 text-red-500 mr-3 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+            </svg>
+            <div className="flex-1">
+              <h3 className="text-lg font-bold mb-2">⚠️ Wrong Network Detected</h3>
+              <p className="text-sm mb-3">
+                You are connected to <span className="font-semibold font-mono">{chain?.name}</span>, 
+                but this app requires <span className="font-semibold font-mono text-green-700">Optimism (OP Mainnet)</span>.
+              </p>
+              <div className="bg-white border border-red-300 rounded p-3 mb-3">
+                <p className="text-sm font-medium mb-2">To fix this:</p>
+                <ol className="text-sm space-y-1 list-decimal list-inside">
+                  <li>Open your wallet (MetaMask, Zerion, etc.)</li>
+                  <li>Switch to Optimism network</li>
+                  <li>Refresh this page</li>
+                </ol>
+              </div>
+              <div className="flex space-x-3">
+                <button
+                  onClick={() => window.location.reload()}
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-md transition-colors"
+                >
+                  Refresh Page
+                </button>
+                <button
+                  onClick={() => navigate('/wallet-connect')}
+                  className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-md transition-colors"
+                >
+                  Connect to Optimism
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      
       {error && (
         <div className={`mb-4 p-3 border rounded ${
           error.includes('✅') 
@@ -149,12 +239,17 @@ export const WelcomePage = () => {
         </div>
       )}
       
-      
-      {/* Display supply and borrow data */}
-      <SupplyBorrowDisplay 
-        data={supplyBorrowData} 
+      {/* Display claimed supply and borrow data */}
+      <ClaimSupplyBorrowDisplay 
         isLoading={isLoadingSupplyBorrow} 
       />
+      
+      {/* Display unclaimed supply and borrow data */}
+      <SupplyBorrowDisplay 
+        data={unclaimedSupplyBorrowData} 
+        isLoading={isLoadingUnclaimed} 
+      />
+      
       
       <HodlerForm
         holderAddress={address}

@@ -35,7 +35,7 @@ The contracts must be deployed in the following order due to dependencies:
 
 1. Set up your environment variables:
 ```bash
-export PRIVATE_KEY="your_private_key_here"
+export DEPLOYER_PRIVATE_KEY="your_private_key_here"
 export ADMIN_ADDRESS="0x..." # Optional, defaults to deployer
 export ENVIRONMENT="development" # Optional, defaults to "development"
 export VERIFY_CONTRACTS="true" # Optional, defaults to true

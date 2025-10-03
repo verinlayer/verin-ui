@@ -7,6 +7,7 @@ import {SimpleTeleportProver} from "../src/vlayer/SimpleTeleportProver.sol";
 import {SimpleTeleportVerifier} from "../src/vlayer/SimpleTeleportVerifier.sol";
 import {Registry} from "../src/vlayer/constants/Registry.sol";
 import {CreditModel} from "../src/vlayer/CreditModel.sol";
+import {UniswapV2PriceOracle} from "../src/vlayer/UniswapV2PriceOracle.sol";
 
 /**
  * @title DeployTeleport
@@ -19,6 +20,7 @@ contract DeployTeleport is Script {
     Registry public registry;
     SimpleTeleportProver public prover;
     SimpleTeleportVerifier public verifier;
+    UniswapV2PriceOracle public priceOracle;
 
     function run() external {
         // Get the deployer's private key
@@ -29,11 +31,6 @@ contract DeployTeleport is Script {
         console.log("Deployer balance:", deployer.balance);
 
         vm.startBroadcast(deployerPrivateKey);
-
-        // Step 1: Deploy WhaleBadgeNFT (no dependencies)
-        console.log("\n=== Deploying WhaleBadgeNFT ===");
-        // whaleBadgeNFT = new WhaleBadgeNFT();
-        // console.log("WhaleBadgeNFT deployed at:", address(whaleBadgeNFT));
 
         // Step 2: Deploy Registry (no dependencies)
         console.log("\n=== Deploying Registry ===");
@@ -50,12 +47,20 @@ contract DeployTeleport is Script {
         CreditModel creditModel = new CreditModel();
         console.log("CreditModel deployed at:", address(creditModel));
 
-        // Step 5: Deploy SimpleTeleportVerifier (depends on prover, registry, and creditModel)
+        // Step 5: Deploy UniswapV2PriceOracle (depends on registry)
+        console.log("\n=== Deploying UniswapV2PriceOracle ===");
+        // Note: You'll need to provide actual Uniswap V2 Factory address for the target chain
+        address uniswapV2Factory = address(0x0c3c1c532F1e39EdF36BE9Fe0bE1410313E074Bf); // Mainnet factory
+        priceOracle = new UniswapV2PriceOracle(uniswapV2Factory, address(registry));
+        console.log("UniswapV2PriceOracle deployed at:", address(priceOracle));
+
+        // Step 6: Deploy SimpleTeleportVerifier (depends on prover, registry, creditModel, and priceOracle)
         console.log("\n=== Deploying SimpleTeleportVerifier ===");
         verifier = new SimpleTeleportVerifier(
             address(prover),
             registry,
-            address(creditModel)
+            address(creditModel),
+            address(priceOracle)
         );
         console.log("SimpleTeleportVerifier deployed at:", address(verifier));
 
@@ -66,6 +71,7 @@ contract DeployTeleport is Script {
         console.log("WhaleBadgeNFT:", address(whaleBadgeNFT));
         console.log("Registry:", address(registry));
         console.log("SimpleTeleportProver:", address(prover));
+        console.log("CreditModel:", address(creditModel));
         console.log("SimpleTeleportVerifier:", address(verifier));
 
         // Verify contract addresses are set correctly
@@ -114,11 +120,17 @@ contract DeployTeleport is Script {
         CreditModel creditModel = new CreditModel();
         console.log("CreditModel deployed at:", address(creditModel));
 
+        // Deploy UniswapV2PriceOracle with existing registry
+        address uniswapV2Factory = address(0x0c3c1c532F1e39EdF36BE9Fe0bE1410313E074Bf); // Mainnet factory
+        priceOracle = new UniswapV2PriceOracle(uniswapV2Factory, registryAddress);
+        console.log("UniswapV2PriceOracle deployed at:", address(priceOracle));
+
         // Deploy Verifier with existing registry
         verifier = new SimpleTeleportVerifier(
             address(prover),
             Registry(registryAddress),
-            address(creditModel)
+            address(creditModel),
+            address(priceOracle)
         );
         console.log("SimpleTeleportVerifier deployed at:", address(verifier));
 

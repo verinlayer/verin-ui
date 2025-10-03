@@ -4,7 +4,7 @@ pragma solidity ^0.8.21;
 import {Script, console} from "forge-std/Script.sol";
 import {SimpleTeleportVerifier} from "../src/vlayer/SimpleTeleportVerifier.sol";
 import {Protocol} from "../src/vlayer/types/TeleportTypes.sol";
-import {UserInfo} from "../src/vlayer/types/UserInfo.sol";
+import {IVerifier} from "../src/vlayer/interfaces/IVerifier.sol";
 
 /**
  * @title GetUsersInfo
@@ -57,7 +57,7 @@ contract GetUsersInfo is Script {
         address user,
         Protocol protocol
     ) internal view {
-        UserInfo memory userInfo = verifier.usersInfo(user, protocol);
+        IVerifier.UserInfo memory userInfo = verifier.usersInfo(user, protocol);
         uint256 borrowedAmount = userInfo.borrowedAmount;
         uint256 suppliedAmount = userInfo.suppliedAmount;
         uint256 repaidAmount = userInfo.repaidAmount;

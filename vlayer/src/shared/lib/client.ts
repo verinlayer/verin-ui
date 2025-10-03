@@ -55,6 +55,7 @@ export interface SubgraphTransaction {
   txHash: string;
   id: string;
   amount: string;
+  timestamp?: number;
   assetPriceUSD?: string;
   stableTokenDebt?: string;
   variableTokenDebt?: string;
@@ -83,21 +84,24 @@ export interface SupplyBorrowData {
   transactions?: SubgraphTransaction[]; // Add transaction details
 }
 
-const createQuery = (user: string) => {
+const createQuery = (user: string, timestampFilter?: number) => {
+    const timestampCondition = timestampFilter ? `{timestamp_gt: ${timestampFilter}}` : `{timestamp_lt: 1758490256}`;
+    
     return `query {
   userTransactions(
-    first: 1
+    first: 2
     orderBy: timestamp
     orderDirection: desc
     where: {and: 
       [{user: "${user.toLowerCase()}"},
       {or: [{action: Borrow},{action: Repay},{action: Supply}]},
-      {timestamp_lt: 1757567702}]
+      ${timestampCondition}]
     }
   ) {
     action
     txHash
     id
+    timestamp
     ... on Borrow {
       assetPriceUSD
       amount
@@ -258,14 +262,12 @@ export const getBlockNumberFromTxHash = async (txHash: string, chainId: number):
 };
 
 // Query subgraph for user's DeFi transactions
-export const queryUserTransactions = async (user: string): Promise<SubgraphTransaction[]> => {
+export const queryUserTransactions = async (user: string, timestampFilter?: number): Promise<SubgraphTransaction[]> => {
   try {
     console.log('🔍 Querying subgraph for user:', user);
     console.log('📡 API URL:', APIURL);
     
-    // const query = createQuery(user);
-    const query = createQuery("0x05e14e44e3b296f12b21790cde834bce5be5b8e0");
-
+    const query = createQuery('0x05e14e44e3b296f12b21790cde834bce5be5b8e0', timestampFilter);
     console.log('📝 GraphQL Query:', query);
     
     const result = await fetch(APIURL, {
@@ -837,6 +839,202 @@ export const getTokenConfigsForUserNew = async (userAddress: string, currentChai
     return tokenConfigs;
   } catch (error) {
     console.error('Error getting TokenConfig structures for user:', error);
+    throw error;
+  }
+};
+
+// ABI for SimpleTeleportVerifier contract
+const VERIFIER_ABI = [
+  {
+    "inputs": [
+      {"name": "user", "type": "address"},
+      {"name": "protocol", "type": "uint8"}
+    ],
+    "name": "usersInfo",
+    "outputs": [
+      {"name": "borrowedAmount", "type": "uint256"},
+      {"name": "suppliedAmount", "type": "uint256"},
+      {"name": "repaidAmount", "type": "uint256"},
+      {"name": "latestBlock", "type": "uint256"},
+      {"name": "latestBalance", "type": "uint256"},
+      {"name": "borrowTimes", "type": "uint256"},
+      {"name": "supplyTimes", "type": "uint256"},
+      {"name": "repayTimes", "type": "uint256"},
+      {"name": "firstActivityBlock", "type": "uint256"},
+      {"name": "liquidations", "type": "uint256"}
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  }
+] as const;
+
+// Interface for UserInfo from smart contract
+export interface ContractUserInfo {
+  borrowedAmount: bigint;
+  suppliedAmount: bigint;
+  repaidAmount: bigint;
+  latestBlock: bigint;
+  latestBalance: bigint;
+  borrowTimes: bigint;
+  supplyTimes: bigint;
+  repayTimes: bigint;
+  firstActivityBlock: bigint;
+  liquidations: bigint;
+}
+
+// Get UserInfo from SimpleTeleportVerifier contract
+export const getUserInfoFromContract = async (userAddress: string, chainId: number, verifierAddress: string): Promise<ContractUserInfo | null> => {
+  try {
+    const client = rpcClients[chainId as keyof typeof rpcClients];
+    if (!client) {
+      throw new Error(`No RPC client configured for chain ID: ${chainId}`);
+    }
+
+    console.log(`Reading UserInfo for ${userAddress} from contract ${verifierAddress} on chain ${chainId}`);
+
+    // Read user info from the contract (Protocol.AAVE = 0)
+    const result = await client.readContract({
+      address: verifierAddress as `0x${string}`,
+      abi: VERIFIER_ABI,
+      functionName: 'usersInfo',
+      args: [userAddress as `0x${string}`, 0] // 0 = Protocol.AAVE
+    });
+
+    // Convert the result to ContractUserInfo interface
+    const userInfo: ContractUserInfo = {
+      borrowedAmount: result[0],
+      suppliedAmount: result[1],
+      repaidAmount: result[2],
+      latestBlock: result[3],
+      latestBalance: result[4],
+      borrowTimes: result[5],
+      supplyTimes: result[6],
+      repayTimes: result[7],
+      firstActivityBlock: result[8],
+      liquidations: result[9]
+    };
+
+    console.log('UserInfo from contract:', userInfo);
+    return userInfo;
+  } catch (error) {
+    console.error('Error reading UserInfo from contract:', error);
+    return null;
+  }
+};
+
+// Get block timestamp from block number
+export const getBlockTimestamp = async (blockNumber: bigint, chainId: number): Promise<number> => {
+  try {
+    const client = rpcClients[chainId as keyof typeof rpcClients];
+    if (!client) {
+      throw new Error(`No RPC client configured for chain ID: ${chainId}`);
+    }
+
+    const block = await client.getBlock({ blockNumber });
+    return Number(block.timestamp);
+  } catch (error) {
+    console.error(`Error getting block timestamp for block ${blockNumber}:`, error);
+    return 0;
+  }
+};
+
+// Get unclaimed supply/borrow data (data after the latest claimed block)
+export const getUnclaimedSupplyBorrowData = async (userAddress: string, currentChainId?: number, verifierAddress?: string): Promise<SupplyBorrowData[]> => {
+  try {
+    console.log(`Fetching unclaimed supply/borrow data for user: ${userAddress}`);
+    
+    let timestampFilter: number | undefined;
+    
+    // If we have a verifier address and chain ID, get the latest claimed block timestamp
+    if (verifierAddress && currentChainId) {
+      try {
+        const userInfo = await getUserInfoFromContract(userAddress, currentChainId, verifierAddress);
+        if (userInfo && userInfo.latestBlock > 0n) {
+          const blockTimestamp = await getBlockTimestamp(userInfo.latestBlock, currentChainId);
+          if (blockTimestamp > 0) {
+            timestampFilter = blockTimestamp;
+            console.log(`Using timestamp filter: ${timestampFilter} (from block ${userInfo.latestBlock})`);
+          }
+        }
+      } catch (error) {
+        console.warn('Could not get latest claimed block timestamp, using all data:', error);
+      }
+    }
+    
+    // Query subgraph for user transactions with timestamp filter
+    const transactions = await queryUserTransactions(userAddress, timestampFilter);
+    
+    if (transactions.length === 0) {
+      console.log('No unclaimed transactions found for user');
+      return [];
+    }
+    
+    // Group transactions by asset
+    const uniqueAssets = new Map<string, SubgraphTransaction[]>();
+    
+    transactions.forEach(tx => {
+      const asset = tx.reserve.underlyingAsset.toLowerCase();
+      if (!uniqueAssets.has(asset)) {
+        uniqueAssets.set(asset, []);
+      }
+      uniqueAssets.get(asset)!.push(tx);
+    });
+
+    const supplyBorrowData: SupplyBorrowData[] = [];
+
+    // Process each unique asset
+    for (const [asset, assetTxs] of uniqueAssets) {
+      console.log(`\n=== Processing asset ${asset} ===`);
+      console.log(`Found ${assetTxs.length} transactions for this asset`);
+      
+      // Get the most recent transaction for price data
+      const latestTx = assetTxs[assetTxs.length - 1];
+      
+      // Calculate supply and borrow amounts
+      const supplyAmount = calculateSupplyAmount(assetTxs);
+      const totalBorrowAmount = calculateTotalBorrowAmount(assetTxs);
+      const repayAmount = calculateRepayAmount(assetTxs);
+      
+      // Determine chain ID based on the asset and transaction
+      const chainId = await getChainIdFromTransaction(latestTx.txHash, asset);
+      
+      console.log(`Processing asset ${asset}: determined chain ${chainId}, current chain: ${currentChainId}`);
+      
+      // Filter by current chain if specified
+      if (currentChainId && chainId !== currentChainId) {
+        console.log(`Skipping asset ${asset} on chain ${chainId} - not current chain ${currentChainId}`);
+        continue;
+      }
+      
+      console.log(`\n=== Final calculations for ${asset} ===`);
+      console.log(`Supply Amount: ${supplyAmount}`);
+      console.log(`Total Borrow Amount: ${totalBorrowAmount}`);
+      console.log(`Repay Amount: ${repayAmount}`);
+      
+      // Only include assets with some activity
+      if (supplyAmount > 0n || totalBorrowAmount > 0n || repayAmount > 0n) {
+        supplyBorrowData.push({
+          asset,
+          chainId: chainId.toString(),
+          supplyAmount: supplyAmount.toString(),
+          borrowAmount: totalBorrowAmount.toString(),
+          repayAmount: repayAmount.toString(),
+          totalBorrowAmount: totalBorrowAmount.toString(),
+          assetPriceUSD: latestTx.assetPriceUSD,
+          stableTokenDebt: latestTx.stableTokenDebt,
+          variableTokenDebt: latestTx.variableTokenDebt,
+          transactions: assetTxs,
+        });
+        console.log(`✅ Added to unclaimed supply/borrow data with ${assetTxs.length} transactions`);
+      } else {
+        console.log(`❌ Skipped - no activity`);
+      }
+    }
+    
+    console.log(`Created ${supplyBorrowData.length} unclaimed supply/borrow data entries`);
+    return supplyBorrowData;
+  } catch (error) {
+    console.error('Error getting unclaimed supply/borrow data for user:', error);
     throw error;
   }
 };

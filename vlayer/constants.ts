@@ -31,7 +31,7 @@ export const chainToTeleportConfig: Record<string, TeleportConfig> = {
   },
   
   optimism: {
-    tokenHolder: "0x4631d3E5803332448e0D9cBb9bF501A4C50B95ed",
+    tokenHolder: "0x05e14e44e3b296f12b21790cde834bce5be5b8e0",
     prover: {
       erc20Addresses: "0x0b2c639c533813f4aa9d7837caf62653d097ff85",
       erc20ChainIds: "10",
