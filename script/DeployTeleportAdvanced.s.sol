@@ -7,6 +7,7 @@ import {SimpleTeleportProver} from "../src/vlayer/SimpleTeleportProver.sol";
 import {SimpleTeleportVerifier} from "../src/vlayer/SimpleTeleportVerifier.sol";
 import {Registry} from "../src/vlayer/constants/Registry.sol";
 import {CreditModel} from "../src/vlayer/CreditModel.sol";
+import {UniswapV2PriceOracle} from "../src/vlayer/UniswapV2PriceOracle.sol";
 
 /**
  * @title DeployTeleportAdvanced
@@ -109,10 +110,15 @@ contract DeployTeleportAdvanced is Script {
 
         // Step 5: Deploy SimpleTeleportVerifier
         console.log("\n5. Deploying SimpleTeleportVerifier...");
+        // Deploy UniswapV2PriceOracle
+        address uniswapV2Factory = address(0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f); // Mainnet factory
+        UniswapV2PriceOracle priceOracle = new UniswapV2PriceOracle(uniswapV2Factory, address(registry));
+        
         verifier = new SimpleTeleportVerifier(
             address(prover),
             registry,
-            address(creditModel)
+            address(creditModel),
+            address(priceOracle)
         );
         console.log("   [OK] SimpleTeleportVerifier deployed at:", address(verifier));
     }
@@ -168,7 +174,11 @@ contract DeployTeleportAdvanced is Script {
         registry = new Registry(admin);
         prover = new SimpleTeleportProver();
         CreditModel creditModel = new CreditModel();
-        verifier = new SimpleTeleportVerifier(address(prover), registry, address(creditModel));
+        // Deploy UniswapV2PriceOracle
+        address uniswapV2Factory = address(0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f); // Mainnet factory
+        UniswapV2PriceOracle priceOracle = new UniswapV2PriceOracle(uniswapV2Factory, address(registry));
+        
+        verifier = new SimpleTeleportVerifier(address(prover), registry, address(creditModel), address(priceOracle));
 
         vm.stopBroadcast();
 

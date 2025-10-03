@@ -7,6 +7,7 @@ import {SimpleTeleportProver} from "../src/vlayer/SimpleTeleportProver.sol";
 import {SimpleTeleportVerifier} from "../src/vlayer/SimpleTeleportVerifier.sol";
 import {Registry} from "../src/vlayer/constants/Registry.sol";
 import {CreditModel} from "../src/vlayer/CreditModel.sol";
+import {UniswapV2PriceOracle} from "../src/vlayer/UniswapV2PriceOracle.sol";
 
 /**
  * @title DeployTeleportTest
@@ -40,10 +41,15 @@ contract DeployTeleportTest is Script {
         console.log("CreditModel:", address(creditModel));
 
         // 5. Deploy SimpleTeleportVerifier
+        // Deploy UniswapV2PriceOracle
+        address uniswapV2Factory = address(0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f); // Mainnet factory
+        UniswapV2PriceOracle priceOracle = new UniswapV2PriceOracle(uniswapV2Factory, address(registry));
+        
         SimpleTeleportVerifier verifier = new SimpleTeleportVerifier(
             address(prover),
             registry,
-            address(creditModel)
+            address(creditModel),
+            address(priceOracle)
         );
         console.log("SimpleTeleportVerifier:", address(verifier));
 

@@ -32,6 +32,8 @@ contract DataExistenceMinimalTest is Test {
         address underlyingTokenAddress;
     }
     
+    // UserInfo struct is now defined in IVerifier interface
+    // We'll use a simplified version for testing
     struct UserInfo {
         uint256 borrowedAmount;
         uint256 suppliedAmount;

@@ -8,6 +8,7 @@ import {SimpleTeleportProver} from "../src/vlayer/SimpleTeleportProver.sol";
 import {SimpleTeleportVerifier} from "../src/vlayer/SimpleTeleportVerifier.sol";
 import {Registry} from "../src/vlayer/constants/Registry.sol";
 import {CreditModel} from "../src/vlayer/CreditModel.sol";
+import {UniswapV2PriceOracle} from "../src/vlayer/UniswapV2PriceOracle.sol";
 
 /**
  * @title TestDeployment
@@ -28,10 +29,15 @@ contract TestDeployment is Script, Test {
         Registry registry = new Registry(deployer);
         SimpleTeleportProver prover = new SimpleTeleportProver();
         CreditModel creditModel = new CreditModel();
+        // Deploy UniswapV2PriceOracle
+        address uniswapV2Factory = address(0x0c3c1c532F1e39EdF36BE9Fe0bE1410313E074Bf); // Mainnet factory
+        UniswapV2PriceOracle priceOracle = new UniswapV2PriceOracle(uniswapV2Factory, address(registry));
+        
         SimpleTeleportVerifier verifier = new SimpleTeleportVerifier(
             address(prover),
             registry,
-            address(creditModel)
+            address(creditModel),
+            address(priceOracle)
         );
 
         vm.stopBroadcast();
