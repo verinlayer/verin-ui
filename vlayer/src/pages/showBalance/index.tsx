@@ -3,7 +3,7 @@ import { useLocalStorage } from "usehooks-ts";
 import { useNavigate } from "react-router";
 import { useAccount } from "wagmi";
 import { formatUnits } from "viem";
-import { ConnectWallet } from "../../shared/components/ConnectWallet";
+import { ConnectWalletButton } from "../../shared/components/ConnectWalletButton";
 import { TokenConfigDisplay } from "../../shared/components/SupplyBorrowDisplay";
 import { getChainName, parseProverResult, getTokensToProve } from "../../shared/lib/utils";
 import { TokenConfig, TokenType, getTokenTypeName, getTokenTypeColor, getTokenTypeIcon } from "../../shared/types/TeleportTypes";
@@ -54,7 +54,7 @@ export const ShowBalancePage = () => {
   };
 
   if (!address) {
-    return <ConnectWallet />;
+    return <ConnectWalletButton />;
   }
 
   // Group tokens by type for better display

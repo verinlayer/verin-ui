@@ -11,7 +11,7 @@ export const SuccessPage = () => {
     <>
       <div className="mt-5 flex justify-center text-slate-900">
         <div>
-          Here is your NFT:{" "}
+          Check out the txHash:{" "}
           <a
             href={`${account.chain?.blockExplorers?.default.url}/tx/${txHash}`}
             className="text-blue-700 text-center text-block font-bold"

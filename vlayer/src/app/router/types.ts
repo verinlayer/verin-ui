@@ -47,7 +47,7 @@ export const stepsMeta: Record<StepKind, StepMeta> = {
     kind: StepKind.success,
     title: "Success",
     description: "",
-    headerIcon: "/img/success.svg",
+    headerIcon: "/img/tx-confirm.svg",
     index: 3,
   },
 };

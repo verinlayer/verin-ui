@@ -8,7 +8,7 @@ const verifierSpec = { abi: verifierAbi.abi, bytecode: verifierAbi.bytecode };
 import { useLocalStorage } from "usehooks-ts";
 import { useAccount, useBalance, useWriteContract } from "wagmi";
 import { useNavigate } from "react-router";
-import { ConnectWallet } from "../../shared/components/ConnectWallet";
+import { ConnectWalletButton } from "../../shared/components/ConnectWalletButton";
 import { parseProverResult, getTokensToProve } from "../../shared/lib/utils";
 import { AlreadyMintedError } from "../../shared/errors/appErrors";
 import { Chain, optimismSepolia } from "viem/chains";
@@ -99,7 +99,7 @@ export const ConfirmMintPage = () => {
   const enoughBalance = balance?.value && balance.value > 3000000000000000n;
 
   if (!holderAddress) {
-    return <ConnectWallet />;
+    return <ConnectWalletButton />;
   }
 
   const currentTokens = getTokensToProve();

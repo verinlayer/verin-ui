@@ -37,10 +37,10 @@ const connectors = [
       themeMode: 'light'
     },
     metadata: {
-      name: 'Teleport DeFi',
-      description: 'DeFi Activity Proof Generator',
-      url: 'https://vlayer.xyz',
-      icons: ['https://avatars.githubusercontent.com/u/179229932']
+      name: 'Verin Layer',
+      description: 'Claim your DeFi Activity Proof',
+      url: 'https://verinlayer.xyz',
+      icons: ['https://raw.githubusercontent.com/luandt/simple-teleport/refs/heads/main/vlayer/public/favicon.svg?token=GHSAT0AAAAAADIU3PJY6DVLOEFADC7SLGHQ2G7VE6Q']
     }
   }),
   // metaMask(), // Explicit MetaMask connector
@@ -62,10 +62,10 @@ if (appKitProjectId && appKitProjectId !== '88cd40e876a44270a55cd4e034d55478') {
     networks,
     defaultNetwork: chain,
     metadata: {
-      name: "vlayer-time-travel-proof-example",
-      description: "vlayer Time Travel Example",
-      url: "https://vlayer.xyz",
-      icons: ["https://avatars.githubusercontent.com/u/179229932"],
+      name: "verinlayer",
+      description: "Claim your DeFi Activity Proof",
+      url: "https://verinlayer.xyz",
+      icons: ["https://raw.githubusercontent.com/luandt/simple-teleport/refs/heads/main/vlayer/public/favicon.svg?token=GHSAT0AAAAAADIU3PJY6DVLOEFADC7SLGHQ2G7VE6Q"],
     },
     themeVariables: {
       "--w3m-color-mix": "#551fbc",

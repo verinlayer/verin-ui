@@ -99,7 +99,7 @@ export const WelcomePage = () => {
           console.log("⚠️ No tokens found from subgraph, trying fallback...");
           const fallbackTokens = getFallbackTokensToProve();
           setTokensToProve(fallbackTokens);
-          setError("No DeFi activity found for this address. Using fallback configuration.");
+          setError("No DeFi activity found for this address.");
         } else {
           setError(null); // Clear any previous errors
         }
@@ -142,7 +142,8 @@ export const WelcomePage = () => {
       
       console.log("Calling prover with tokens:", currentTokens);
       // await callProver([holderAddress, currentTokens]);
-      await callProver(['0x05e14e44e3b296f12b21790cde834bce5be5b8e0', currentTokens]);
+      // await callProver(['0x05e14e44e3b296f12b21790cde834bce5be5b8e0', currentTokens]);
+      await callProver([holderAddress, currentTokens]);
     } catch (err) {
       console.error("Error calling prover:", err);
       setError("Failed to generate proof. Please try again.");

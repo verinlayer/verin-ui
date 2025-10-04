@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg"
+     width="600" height="200" viewBox="0 0 600 200" role="img" aria-labelledby="title desc">
+  <title id="title">Transaction Confirmed</title>
+  <desc id="desc">A confirmation card showing a successful EVM transaction with an animated check and transaction hash placeholder.</desc>
+
+  <defs>
+    <linearGradient id="cardGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="100%" stop-color="#f3f7fb"/>
+    </linearGradient>
+
+    <filter id="softShadow" x="-50%" y="-50%" width="200%" height="200%">
+      <feDropShadow dx="0" dy="6" stdDeviation="12" flood-color="#000" flood-opacity="0.12"/>
+    </filter>
+
+    <clipPath id="roundClip">
+      <rect x="0" y="0" width="560" height="150" rx="14" ry="14"/>
+    </clipPath>
+
+    <!-- small cube for block motif -->
+    <g id="cube">
+      <rect x="0" y="0" width="14" height="14" rx="2" ry="2" fill="#dbeffd"/>
+      <rect x="16" y="0" width="14" height="14" rx="2" ry="2" fill="#b6ddff"/>
+      <rect x="0" y="16" width="14" height="14" rx="2" ry="2" fill="#b6ddff"/>
+      <rect x="16" y="16" width="14" height="14" rx="2" ry="2" fill="#93cfff"/>
+    </g>
+
+    <style><![CDATA[
+      .card { filter: url(#softShadow); }
+      .title { font: 700 20px/1.1 "Segoe UI", Roboto, Arial, sans-serif; fill:#0f1724; }
+      .subtitle { font: 400 13px/1.1 "Segoe UI", Roboto, Arial, sans-serif; fill:#475569; }
+      .hash { font: 500 12px/1 "SFMono-Regular", ui-monospace, "Roboto Mono", monospace; fill:#0f1724; opacity:0.85; }
+      .muted { fill:#64748b; font: 12px/1 "Segoe UI", Roboto, Arial, sans-serif; }
+      .check-circle { transition: transform 240ms ease; transform-origin: center; }
+      .pulse { transform-origin:center; animation: pulse 1600ms ease-in-out infinite; }
+      @keyframes pulse {
+        0% { transform: scale(1); opacity: 0.92; }
+        50% { transform: scale(1.06); opacity: 1; }
+        100% { transform: scale(1); opacity: 0.92; }
+      }
+      .check { stroke: #ffffff; stroke-width: 5; stroke-linecap: round; stroke-linejoin: round; fill: none; stroke-dasharray: 80; stroke-dashoffset: 80; animation: draw 700ms ease forwards 120ms; }
+      @keyframes draw {
+        to { stroke-dashoffset: 0; }
+      }
+      .spark { opacity: 0; animation: sparkIn 700ms ease forwards 160ms; transform-origin:center; }
+      @keyframes sparkIn {
+        0% { transform: scale(0.6); opacity: 0; }
+        60% { transform: scale(1.06); opacity: 1; }
+        100% { transform: scale(1); opacity: 1; }
+      }
+    ]]></style>
+  </defs>
+
+  <!-- outer container (centered left margin for content) -->
+  <g transform="translate(20,20)">
+    <!-- card background -->
+    <rect class="card" x="0" y="0" width="560" height="150" rx="14" ry="14" fill="url(#cardGrad)"/>
+    <g clip-path="url(#roundClip)">
+      <!-- Decorative left column -->
+      <rect x="0" y="0" width="156" height="150" rx="14" ry="14" fill="#0ea5a3" opacity="0.06"/>
+      <!-- Large check circle -->
+      <g transform="translate(36,27)">
+        <g class="pulse">
+          <circle cx="44" cy="44" r="44" fill="#10b981" opacity="1" class="check-circle"/>
+          <circle cx="44" cy="44" r="60" fill="none" stroke="#10b981" stroke-width="2" opacity="0.08"/>
+        </g>
+
+        <!-- animated check -->
+        <path class="check" d="M28 44 l10 10 l20 -22" stroke-linecap="round" stroke-linejoin="round"/>
+        <!-- sparkles -->
+        <g class="spark" transform="translate(10,8)">
+          <path d="M6 0 L7.5 4 L11 6 L7.5 8 L6 12 L4.5 8 L1 6 L4.5 4 Z" fill="#fff" opacity="0.9"/>
+        </g>
+        <g class="spark" transform="translate(76,28) rotate(12)">
+          <path d="M6 0 L7.5 4 L11 6 L7.5 8 L6 12 L4.5 8 L1 6 L4.5 4 Z" fill="#fff" opacity="0.9"/>
+        </g>
+      </g>
+
+      <!-- content on the right -->
+      <g transform="translate(170,20)">
+        <text x="195" y="71" class="title" text-anchor="middle">Transaction Broadcasted</text>
+      </g>
+    </g>
+  </g>
+</svg>

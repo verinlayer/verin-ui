@@ -85,13 +85,13 @@ export interface SupplyBorrowData {
 }
 
 const createQuery = (user: string, timestampFilter?: number) => {
-    const timestampCondition = timestampFilter ? `{timestamp_gt: ${timestampFilter}}` : `{timestamp_lt: 1758490256}`;
+    const timestampCondition = timestampFilter ? `{timestamp_gt: ${timestampFilter}}` : `{timestamp_lt: 1759460262}`;
     
     return `query {
   userTransactions(
     first: 2
     orderBy: timestamp
-    orderDirection: desc
+    orderDirection: asc
     where: {and: 
       [{user: "${user.toLowerCase()}"},
       {or: [{action: Borrow},{action: Repay},{action: Supply}]},
@@ -267,7 +267,8 @@ export const queryUserTransactions = async (user: string, timestampFilter?: numb
     console.log('🔍 Querying subgraph for user:', user);
     console.log('📡 API URL:', APIURL);
     
-    const query = createQuery('0x05e14e44e3b296f12b21790cde834bce5be5b8e0', timestampFilter);
+    // const query = createQuery('0x05e14e44e3b296f12b21790cde834bce5be5b8e0', timestampFilter);
+    const query = createQuery(user, timestampFilter);
     console.log('📝 GraphQL Query:', query);
     
     const result = await fetch(APIURL, {

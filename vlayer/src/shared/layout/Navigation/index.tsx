@@ -65,12 +65,53 @@ export const WalletInfo: React.FC = () => {
   const { isConnected, address, chain } = useAccount();
   const { disconnect } = useDisconnect();
   const [showDropdown, setShowDropdown] = useState(false);
+  const [isDisconnecting, setIsDisconnecting] = useState(false);
+  const dropdownRef = React.useRef<HTMLDivElement>(null);
 
   console.log("WalletInfo state:", { isConnected, address, chain: chain?.name, chainId: chain?.id });
 
+  // Close dropdown when clicking outside
+  React.useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setShowDropdown(false);
+      }
+    };
+
+    if (showDropdown) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showDropdown]);
+
+  // Early return after all hooks
   if (!isConnected || !address) {
     return null;
   }
+
+  const handleDisconnect = async () => {
+    try {
+      console.log('Attempting to disconnect wallet...');
+      setIsDisconnecting(true);
+      
+      // Close dropdown immediately for better UX
+      setShowDropdown(false);
+      
+      // Call disconnect
+      await disconnect();
+      
+      console.log('Wallet disconnected successfully');
+    } catch (error) {
+      console.error('Error disconnecting wallet:', error);
+      // Reopen dropdown if disconnect failed
+      setShowDropdown(true);
+    } finally {
+      setIsDisconnecting(false);
+    }
+  };
 
   // Better chain name detection
   const getChainName = () => {
@@ -93,7 +134,7 @@ export const WalletInfo: React.FC = () => {
   };
 
   return (
-    <div className="relative">
+    <div className="relative" ref={dropdownRef}>
       <button
         onClick={() => setShowDropdown(!showDropdown)}
         className="flex items-center space-x-2 bg-white border border-gray-200 rounded-lg px-3 py-2 hover:bg-gray-50 transition-colors max-w-xs"
@@ -117,13 +158,14 @@ export const WalletInfo: React.FC = () => {
               <div className="text-xs text-gray-500 font-mono break-all">{address}</div>
             </div>
             <button
-              onClick={() => {
-                disconnect();
-                setShowDropdown(false);
-              }}
-              className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded"
+              onClick={handleDisconnect}
+              disabled={isDisconnecting}
+              className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-between"
             >
-              Disconnect
+              <span>Disconnect</span>
+              {isDisconnecting && (
+                <div className="w-4 h-4 border-2 border-red-300 border-t-red-600 rounded-full animate-spin"></div>
+              )}
             </button>
           </div>
         </div>
