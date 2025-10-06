@@ -73,7 +73,6 @@ function WalletOption({
 // Account Component
 function Account() {
   const { address } = useAccount()
-  const { disconnect } = useDisconnect()
   const { data: ensName } = useEnsName({ address })
   const { data: ensAvatar } = useEnsAvatar({ name: ensName! })
 
@@ -81,12 +80,8 @@ function Account() {
   React.useEffect(() => {
     if (address) {
       console.log('Wallet connected successfully, redirecting to main app...')
-      // Small delay to show the connection success
-      const timer = setTimeout(() => {
-        window.location.href = '/'
-      }, 300) // 1.5 second delay
-      
-      return () => clearTimeout(timer)
+      // Immediate redirect to avoid double reload
+      window.location.href = '/'
     }
   }, [address])
 
@@ -124,27 +119,14 @@ function Account() {
           </div>
         )}
         
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
-          <div className="flex items-center justify-center space-x-2 text-blue-700">
-            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
-            <span className="text-sm font-medium">Redirecting to main app...</span>
-          </div>
-        </div>
-        
-        {/* <div className="flex justify-center space-x-2">
+        <div className="flex justify-center">
           <button 
             onClick={() => window.location.href = '/'}
             className="px-4 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors"
           >
             Go to Main App Now
           </button>
-          <button 
-            onClick={() => disconnect()}
-            className="px-4 py-2 text-sm bg-gray-600 hover:bg-gray-700 text-white rounded-md transition-colors"
-          >
-            Disconnect
-          </button>
-        </div> */}
+        </div>
       </div>
     </div>
   )

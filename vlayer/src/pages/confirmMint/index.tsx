@@ -95,6 +95,7 @@ export const ConfirmMintPage = () => {
       args: [proof, owner, tokens],
     });
   };
+
   // estimated price for Sepolia verification tx
   const enoughBalance = balance?.value && balance.value > 3000000000000000n;
 

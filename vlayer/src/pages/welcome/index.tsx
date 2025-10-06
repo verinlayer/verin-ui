@@ -9,7 +9,7 @@ import { SupplyBorrowDisplay } from "../../shared/components/SupplyBorrowDisplay
 import { ClaimSupplyBorrowDisplay } from "../../shared/components/ClaimSupplyBorrowDisplay";
 import { type SupplyBorrowData } from "../../shared/lib/client";
 import { loadTokensToProve, getTokensToProve, getFallbackTokensToProve, type TokenConfig } from "../../shared/lib/utils";
-import { getSupplyBorrowDataForUser, getUnclaimedSupplyBorrowData } from "../../shared/lib/client";
+import { getSupplyBorrowDataForUser, getUnclaimedSupplyBorrowData, getTokenConfigsForUnclaimedData } from "../../shared/lib/client";
 import { useAccount } from "wagmi";
 import { getAaveContractAddresses } from "../../../config-aave";
 export const WelcomePage = () => {
@@ -85,7 +85,8 @@ export const WelcomePage = () => {
         
         // Load token configs, claimed data, and unclaimed data in parallel
         const [tokens, supplyBorrow, unclaimedData] = await Promise.all([
-          loadTokensToProve(address, chain?.id),
+          loadTokensToProve(address, chain?.id, verifierAddress),
+          // getTokenConfigsForUnclaimedData(address, chain?.id, verifierAddress),
           getSupplyBorrowDataForUser(address, chain?.id),
           getUnclaimedSupplyBorrowData(address, chain?.id, verifierAddress)
         ]);
@@ -159,48 +160,86 @@ export const WelcomePage = () => {
   }, [result]);
 
   // Show loading state while checking wallet connection
-  if (isConnecting) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[400px]">
-        <div className="text-center max-w-md">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <h2 className="text-xl font-semibold text-gray-900 mb-2">
-            Checking Wallet Connection...
-          </h2>
-          <p className="text-gray-600">
-            Please wait while we check your wallet connection status.
-          </p>
-        </div>
-      </div>
-    );
-  }
 
   // Show connect wallet if not connected
   if (!isConnected || !address) {
-    return <ConnectWalletButton />;
+    return (
+      <div>
+        {/* Project Cards Section */}
+        <div className="mb-4">
+          <div className="text-2xl font-bold mb-3 text-gray-900 text-center">
+            Supporting projects
+          </div>
+          <div className="flex flex-wrap gap-4 mb-4 justify-center">
+            <div className="bg-white border border-gray-200 rounded-lg p-4 w-full max-w-md flex items-center shadow-sm hover:shadow-md transition-shadow cursor-pointer">
+              <div>
+                <img src="/img/AAVE.png" alt="AAVE" className="w-12 h-12" />
+              </div>
+              <div className="ml-4">
+                <div className="text-xl font-bold text-gray-900">AAVE</div>
+                <div className="text-sm text-gray-600 mt-1">
+                  The world's largest liquidity protocol. Supply, borrow, swap,
+                  stake and more.
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="text-2xl font-bold mb-3 text-gray-900 text-center">Coming soon</div>
+          <div className="flex flex-wrap gap-4 justify-center">
+            <div className="bg-white border border-gray-200 rounded-lg p-4 w-full max-w-md flex items-center shadow-sm hover:shadow-md transition-shadow cursor-pointer">
+              <div>
+                <img src="/img/morpho-logo.png" alt="Morpho" className="w-12 h-12" style={{objectFit: 'contain'}} />
+              </div>
+              <div className="ml-4">
+                <div className="text-xl font-bold text-gray-900">Morpho</div>
+                <div className="text-sm text-gray-600 mt-1">
+                  Connect to the universal lending network
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white border border-gray-200 rounded-lg p-4 w-full max-w-md flex items-center shadow-sm hover:shadow-md transition-shadow cursor-pointer">
+              <div>
+                <img src="/img/comp.png" alt="Compound" className="w-12 h-12" />
+              </div>
+              <div className="ml-4">
+                <div className="text-xl font-bold text-gray-900">Compound</div>
+                <div className="text-sm text-gray-600 mt-1">
+                  Earn interest or borrow crypto via an automated lending
+                  protocol.
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <ConnectWalletButton />
+      </div>
+    );
   }
 
   return (
     <div>
       {/* Wrong Chain Error */}
       {isWrongChain && (
-        <div className="mb-6 p-6 bg-red-100 border border-red-400 text-red-700 rounded-lg">
+        <div className="mb-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded-lg">
           <div className="flex items-start">
             <svg className="w-6 h-6 text-red-500 mr-3 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
               <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
             </svg>
             <div className="flex-1">
               <h3 className="text-lg font-bold mb-2">⚠️ Wrong Network Detected</h3>
-              <p className="text-sm mb-3">
+              {/* <p className="text-sm mb-3">
                 You are connected to <span className="font-semibold font-mono">{chain?.name}</span>, 
                 but this app requires <span className="font-semibold font-mono text-green-700">Optimism (OP Mainnet)</span>.
-              </p>
+              </p> */}
               <div className="bg-white border border-red-300 rounded p-3 mb-3">
-                <p className="text-sm font-medium mb-2">To fix this:</p>
+                {/* <p className="text-sm font-medium mb-2">To fix this:</p> */}
                 <ol className="text-sm space-y-1 list-decimal list-inside">
-                  <li>Open your wallet (MetaMask, Zerion, etc.)</li>
-                  <li>Switch to Optimism network</li>
-                  <li>Refresh this page</li>
+                  {/* <li>Open your wallet (MetaMask, Zerion, etc.)</li> */}
+                  Switch to Optimism network and Refresh this page
+                  {/* <li>Refresh this page</li> */}
                 </ol>
               </div>
               <div className="flex space-x-3">
@@ -210,12 +249,12 @@ export const WelcomePage = () => {
                 >
                   Refresh Page
                 </button>
-                <button
+                {/* <button
                   onClick={() => navigate('/wallet-connect')}
                   className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-md transition-colors"
                 >
                   Connect to Optimism
-                </button>
+                </button> */}
               </div>
             </div>
           </div>
@@ -223,7 +262,7 @@ export const WelcomePage = () => {
       )}
       
       {error && (
-        <div className={`mb-4 p-3 border rounded ${
+        <div className={`mb-3 p-3 border rounded ${
           error.includes('✅') 
             ? 'bg-green-100 border-green-400 text-green-700' 
             : error.includes('❌')
@@ -235,22 +274,25 @@ export const WelcomePage = () => {
       )}
       
       {isLoadingTokens && (
-        <div className="mb-4 p-3 bg-blue-100 border border-blue-400 text-blue-700 rounded">
+        <div className="mb-3 p-3 bg-blue-100 border border-blue-400 text-blue-700 rounded">
           Loading token configurations from subgraph...
         </div>
       )}
       
       {/* Display claimed supply and borrow data */}
-      <ClaimSupplyBorrowDisplay 
-        isLoading={isLoadingSupplyBorrow} 
-      />
+      <div className="mb-3">
+        <ClaimSupplyBorrowDisplay 
+          isLoading={isLoadingSupplyBorrow} 
+        />
+      </div>
       
       {/* Display unclaimed supply and borrow data */}
-      <SupplyBorrowDisplay 
-        data={unclaimedSupplyBorrowData} 
-        isLoading={isLoadingUnclaimed} 
-      />
-      
+      <div className="mb-3">
+        <SupplyBorrowDisplay 
+          data={unclaimedSupplyBorrowData} 
+          isLoading={isLoadingUnclaimed} 
+        />
+      </div>
       
       <HodlerForm
         holderAddress={address}

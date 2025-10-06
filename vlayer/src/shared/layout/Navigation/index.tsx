@@ -93,24 +93,37 @@ export const WalletInfo: React.FC = () => {
   }
 
   const handleDisconnect = async () => {
+    console.log('Attempting to disconnect wallet from Navigation...');
+    setIsDisconnecting(true);
+    
+    // Close dropdown immediately for better UX
+    setShowDropdown(false);
+    
+    // Try to call disconnect first
     try {
-      console.log('Attempting to disconnect wallet...');
-      setIsDisconnecting(true);
-      
-      // Close dropdown immediately for better UX
-      setShowDropdown(false);
-      
-      // Call disconnect
       await disconnect();
-      
-      console.log('Wallet disconnected successfully');
-    } catch (error) {
-      console.error('Error disconnecting wallet:', error);
-      // Reopen dropdown if disconnect failed
-      setShowDropdown(true);
-    } finally {
-      setIsDisconnecting(false);
+      console.log('Wagmi disconnect successful');
+    } catch (disconnectError) {
+      console.warn('Wagmi disconnect failed:', disconnectError);
     }
+    
+    // Immediate cleanup and redirect
+    try {
+      // Clear all possible WalletConnect and wagmi storage
+      const allKeys = [...Object.keys(localStorage), ...Object.keys(sessionStorage)];
+      allKeys.forEach(key => {
+        if (key.includes('walletconnect') || key.includes('wc@') || key.includes('wagmi') || key.includes('reown')) {
+          localStorage.removeItem(key);
+          sessionStorage.removeItem(key);
+          console.log('Removed storage key:', key);
+        }
+      });
+    } catch (cleanupError) {
+      console.warn('Error during cleanup:', cleanupError);
+    }
+    
+    // Force immediate page reload
+    window.location.href = '/';
   };
 
   // Better chain name detection

@@ -53,6 +53,7 @@ export const ShowBalancePage = () => {
     void navigate(`/confirm-mint`);
   };
 
+
   if (!address) {
     return <ConnectWalletButton />;
   }
@@ -72,7 +73,6 @@ export const ShowBalancePage = () => {
 
   return (
     <form onSubmit={handleSubmit}>
-
       {/* Display TokenConfig structures */}
       <TokenConfigDisplay tokens={tokensToProve} isLoading={isLoading} />
 

@@ -7,6 +7,7 @@ export const SuccessPage = () => {
   const txHash = searchParams.get("txHash");
   console.log(account.chain);
 
+
   return (
     <>
       <div className="mt-5 flex justify-center text-slate-900">

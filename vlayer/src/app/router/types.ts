@@ -21,7 +21,7 @@ export const stepsMeta: Record<StepKind, StepMeta> = {
   [StepKind.welcome]: {
     path: "",
     kind: StepKind.welcome,
-    title: "Turn Your DeFi History into Value",
+    title: "Turn Your DeFi History into Value powered by Zero Knowledge Proof",
     description: "Prove that you interact with DeFi applications across multiple chains.",
     // headerIcon: "/img/teleport-icon.svg",
     index: 0,
@@ -29,8 +29,8 @@ export const stepsMeta: Record<StepKind, StepMeta> = {
   [StepKind.showBalance]: {
     path: "show-balance",
     kind: StepKind.showBalance,
-    title: "Turn Your DeFi History into Value",
-    description: "Prove that you interact with DeFi applications across multiple chains.",
+    title: "Your History",
+    description: "",
     // headerIcon: "/img/teleport-icon.svg",
     index: 1,
   },

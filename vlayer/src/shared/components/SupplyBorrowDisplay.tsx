@@ -105,12 +105,12 @@ export const TokenConfigDisplay: React.FC<TokenConfigDisplayProps> = ({
               {/* Token Details */}
               <div className="space-y-3">
                 <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div>
+                  {/* <div>
                     <span className="text-slate-600">Underlying Token:</span>
                     <div className="font-mono text-xs break-all">{token.underlingTokenAddress}</div>
-                  </div>
+                  </div> */}
                   <div>
-                    <span className="text-slate-600">aToken Address:</span>
+                    <span className="text-slate-600">Token Address:</span>
                     <div className="font-mono text-xs break-all">{token.aTokenAddress}</div>
                   </div>
                 </div>

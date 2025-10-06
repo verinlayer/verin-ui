@@ -45,7 +45,7 @@
 }
 
 .header {
-  @apply text-center text-black text-3xl font-bold mt-7;
+  @apply text-center text-black text-3xl font-bold;
   transition: all 0.3s ease-in-out;
 }
 
