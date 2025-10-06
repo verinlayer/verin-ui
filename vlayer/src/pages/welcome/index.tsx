@@ -170,7 +170,7 @@ export const WelcomePage = () => {
           <div className="text-2xl font-bold mb-3 text-gray-900 text-center">
             Supporting projects
           </div>
-          <div className="flex flex-wrap gap-4 mb-4 justify-center">
+          <div className="flex flex-wrap gap-4 mb- justify-center">
             <div className="bg-white border border-gray-200 rounded-lg p-4 w-full max-w-md flex items-center shadow-sm hover:shadow-md transition-shadow cursor-pointer">
               <div>
                 <img src="/img/AAVE.png" alt="AAVE" className="w-12 h-12" />
@@ -185,7 +185,7 @@ export const WelcomePage = () => {
             </div>
           </div>
 
-          <div className="text-2xl font-bold mb-3 text-gray-900 text-center">Coming soon</div>
+          <div className="text-2xl font-bold mb-4 mt-12 text-gray-900 text-center">Coming soon</div>
           <div className="flex flex-wrap gap-4 justify-center">
             <div className="bg-white border border-gray-200 rounded-lg p-4 w-full max-w-md flex items-center shadow-sm hover:shadow-md transition-shadow cursor-pointer">
               <div>
