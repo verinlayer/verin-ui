@@ -1,12 +1,17 @@
-import { useSearchParams } from "react-router";
+import { useSearchParams, useNavigate } from "react-router";
 import { shortenAndFormatHash } from "../../shared/lib/utils";
 import { useAccount } from "wagmi";
 export const SuccessPage = () => {
   const account = useAccount();
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const txHash = searchParams.get("txHash");
   console.log(account.chain);
 
+
+  const handleBackToHome = () => {
+    navigate("/");
+  };
 
   return (
     <>
@@ -20,6 +25,14 @@ export const SuccessPage = () => {
             {shortenAndFormatHash(txHash)}
           </a>
         </div>
+      </div>
+      <div className="mt-6 flex justify-center">
+        <button
+          onClick={handleBackToHome}
+          className="btn w-[220px] px-4 bg-[#915bf8] rounded-lg border-none text-white hover:bg-[#915bf8]/80 hover:text-white"
+        >
+          Back to Home
+        </button>
       </div>
     </>
   );

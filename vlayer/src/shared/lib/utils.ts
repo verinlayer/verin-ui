@@ -1,4 +1,4 @@
-import { getTokenConfigsForUserNew, getTokenConfigsForUnclaimedData, type TokenConfig } from './client';
+import { getTokenConfigsForUnclaimedData, type TokenConfig } from './client';
 
 // Re-export TokenConfig for use in other components
 export type { TokenConfig } from './client';
@@ -30,7 +30,6 @@ export let tokensToProve: TokenConfig[] = [];
 export const loadTokensToProve = async (userAddress: string, currentChainId?: number, verifierAddress?: string): Promise<TokenConfig[]> => {
   try {
     console.log(`Loading token configs for user: ${userAddress}`);
-    // tokensToProve = await getTokenConfigsForUserNew(userAddress, currentChainId);
     tokensToProve = await getTokenConfigsForUnclaimedData(userAddress, currentChainId, verifierAddress);
     console.log(`Loaded ${tokensToProve.length} token configs:`, tokensToProve);
     return tokensToProve;
