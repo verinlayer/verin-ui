@@ -9,9 +9,14 @@ const queryClient = new QueryClient()
 function WalletOptions() {
   const { connectors, connect } = useConnect()
 
+  // Filter out duplicate connectors by name
+  const uniqueConnectors = connectors.filter((connector, index, self) => 
+    index === self.findIndex(c => c.name === connector.name)
+  )
+
   return (
     <div className="space-y-3">
-      {connectors.map((connector) => (
+      {uniqueConnectors.map((connector) => (
         <WalletOption
           key={connector.uid}
           connector={connector}
