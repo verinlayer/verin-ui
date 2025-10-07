@@ -62,7 +62,7 @@ export const Modal = ({ children }: { children: React.ReactNode }) => {
                 <motion.img
                   src={currentStep?.headerIcon}
                   alt="Success Icon"
-                  className="w-[282px] h-[150px]"
+                  className="w-[400px] h-[200px] mx-auto"
                   {...motionConfig}
                 />
               )}

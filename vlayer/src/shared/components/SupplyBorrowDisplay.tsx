@@ -251,7 +251,7 @@ export const SupplyBorrowDisplay: React.FC<SupplyBorrowDisplayProps> = ({
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                 {/* Supplied */}
                 <div className="bg-green-100 rounded-lg p-3">
-                  <div className="text-sm font-medium text-green-800">Supplied</div>
+                  <div className="text-sm font-medium text-green-800">Total Supplied</div>
                   <div className="text-lg font-bold text-green-900">{supplyFormatted} {tokenSymbol}</div>
                   {supplyUSD && <div className="text-sm text-green-600 mt-1">{supplyUSD}</div>}
                 </div>

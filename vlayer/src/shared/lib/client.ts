@@ -92,7 +92,7 @@ const createQuery = (user: string, timestampFilter?: number) => {
     
     return `query {
   userTransactions(
-    first: 10
+    first: 1
     orderBy: timestamp
     orderDirection: asc
     where: {and: 
@@ -241,6 +241,76 @@ export const getBlockNumbersFromTxHashes = async (txHashes: string[], chainId: n
   }
 };
 
+// Get block number from SubgraphTransaction.id by parsing the ID format (no RPC call)
+export const getBlockNumberFromTransactionId = (transactionId: string): string => {
+  try {
+    // Parse block number from SubgraphTransaction.id format: blockNumber:...
+    // Example: 142018170:44:0x9ed5028a788b2a90a510f1b1ecac9a9b853911159c4c3dc4a4fce4b82642b3d3:150:4
+    const idParts = transactionId.split(':');
+    if (idParts.length === 0) {
+      throw new Error(`Invalid transaction ID format: ${transactionId}`);
+    }
+
+    const blockNumber = idParts[0];
+    
+    // Validate block number is a valid number
+    const blockNumberNum = parseInt(blockNumber);
+    if (isNaN(blockNumberNum) || blockNumberNum < 0) {
+      throw new Error(`Invalid block number: ${blockNumber}. Block numbers must be positive numbers.`);
+    }
+
+    console.log(`Parsed block number ${blockNumber} from transaction ID: ${transactionId}`);
+    return blockNumber;
+  } catch (error) {
+    console.error(`Error parsing block number from transaction ID ${transactionId}:`, error);
+    throw error;
+  }
+};
+
+// Get block numbers from array of SubgraphTransaction IDs by parsing the ID format (no RPC call)
+export const getBlockNumbersFromTransactionIds = (transactionIds: string[]): Map<string, string> => {
+  try {
+    console.log(`Parsing block numbers for ${transactionIds.length} transaction IDs`);
+
+    const blockNumbers = new Map<string, string>();
+
+    // Process each transaction ID to extract block number
+    for (const transactionId of transactionIds) {
+      try {
+        // Parse block number from SubgraphTransaction.id format: blockNumber:...
+        // Example: 142018170:44:0x9ed5028a788b2a90a510f1b1ecac9a9b853911159c4c3dc4a4fce4b82642b3d3:150:4
+        const idParts = transactionId.split(':');
+        if (idParts.length === 0) {
+          console.warn(`Invalid transaction ID format: ${transactionId}`);
+          continue;
+        }
+
+        const blockNumber = idParts[0];
+        
+        // Validate block number is a valid number
+        const blockNumberNum = parseInt(blockNumber);
+        if (isNaN(blockNumberNum) || blockNumberNum < 0) {
+          console.warn(`Invalid block number: ${blockNumber} for transaction ID: ${transactionId}`);
+          continue;
+        }
+
+        // Use the transaction ID as the key
+        blockNumbers.set(transactionId, blockNumber);
+        console.log(`Parsed block ${blockNumber} from transaction ID: ${transactionId}`);
+      } catch (error) {
+        console.warn(`Error parsing block number from transaction ID ${transactionId}:`, error);
+        continue;
+      }
+    }
+
+    console.log(`Successfully parsed ${blockNumbers.size} block numbers out of ${transactionIds.length} transaction IDs`);
+    return blockNumbers;
+  } catch (error) {
+    console.error(`Error parsing block numbers from transaction IDs:`, error);
+    throw error;
+  }
+};
+
 // Get block number from transaction hash using RPC (single request)
 export const getBlockNumberFromTxHash = async (txHash: string, chainId: number): Promise<string> => {
   try {
@@ -313,153 +383,6 @@ export const queryUserTransactions = async (user: string, timestampFilter?: numb
     console.error('Error querying subgraph:', error);
     throw error;
   }
-};
-
-// Get unique assets from transactions and create token configs
-export const createTokenConfigsFromTransactions = async (
-  transactions: SubgraphTransaction[],
-  userAddress: string,
-  currentChainId?: number
-): Promise<TokenConfig[]> => {
-  // Get unique assets from transactions
-  const uniqueAssets = new Map<string, SubgraphTransaction[]>();
-
-  transactions.forEach(tx => {
-    const asset = tx.reserve.underlyingAsset.toLowerCase();
-    if (!uniqueAssets.has(asset)) {
-      uniqueAssets.set(asset, []);
-    }
-    uniqueAssets.get(asset)!.push(tx);
-  });
-
-  // Collect all transaction hashes for batch processing
-  const allTxHashes: string[] = [];
-  const txHashToAsset = new Map<string, string>();
-  
-  for (const [asset, assetTxs] of uniqueAssets) {
-    const latestTx = assetTxs[assetTxs.length - 1];
-    allTxHashes.push(latestTx.txHash);
-    txHashToAsset.set(latestTx.txHash, asset);
-  }
-
-  // Batch fetch block numbers for all transactions
-  const blockNumbersMap = new Map<string, string>();
-  if (allTxHashes.length > 0) {
-    try {
-      // Group by chain ID for batch processing
-      const txHashesByChain = new Map<number, string[]>();
-      for (const txHash of allTxHashes) {
-        const asset = txHashToAsset.get(txHash)!;
-        const chainId = await getChainIdFromTransaction(txHash, asset);
-        if (!txHashesByChain.has(chainId)) {
-          txHashesByChain.set(chainId, []);
-        }
-        txHashesByChain.get(chainId)!.push(txHash);
-      }
-
-      // Batch fetch for each chain
-      for (const [chainId, txHashes] of txHashesByChain) {
-        try {
-          console.log(`Batch fetching ${txHashes.length} block numbers for chain ${chainId}`);
-          const chainBlockNumbers = await getBlockNumbersFromTxHashes(txHashes, chainId);
-          for (const [txHash, blockNumber] of chainBlockNumbers) {
-            blockNumbersMap.set(txHash, blockNumber);
-          }
-        } catch (error) {
-          console.warn(`Error batch fetching block numbers for chain ${chainId}:`, error);
-          // Fallback to individual requests
-          for (const txHash of txHashes) {
-            try {
-              const blockNumber = await getBlockNumberFromTxHash(txHash, chainId);
-              blockNumbersMap.set(txHash, blockNumber);
-            } catch (individualError) {
-              console.warn(`Could not get block number for tx ${txHash}:`, individualError);
-              blockNumbersMap.set(txHash, 'latest');
-            }
-          }
-        }
-      }
-    } catch (error) {
-      console.warn(`Error in batch processing, falling back to individual requests:`, error);
-    }
-  }
-
-  const tokenConfigs: TokenConfig[] = [];
-
-  // Process each unique asset
-  for (const [asset, assetTxs] of uniqueAssets) {
-    // Get the most recent transaction for this asset
-    const latestTx = assetTxs[assetTxs.length - 1];
-    
-    // Determine chain ID based on the asset and transaction
-    const chainId = await getChainIdFromTransaction(latestTx.txHash, asset);
-    
-    console.log(`Processing asset ${asset}: determined chain ${chainId}, current chain: ${currentChainId}`);
-    
-    // Filter by current chain if specified
-    if (currentChainId && chainId !== currentChainId) {
-      console.log(`Skipping asset ${asset} on chain ${chainId} - not current chain ${currentChainId}`);
-      continue;
-    }
-    
-    try {
-      // Get block number from batch results or fallback
-      const blockNumber = blockNumbersMap.get(latestTx.txHash) || await getBlockNumberFromTxHash(latestTx.txHash, chainId);
-      
-      // Calculate total borrow amount (without subtracting repays)
-      const totalBorrowAmount = calculateTotalBorrowAmount(assetTxs);
-      
-      // Validate all values before creating token config
-      if (totalBorrowAmount < 0n) {
-        console.warn(`Negative balance detected for asset ${asset}, setting to 0`);
-      }
-      
-      if (blockNumber && blockNumber !== '0') {
-        tokenConfigs.push({
-          underlingTokenAddress: asset,
-          aTokenAddress: asset, // Default to same address
-          chainId: chainId.toString(),
-          blockNumber: blockNumber,
-          balance: totalBorrowAmount.toString(),
-          tokenType: 0 // Default to ARESERVE for legacy compatibility
-        });
-      } else {
-        console.warn(`Invalid block number for asset ${asset}, skipping`);
-      }
-      
-      console.log(`Created config for asset ${asset}:`, {
-        chainId,
-        blockNumber,
-        balance: totalBorrowAmount.toString()
-      });
-    } catch (error) {
-      console.error(`Error processing asset ${asset}:`, error);
-      // Continue with other assets even if one fails
-    }
-  }
-
-  // const tokenConfigs: TokenConfig[] = [];
-  
-  // for (const tx of transactions) {
-  //   try {
-  //     // get block number
-  //     const blockNumber = await getBlockNumberFromTxHash(tx.txHash, 11155420);
-  //     if (blockNumber) {
-  //       tokenConfigs.push({
-  //         addr: tx.tokenAddress,
-  //         chainId: '11155420',  
-  //         blockNumber: blockNumber,
-  //         balance: 0n.toString()
-  //       });
-  //     } else {
-  //       console.warn(`Invalid block number for asset ${tx.tokenAddress}, skipping`);
-  //     }
-  //   } catch (error) {
-  //     console.error(`Error processing transaction ${tx.txHash}:`, error);
-  //   }
-  // }
-
-  return tokenConfigs;
 };
 
 // Helper function to determine chain ID for an asset
@@ -724,29 +647,7 @@ export const getSupplyBorrowDataForUser = async (userAddress: string, currentCha
   }
 };
 
-// Main function to get token configs for a user
-export const getTokenConfigsForUser = async (userAddress: string, currentChainId?: number): Promise<TokenConfig[]> => {
-  try {
-    console.log(`Fetching token configs for user: ${userAddress}`);
-    
-    // Query subgraph for user transactions
-    const transactions = await queryUserTransactions(userAddress);
-    
-    if (transactions.length === 0) {
-      console.log('No transactions found for user');
-      return [];
-    }
-    
-    // Create token configs from transactions
-    const tokenConfigs = await createTokenConfigsFromTransactions(transactions, userAddress, currentChainId);
-    
-    console.log(`Created ${tokenConfigs.length} token configs`);
-    return tokenConfigs;
-  } catch (error) {
-    console.error('Error getting token configs for user:', error);
-    throw error;
-  }
-};
+
 
 // New function to get TokenConfig structures for a user (matching smart contract structure)
 export const getTokenConfigsForUserNew = async (userAddress: string, currentChainId?: number): Promise<TokenConfig[]> => {
@@ -775,26 +676,26 @@ export const getTokenConfigsForUserNew = async (userAddress: string, currentChai
     const blockNumbersMap = new Map<string, string>();
     for (const [chainId, chainTransactions] of transactionsByChain) {
       try {
-        const txHashes = chainTransactions.map(tx => tx.txHash);
-        console.log(`Batch fetching ${txHashes.length} block numbers for chain ${chainId}`);
-        const chainBlockNumbers = await getBlockNumbersFromTxHashes(txHashes, chainId);
+         const transactionIds = chainTransactions.map(tx => tx.id);
+         console.log(`Batch parsing ${transactionIds.length} block numbers for chain ${chainId}`);
+         const chainBlockNumbers = await getBlockNumbersFromTransactionIds(transactionIds);
         
-        // Merge into main map
-        for (const [txHash, blockNumber] of chainBlockNumbers) {
-          blockNumbersMap.set(txHash, blockNumber);
-        }
+         // Merge into main map
+         for (const [transactionId, blockNumber] of chainBlockNumbers) {
+           blockNumbersMap.set(transactionId, blockNumber);
+         }
       } catch (error) {
-        console.warn(`Error batch fetching block numbers for chain ${chainId}:`, error);
-        // Fallback to individual requests for this chain
-        for (const tx of chainTransactions) {
-          try {
-            const blockNumber = await getBlockNumberFromTxHash(tx.txHash, chainId);
-            blockNumbersMap.set(tx.txHash, blockNumber);
-          } catch (individualError) {
-            console.warn(`Could not get block number for tx ${tx.txHash}:`, individualError);
-            blockNumbersMap.set(tx.txHash, 'latest'); // Fallback
-          }
-        }
+         console.warn(`Error batch parsing block numbers for chain ${chainId}:`, error);
+         // Fallback to individual parsing for this chain
+         for (const tx of chainTransactions) {
+           try {
+             const blockNumber = getBlockNumberFromTransactionId(tx.id);
+             blockNumbersMap.set(tx.id, blockNumber);
+           } catch (individualError) {
+             console.warn(`Could not parse block number for tx ${tx.id}:`, individualError);
+             blockNumbersMap.set(tx.id, '0'); // Fallback to 0 if parsing fails
+           }
+         }
       }
     }
     
@@ -805,8 +706,8 @@ export const getTokenConfigsForUserNew = async (userAddress: string, currentChai
       console.log(`Processing transaction: ${tx.action} - ${tx.amount} (tx: ${tx.txHash.slice(0, 10)}...)`);
       
       // Get block number from batch results
-      const blockNumber = blockNumbersMap.get(tx.txHash) || 'latest';
-      console.log(`Block number from tx ${tx.txHash}: ${blockNumber}`);
+      const blockNumber = blockNumbersMap.get(tx.id) || '0';
+      console.log(`Block number from tx ${tx.id}: ${blockNumber}`);
       
       // Determine token type based on action
       let tokenType: number;
@@ -1093,24 +994,26 @@ export const getTokenConfigsForUnclaimedData = async (userAddress: string, curre
     const blockNumbersMap = new Map<string, string>();
     for (const [chainId, chainTransactions] of transactionsByChain) {
       try {
-        const txHashes = chainTransactions.map(tx => tx.txHash);
+        // const txHashes = chainTransactions.map(tx => tx.txHash);
+        const txHashes = chainTransactions.map(tx => tx.id);
         console.log(`Batch fetching ${txHashes.length} block numbers for unclaimed data on chain ${chainId}`);
-        const chainBlockNumbers = await getBlockNumbersFromTxHashes(txHashes, chainId);
+        // const chainBlockNumbers = await getBlockNumbersFromTxHashes(txHashes, chainId);
+        const chainBlockNumbers = await getBlockNumbersFromTransactionIds(txHashes);
         
-        // Merge into main map
-        for (const [txHash, blockNumber] of chainBlockNumbers) {
-          blockNumbersMap.set(txHash, blockNumber);
-        }
+         // Merge into main map
+         for (const [transactionId, blockNumber] of chainBlockNumbers) {
+           blockNumbersMap.set(transactionId, blockNumber);
+         }
       } catch (error) {
-        console.warn(`Error batch fetching block numbers for unclaimed data on chain ${chainId}:`, error);
-        // Fallback to individual requests for this chain
+        console.warn(`Error batch parsing block numbers for unclaimed data on chain ${chainId}:`, error);
+        // Fallback to individual parsing for this chain
         for (const tx of chainTransactions) {
           try {
-            const blockNumber = await getBlockNumberFromTxHash(tx.txHash, chainId);
-            blockNumbersMap.set(tx.txHash, blockNumber);
+            const blockNumber = getBlockNumberFromTransactionId(tx.id);
+            blockNumbersMap.set(tx.id, blockNumber);
           } catch (individualError) {
-            console.warn(`Could not get block number for unclaimed tx ${tx.txHash}:`, individualError);
-            blockNumbersMap.set(tx.txHash, 'latest'); // Fallback
+            console.warn(`Could not parse block number for unclaimed tx ${tx.id}:`, individualError);
+            blockNumbersMap.set(tx.id, '0'); // Fallback to 0 if parsing fails
           }
         }
       }
@@ -1123,8 +1026,8 @@ export const getTokenConfigsForUnclaimedData = async (userAddress: string, curre
       console.log(`Processing unclaimed transaction: ${tx.action} - ${tx.amount} (tx: ${tx.txHash.slice(0, 10)}...)`);
       
       // Get block number from batch results
-      const blockNumber = blockNumbersMap.get(tx.txHash) || 'latest';
-      console.log(`Block number from unclaimed tx ${tx.txHash}: ${blockNumber}`);
+      const blockNumber = blockNumbersMap.get(tx.id) || '0';
+      console.log(`Block number from unclaimed tx ${tx.id}: ${blockNumber}`);
       
       // Determine token type based on action
       let tokenType: number;
