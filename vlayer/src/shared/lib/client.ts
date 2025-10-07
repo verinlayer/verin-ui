@@ -64,6 +64,9 @@ export interface SubgraphTransaction {
     aToken?: {
       id: string;
     };
+    vToken?: {
+      id: string;
+    };
   };
   tokenAddress: string;
   // Add any chain-specific fields if available in the subgraph
@@ -85,13 +88,13 @@ export interface SupplyBorrowData {
 }
 
 const createQuery = (user: string, timestampFilter?: number) => {
-    const timestampCondition = timestampFilter ? `{timestamp_gt: ${timestampFilter}}` : `{timestamp_lt: 1758490256}`;
+    const timestampCondition = timestampFilter ? `{timestamp_gt: ${timestampFilter}}` : `{timestamp_lt: 1759460262}`;
     
     return `query {
   userTransactions(
-    first: 2
+    first: 10
     orderBy: timestamp
-    orderDirection: desc
+    orderDirection: asc
     where: {and: 
       [{user: "${user.toLowerCase()}"},
       {or: [{action: Borrow},{action: Repay},{action: Supply}]},
@@ -112,6 +115,9 @@ const createQuery = (user: string, timestampFilter?: number) => {
         aToken {
           id
         }
+        vToken {
+          id
+        }
       }
     }
     ... on Repay {
@@ -120,6 +126,9 @@ const createQuery = (user: string, timestampFilter?: number) => {
       reserve {
         underlyingAsset
         aToken {
+          id
+        }
+        vToken {
           id
         }
       }
@@ -267,7 +276,8 @@ export const queryUserTransactions = async (user: string, timestampFilter?: numb
     console.log('🔍 Querying subgraph for user:', user);
     console.log('📡 API URL:', APIURL);
     
-    const query = createQuery('0x05e14e44e3b296f12b21790cde834bce5be5b8e0', timestampFilter);
+    // const query = createQuery('0x05e14e44e3b296f12b21790cde834bce5be5b8e0', timestampFilter);
+    const query = createQuery(user, timestampFilter);
     console.log('📝 GraphQL Query:', query);
     
     const result = await fetch(APIURL, {
@@ -1035,6 +1045,136 @@ export const getUnclaimedSupplyBorrowData = async (userAddress: string, currentC
     return supplyBorrowData;
   } catch (error) {
     console.error('Error getting unclaimed supply/borrow data for user:', error);
+    throw error;
+  }
+};
+
+export const getTokenConfigsForUnclaimedData = async (userAddress: string, currentChainId?: number, verifierAddress?: string): Promise<TokenConfig[]> => {
+  try {
+    console.log(`Fetching TokenConfig structures for unclaimed supply/borrow data for user: ${userAddress}`);
+    
+    let timestampFilter: number | undefined;
+    
+    // If we have a verifier address and chain ID, get the latest claimed block timestamp
+    if (verifierAddress && currentChainId) {
+      try {
+        const userInfo = await getUserInfoFromContract(userAddress, currentChainId, verifierAddress);
+        if (userInfo && userInfo.latestBlock > 0n) {
+          const blockTimestamp = await getBlockTimestamp(userInfo.latestBlock, currentChainId);
+          if (blockTimestamp > 0) {
+            timestampFilter = blockTimestamp;
+            console.log(`Using timestamp filter for unclaimed data: ${timestampFilter} (from block ${userInfo.latestBlock})`);
+          }
+        }
+      } catch (error) {
+        console.warn('Could not get latest claimed block timestamp for unclaimed data, using all data:', error);
+      }
+    }
+    
+    // Query subgraph for user transactions with timestamp filter (only unclaimed data)
+    const transactions = await queryUserTransactions(userAddress, timestampFilter);
+    
+    if (transactions.length === 0) {
+      console.log('No unclaimed transactions found for user');
+      return [];
+    }
+    
+    // Group transactions by chain ID for batch processing
+    const transactionsByChain = new Map<number, SubgraphTransaction[]>();
+    transactions.forEach(tx => {
+      const chainId = parseInt(tx.chainId || currentChainId?.toString() || '1');
+      if (!transactionsByChain.has(chainId)) {
+        transactionsByChain.set(chainId, []);
+      }
+      transactionsByChain.get(chainId)!.push(tx);
+    });
+    
+    // Batch fetch block numbers for each chain
+    const blockNumbersMap = new Map<string, string>();
+    for (const [chainId, chainTransactions] of transactionsByChain) {
+      try {
+        const txHashes = chainTransactions.map(tx => tx.txHash);
+        console.log(`Batch fetching ${txHashes.length} block numbers for unclaimed data on chain ${chainId}`);
+        const chainBlockNumbers = await getBlockNumbersFromTxHashes(txHashes, chainId);
+        
+        // Merge into main map
+        for (const [txHash, blockNumber] of chainBlockNumbers) {
+          blockNumbersMap.set(txHash, blockNumber);
+        }
+      } catch (error) {
+        console.warn(`Error batch fetching block numbers for unclaimed data on chain ${chainId}:`, error);
+        // Fallback to individual requests for this chain
+        for (const tx of chainTransactions) {
+          try {
+            const blockNumber = await getBlockNumberFromTxHash(tx.txHash, chainId);
+            blockNumbersMap.set(tx.txHash, blockNumber);
+          } catch (individualError) {
+            console.warn(`Could not get block number for unclaimed tx ${tx.txHash}:`, individualError);
+            blockNumbersMap.set(tx.txHash, 'latest'); // Fallback
+          }
+        }
+      }
+    }
+    
+    const tokenConfigs: TokenConfig[] = [];
+    
+    // Process each transaction individually (matching getTokenConfigsForUserNew approach)
+    for (const tx of transactions) {
+      console.log(`Processing unclaimed transaction: ${tx.action} - ${tx.amount} (tx: ${tx.txHash.slice(0, 10)}...)`);
+      
+      // Get block number from batch results
+      const blockNumber = blockNumbersMap.get(tx.txHash) || 'latest';
+      console.log(`Block number from unclaimed tx ${tx.txHash}: ${blockNumber}`);
+      
+      // Determine token type based on action
+      let tokenType: number;
+      switch (tx.action) {
+        case 'Supply':
+          tokenType = TokenType.ARESERVE;
+          break;
+        case 'Borrow':
+          tokenType = TokenType.AVARIABLEDEBT;
+          break;
+        case 'Repay':
+          tokenType = TokenType.AVARIABLEDEBT; // Repay affects variable debt
+          break;
+        default:
+          console.warn(`Unknown action: ${tx.action}, skipping`);
+          continue;
+      }
+      
+      // Create TokenConfig entry with balance always 0 (matching getTokenConfigsForUserNew)
+      let aTokenAddress: string;
+      if (tx.action === 'Borrow' || tx.action === 'Repay') {
+        aTokenAddress = tx.reserve.vToken?.id || tx.reserve.underlyingAsset;
+      } else if (tx.action === 'Supply') {
+        aTokenAddress = tx.reserve.aToken?.id || tx.reserve.underlyingAsset;
+      } else {
+        // Fallback for any other action types
+        aTokenAddress = tx.reserve.aToken?.id || tx.reserve.underlyingAsset;
+      }
+      console.log(`aToken data for unclaimed:`, {
+        underlyingAsset: tx.reserve.underlyingAsset,
+        aTokenId: tx.reserve.aToken?.id,
+        finalATokenAddress: aTokenAddress
+      });
+      
+      tokenConfigs.push({
+        underlingTokenAddress: tx.reserve.underlyingAsset,
+        aTokenAddress: aTokenAddress, // Use aToken.id from subgraph
+        chainId: tx.chainId || currentChainId?.toString() || '1',
+        blockNumber: blockNumber,
+        balance: '0', // Always 0 as in getTokenConfigsForUserNew
+        tokenType: tokenType,
+      });
+      
+      console.log(`Added unclaimed ${tx.action} token: ${tx.amount} ${tx.reserve.underlyingAsset} (type: ${tokenType})`);
+    }
+    
+    console.log(`Created ${tokenConfigs.length} TokenConfig structures for unclaimed data`);
+    return tokenConfigs;
+  } catch (error) {
+    console.error('Error getting TokenConfig structures for unclaimed data:', error);
     throw error;
   }
 };

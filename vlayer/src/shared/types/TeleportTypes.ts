@@ -30,16 +30,17 @@ export const getTokenTypeName = (tokenType: number, underlyingTokenAddress?: str
     
     // If we found a valid symbol, return it with the token type context
     if (symbol && symbol !== 'UNKNOWN') {
-      switch (tokenType) {
-        case TokenType.ARESERVE:
-          return `${symbol} Supply`;
-        case TokenType.AVARIABLEDEBT:
-          return `${symbol} Debt`;
-        case TokenType.ASTABLEDEBT:
-          return `${symbol} Stable Debt`;
-        default:
-          return symbol;
-      }
+      // switch (tokenType) {
+      //   case TokenType.ARESERVE:
+      //     return `${symbol} Supply`;
+      //   case TokenType.AVARIABLEDEBT:
+      //     return `${symbol} Debt`;
+      //   case TokenType.ASTABLEDEBT:
+      //     return `${symbol} Stable Debt`;
+      //   default:
+      //     return symbol;
+      // }
+      return symbol;
     }
   }
   

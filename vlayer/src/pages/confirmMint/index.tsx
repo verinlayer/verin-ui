@@ -8,7 +8,7 @@ const verifierSpec = { abi: verifierAbi.abi, bytecode: verifierAbi.bytecode };
 import { useLocalStorage } from "usehooks-ts";
 import { useAccount, useBalance, useWriteContract } from "wagmi";
 import { useNavigate } from "react-router";
-import { ConnectWallet } from "../../shared/components/ConnectWallet";
+import { ConnectWalletButton } from "../../shared/components/ConnectWalletButton";
 import { parseProverResult, getTokensToProve } from "../../shared/lib/utils";
 import { AlreadyMintedError } from "../../shared/errors/appErrors";
 import { Chain, optimismSepolia } from "viem/chains";
@@ -27,6 +27,7 @@ export const ConfirmMintPage = () => {
     null,
   );
   const [isLoading, setIsLoading] = useState(false);
+  const [userCancelled, setUserCancelled] = useState(false);
   const [proverResult] = useLocalStorage("proverResult", "");
 
   useEffect(() => {
@@ -46,8 +47,15 @@ export const ConfirmMintPage = () => {
     if (mintError) {
       if (mintError.message.includes("already been claimed")) {
         throw new AlreadyMintedError();
-      } else if (mintError.message.includes("User rejected the request")) {
+      } else if (mintError.message.includes("User rejected the request") || 
+                 mintError.message.includes("User rejected") ||
+                 mintError.message.includes("rejected") ||
+                 mintError.message.includes("cancelled") ||
+                 mintError.message.includes("denied")) {
         setIsLoading(false);
+        setUserCancelled(true);
+        // Don't throw error for user rejection - just stop loading
+        console.log('Transaction cancelled by user');
       } else {
         throw new Error(mintError.message);
       }
@@ -58,6 +66,7 @@ export const ConfirmMintPage = () => {
     e.preventDefault();
     const [proof, owner, tokens] = parseProverResult(proverResult);
     setIsLoading(true);
+    setUserCancelled(false);
     
     // Get verifier address from config based on current chain
     let verifierAddress: `0x${string}` = import.meta.env.VITE_VERIFIER_ADDRESS as `0x${string}`; // fallback to env
@@ -95,11 +104,12 @@ export const ConfirmMintPage = () => {
       args: [proof, owner, tokens],
     });
   };
+
   // estimated price for Sepolia verification tx
   const enoughBalance = balance?.value && balance.value > 3000000000000000n;
 
   if (!holderAddress) {
-    return <ConnectWallet />;
+    return <ConnectWalletButton />;
   }
 
   const currentTokens = getTokensToProve();
@@ -109,6 +119,21 @@ export const ConfirmMintPage = () => {
       <p className="desc w-full text-center">
         DeFi activity across {currentTokens.length} token(s) on {new Set(currentTokens.map(t => t.chainId)).size} chain(s)
       </p>
+      
+      {userCancelled && (
+        <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+          <div className="flex items-center">
+            <svg className="w-5 h-5 text-yellow-600 mr-2" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+            </svg>
+            <div>
+              <div className="text-sm font-medium text-yellow-800">Transaction Cancelled</div>
+              <div className="text-xs text-yellow-600">You rejected the transaction in your wallet. You can try again when ready.</div>
+            </div>
+          </div>
+        </div>
+      )}
+      
       <div className="mb-4 w-full block">
         <label
           htmlFor="holderAddress"

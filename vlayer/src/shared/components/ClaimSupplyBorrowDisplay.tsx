@@ -215,7 +215,8 @@ export const ClaimSupplyBorrowDisplay: React.FC<ClaimSupplyBorrowDisplayProps> =
           address: addresses.verifier as `0x${string}`,
           abi: VERIFIER_ABI,
           functionName: 'usersInfo',
-          args: ['0x05e14e44e3b296f12b21790cde834bce5be5b8e0' as `0x${string}`, 0] // 0 = Protocol.AAVE
+          // args: ['0x05e14e44e3b296f12b21790cde834bce5be5b8e0' as `0x${string}`, 0] // 0 = Protocol.AAVE
+          args: [address as `0x${string}`, 0] // 0 = Protocol.AAVE
         });
 
         // Convert the result to UserInfo interface

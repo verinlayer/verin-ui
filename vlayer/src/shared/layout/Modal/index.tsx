@@ -11,6 +11,7 @@ import { StepErrorBoundaryComponent } from "../../errors/ErrorBoundary";
 import { useCurrentStep } from "../../hooks/useCurrentStep";
 import { Navigation } from "../Navigation";
 import { motionConfig } from "./Modal.animations";
+import { useAccount } from "wagmi";
 
 export const modalContext = createContext({
   showModal: () => {},
@@ -32,6 +33,7 @@ export const Modal = ({ children }: { children: React.ReactNode }) => {
     showModal();
   }, [showModal]);
   const { currentStep } = useCurrentStep();
+  const { isConnected } = useAccount();
 
   const [descClass, setDescClass] = useState("");
   const [description, setDescription] = useState("");
@@ -53,7 +55,7 @@ export const Modal = ({ children }: { children: React.ReactNode }) => {
           {...motionConfig}
         >
           <Navigation />
-          <div className="pt-20 w-full">
+          <div className={`${isConnected ? 'pt-10' : 'pt-4'} w-full`}>
             <ErrorBoundary FallbackComponent={StepErrorBoundaryComponent}>
             <AnimatePresence>
               {currentStep?.headerIcon && (
