@@ -55,6 +55,8 @@ contract UniswapV2PriceOracle is IUniswapV2PriceOracle {
     /// @notice Address of the Registry contract
     address public immutable REGISTRY;
 
+    uint256 public immutable EXP = 1e18;
+
     // ============ CONSTRUCTOR ============
 
     /**
@@ -121,10 +123,10 @@ contract UniswapV2PriceOracle is IUniswapV2PriceOracle {
         // Amount and reserves are already in their respective token decimals
         if (isToken0) {
             // Price of token0 in terms of token1
-            price = (amount * uint256(reserve1)) / uint256(reserve0);
+            price = (amount * uint256(reserve1)) * EXP / uint256(reserve0);
         } else {
             // Price of token1 in terms of token0
-            price = (amount * uint256(reserve0)) / uint256(reserve1);
+            price = (amount * uint256(reserve0)) * EXP / uint256(reserve1);
         }
 
         return (price, isToken0);

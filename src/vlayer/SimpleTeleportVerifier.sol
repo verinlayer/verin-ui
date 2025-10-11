@@ -8,7 +8,8 @@ import {IRegistry} from "./interfaces/IRegistry.sol";
 import {CreditModel} from "./CreditModel.sol";
 import {IVerifier} from "./interfaces/IVerifier.sol";
 import {IUniswapV2PriceOracle} from "./interfaces/IUniswapV2PriceOracle.sol";
-
+import {Ownable2Step} from "openzeppelin-contracts/access/Ownable2Step.sol";
+import {Ownable} from "openzeppelin-contracts/access/Ownable.sol";
 
 import {Proof} from "vlayer-0.1.0/Proof.sol";
 import {Verifier} from "vlayer-0.1.0/Verifier.sol";
@@ -39,7 +40,7 @@ import {IAavePool} from "./interfaces/IAavePool.sol";
  *      - Prover contract for data verification
  *      - Event system for external monitoring
  */
-contract SimpleTeleportVerifier is Verifier, IVerifier {
+contract SimpleTeleportVerifier is Verifier, IVerifier, Ownable2Step {
 
     // ============ STATE VARIABLES ============
 
@@ -62,6 +63,9 @@ contract SimpleTeleportVerifier is Verifier, IVerifier {
     // user address => protocol => aToken address => block number => amount: to track if a token at a block number has been proven or not
     mapping(address => mapping(Protocol => mapping(address => mapping(uint256 => bool)))) isExisted;
 
+    // user address => aToken address => latest balance
+    mapping(address => mapping(address => uint256)) private _latestBalance;
+
     // ============ EVENTS ============
 
     // Events are defined in IVerifier interface
@@ -76,8 +80,15 @@ contract SimpleTeleportVerifier is Verifier, IVerifier {
      * @param _registry Registry contract containing protocol addresses and configurations
      * @param _creditScoreCalculator Address of the CreditModel contract for score calculations
      * @param _priceOracle Address of the UniswapV2PriceOracle contract for price conversions
+     * @param initialOwner Address of the initial owner who can update the price oracle
      */
-    constructor(address _prover, Registry _registry, address _creditScoreCalculator, address _priceOracle) {
+    constructor(
+        address _prover,
+        Registry _registry,
+        address _creditScoreCalculator,
+        address _priceOracle,
+        address initialOwner
+    ) Ownable(initialOwner) {
         prover = _prover;
         registry = _registry;
         creditScoreCalculator = CreditModel(_creditScoreCalculator);
@@ -134,13 +145,14 @@ contract SimpleTeleportVerifier is Verifier, IVerifier {
                     uint256 borrowAmount;
                     uint256 repayAmount;
                     
-                    if(userInfo.latestBalance <= tokens[i].balance) { // borrow
-                        borrowAmount = tokens[i].balance - userInfo.latestBalance;
+                    // if(userInfo.latestBalance <= tokens[i].balance) { // borrow
+                    if (_latestBalance[claimer][tokens[i].aTokenAddress] <= tokens[i].balance) { // borrow
+                        borrowAmount = tokens[i].balance - _latestBalance[claimer][tokens[i].aTokenAddress];
                         
                         // Convert to USD if not USDC or USDT
                         if(tokens[i].underlingTokenAddress != chainAddresses.usdc && tokens[i].underlingTokenAddress != chainAddresses.usdt) {
-                            (uint256 usdAmount,) = priceOracle.getPriceInUSDC(tokens[i].underlingTokenAddress, borrowAmount);
-                            borrowAmount = usdAmount;
+                            (uint256 usdAmount,) = priceOracle.getPriceInUSDT(tokens[i].underlingTokenAddress, borrowAmount);
+                            borrowAmount = usdAmount / priceOracle.EXP();
                         }
                         
                         userInfo.borrowedAmount += borrowAmount;
@@ -150,12 +162,12 @@ contract SimpleTeleportVerifier is Verifier, IVerifier {
                         emit UserBorrowed(claimer, Protocol.AAVE, borrowAmount, userInfo.borrowedAmount, userInfo.borrowTimes);
 
                     } else { // repay
-                        repayAmount = userInfo.latestBalance - tokens[i].balance;
+                        repayAmount = _latestBalance[claimer][tokens[i].aTokenAddress] - tokens[i].balance;
                         
                         // Convert to USD if not USDC or USDT
                         if(tokens[i].underlingTokenAddress != chainAddresses.usdc && tokens[i].underlingTokenAddress != chainAddresses.usdt) {
-                            (uint256 usdAmount,) = priceOracle.getPriceInUSDC(tokens[i].underlingTokenAddress, repayAmount);
-                            repayAmount = usdAmount;
+                            (uint256 usdAmount,) = priceOracle.getPriceInUSDT(tokens[i].underlingTokenAddress, repayAmount);
+                            repayAmount = usdAmount / priceOracle.EXP();
                         }
                         
                         userInfo.repaidAmount += repayAmount;
@@ -165,7 +177,7 @@ contract SimpleTeleportVerifier is Verifier, IVerifier {
                         emit UserRepaid(claimer, Protocol.AAVE, repayAmount, userInfo.repaidAmount, userInfo.repayTimes);
                     }
 
-                    userInfo.latestBalance = tokens[i].balance;
+                    _latestBalance[claimer][tokens[i].aTokenAddress] = tokens[i].balance;
 
                 } else if(tokens[i].tokenType == TokenType.ARESERVE) { // if supply assets, only increase the supplied amount, will consider withdraw in the future
                     require(IAavePool(registry.AAVE_POOL_ADDRESS()).getReserveAToken(tokens[i].underlingTokenAddress) == tokens[i].aTokenAddress, "Invalid Aave token");
@@ -177,8 +189,8 @@ contract SimpleTeleportVerifier is Verifier, IVerifier {
                     
                     // Convert to USD if not USDC or USDT
                     if(tokens[i].underlingTokenAddress != chainAddresses.usdc && tokens[i].underlingTokenAddress != chainAddresses.usdt) {
-                        (uint256 usdAmount,) = priceOracle.getPriceInUSDC(tokens[i].underlingTokenAddress, supplyAmount);
-                        supplyAmount = usdAmount;
+                        (uint256 usdAmount,) = priceOracle.getPriceInUSDT(tokens[i].underlingTokenAddress, supplyAmount);
+                        supplyAmount = usdAmount / priceOracle.EXP();
                     }
                     
                     userInfo.suppliedAmount += supplyAmount;
@@ -251,6 +263,18 @@ contract SimpleTeleportVerifier is Verifier, IVerifier {
     function recordLiquidation(address user, Protocol protocol) external {
         UserInfo storage userInfo = _usersInfo[user][protocol];
         userInfo.liquidations++;
+    }
+
+    // ============ ADMIN FUNCTIONS ============
+
+    /// @inheritdoc IVerifier
+    function setPriceOracle(address newPriceOracle) external onlyOwner {
+        require(newPriceOracle != address(0), "Price oracle cannot be zero address");
+        
+        address oldPriceOracle = address(priceOracle);
+        priceOracle = IUniswapV2PriceOracle(newPriceOracle);
+        
+        emit IVerifier.PriceOracleUpdated(oldPriceOracle, newPriceOracle);
     }
 
     // ============ VIEW FUNCTIONS ============

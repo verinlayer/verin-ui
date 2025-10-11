@@ -7,6 +7,7 @@ import {SimpleTeleportVerifier} from "../src/vlayer/SimpleTeleportVerifier.sol";
 import {Registry} from "../src/vlayer/constants/Registry.sol";
 import {CreditModel} from "../src/vlayer/CreditModel.sol";
 import {UniswapV2PriceOracle} from "../src/vlayer/UniswapV2PriceOracle.sol";
+import {ERC1967Proxy} from "openzeppelin-contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 /**
  * @title DeployTeleportAdvanced
@@ -85,10 +86,17 @@ contract DeployTeleportAdvanced is Script {
     }
 
     function _deployContracts(DeploymentConfig memory config) internal {
-        // Step 1: Deploy Registry
+        // Step 1: Deploy Registry (using proxy pattern)
         console.log("\n2. Deploying Registry...");
-        registry = new Registry(config.admin);
-        console.log("   [OK] Registry deployed at:", address(registry));
+        Registry registryImpl = new Registry();
+        console.log("   [OK] Registry implementation deployed at:", address(registryImpl));
+        
+        ERC1967Proxy registryProxy = new ERC1967Proxy(
+            address(registryImpl),
+            abi.encodeWithSelector(Registry.initialize.selector, config.admin)
+        );
+        registry = Registry(address(registryProxy));
+        console.log("   [OK] Registry proxy deployed at:", address(registry));
         console.log("   [OK] Admin role granted to:", config.admin);
 
         // Step 2: Deploy SimpleTeleportProver
@@ -96,10 +104,17 @@ contract DeployTeleportAdvanced is Script {
         prover = new SimpleTeleportProver();
         console.log("   [OK] SimpleTeleportProver deployed at:", address(prover));
 
-        // Step 3: Deploy CreditModel
+        // Step 3: Deploy CreditModel (upgradeable with proxy)
         console.log("\n4. Deploying CreditModel...");
-        CreditModel creditModel = new CreditModel();
-        console.log("   [OK] CreditModel deployed at:", address(creditModel));
+        CreditModel creditModelImpl = new CreditModel();
+        console.log("   [OK] CreditModel implementation deployed at:", address(creditModelImpl));
+        
+        ERC1967Proxy creditModelProxy = new ERC1967Proxy(
+            address(creditModelImpl),
+            abi.encodeWithSelector(CreditModel.initialize.selector, config.admin)
+        );
+        CreditModel creditModel = CreditModel(address(creditModelProxy));
+        console.log("   [OK] CreditModel proxy deployed at:", address(creditModel));
 
         // Step 4: Deploy SimpleTeleportVerifier
         console.log("\n5. Deploying SimpleTeleportVerifier...");
@@ -111,7 +126,8 @@ contract DeployTeleportAdvanced is Script {
             address(prover),
             registry,
             address(creditModel),
-            address(priceOracle)
+            address(priceOracle),
+            config.admin  // initialOwner
         );
         console.log("   [OK] SimpleTeleportVerifier deployed at:", address(verifier));
     }
@@ -160,15 +176,36 @@ contract DeployTeleportAdvanced is Script {
 
         console.log("Deploying with custom admin:", admin);
 
-        // Deploy all contracts
-        registry = new Registry(admin);
+        // Deploy all contracts using proxy pattern for upgradeable ones
+        Registry registryImpl = new Registry();
+        ERC1967Proxy registryProxy = new ERC1967Proxy(
+            address(registryImpl),
+            abi.encodeWithSelector(Registry.initialize.selector, admin)
+        );
+        registry = Registry(address(registryProxy));
+        
         prover = new SimpleTeleportProver();
-        CreditModel creditModel = new CreditModel();
+        
+        // Deploy CreditModel (upgradeable with proxy)
+        CreditModel creditModelImpl = new CreditModel();
+        ERC1967Proxy creditModelProxy = new ERC1967Proxy(
+            address(creditModelImpl),
+            abi.encodeWithSelector(CreditModel.initialize.selector, admin)
+        );
+        CreditModel creditModel = CreditModel(address(creditModelProxy));
+        
         // Deploy UniswapV2PriceOracle
         address uniswapV2Factory = address(0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f); // Mainnet factory
         UniswapV2PriceOracle priceOracle = new UniswapV2PriceOracle(uniswapV2Factory, address(registry));
         
-        verifier = new SimpleTeleportVerifier(address(prover), registry, address(creditModel), address(priceOracle));
+        // Deploy SimpleTeleportVerifier
+        verifier = new SimpleTeleportVerifier(
+            address(prover),
+            registry,
+            address(creditModel),
+            address(priceOracle),
+            admin  // initialOwner
+        );
 
         vm.stopBroadcast();
 
@@ -184,8 +221,13 @@ contract DeployTeleportAdvanced is Script {
 
         vm.startBroadcast(deployerPrivateKey);
 
-        registry = new Registry(deployer);
-        console.log("Registry deployed at:", address(registry));
+        Registry registryImpl = new Registry();
+        ERC1967Proxy registryProxy = new ERC1967Proxy(
+            address(registryImpl),
+            abi.encodeWithSelector(Registry.initialize.selector, deployer)
+        );
+        registry = Registry(address(registryProxy));
+        console.log("Registry proxy deployed at:", address(registry));
 
         vm.stopBroadcast();
     }
