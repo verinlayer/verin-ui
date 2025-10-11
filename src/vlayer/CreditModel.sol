@@ -2,13 +2,79 @@
 pragma solidity ^0.8.17;
 
 import {IVerifier} from "./interfaces/IVerifier.sol";
+import {Initializable} from "openzeppelin-contracts/proxy/utils/Initializable.sol";
+import {UUPSUpgradeable} from "openzeppelin-contracts/proxy/utils/UUPSUpgradeable.sol";
 
 /// @title CreditModel
 /// @notice Gas-optimized on-chain credit score calculator (0..100) and tier mapping.
 /// @dev Designed to be pure and auditable. No external calls. Keeps math integer-based (percent * 100).
-contract CreditModel {
+/// @custom:oz-upgrades-from CreditModel
+contract CreditModel is Initializable, UUPSUpgradeable {
+    // Storage
+    address private _owner;
+
+    // Events
+    event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
+
+    // Errors
+    error OwnableUnauthorizedAccount(address account);
+    error OwnableInvalidOwner(address owner);
     // Tier enum for easy interpretation
     enum Tier { D, C, B, A }
+
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
+
+    /// @notice Initializes the contract with the specified initial owner
+    /// @dev This replaces the constructor for upgradeable contracts
+    /// @param initialOwner The address that will be set as the initial owner
+    function initialize(address initialOwner) public initializer {
+        if (initialOwner == address(0)) {
+            revert OwnableInvalidOwner(address(0));
+        }
+        _transferOwnership(initialOwner);
+    }
+
+    /// @notice Returns the address of the current owner
+    function owner() public view returns (address) {
+        return _owner;
+    }
+
+    /// @notice Throws if called by any account other than the owner
+    modifier onlyOwner() {
+        if (owner() != msg.sender) {
+            revert OwnableUnauthorizedAccount(msg.sender);
+        }
+        _;
+    }
+
+    /// @notice Transfers ownership of the contract to a new account
+    /// @param newOwner The address of the new owner
+    function transferOwnership(address newOwner) public onlyOwner {
+        if (newOwner == address(0)) {
+            revert OwnableInvalidOwner(address(0));
+        }
+        _transferOwnership(newOwner);
+    }
+
+    /// @notice Renounces ownership of the contract
+    /// @dev Leaves the contract without an owner, disabling upgrade functionality
+    function renounceOwnership() public onlyOwner {
+        _transferOwnership(address(0));
+    }
+
+    /// @dev Internal function to transfer ownership
+    function _transferOwnership(address newOwner) internal {
+        address oldOwner = _owner;
+        _owner = newOwner;
+        emit OwnershipTransferred(oldOwner, newOwner);
+    }
+
+    /// @dev Function that should revert when msg.sender is not authorized to upgrade the contract
+    /// @param newImplementation Address of the new implementation
+    function _authorizeUpgrade(address newImplementation) internal override onlyOwner {}
 
     /// @notice Internal function to compute credit score from individual parameters
     /// @dev Used internally by struct-based functions to avoid code duplication
@@ -151,4 +217,10 @@ contract CreditModel {
         tier = scoreToTier(score100);
     }
 
+    /**
+     * @dev This empty reserved space is put in place to allow future versions to add new
+     * variables without shifting down storage in the inheritance chain.
+     * See https://docs.openzeppelin.com/contracts/4.x/upgradeable#storage_gaps
+     */
+    uint256[49] private __gap;
 }

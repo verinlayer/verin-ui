@@ -13,6 +13,7 @@ import {Proof} from "vlayer-0.1.0/Proof.sol";
 import {Seal, ProofMode} from "vlayer-0.1.0/Seal.sol";
 import {CallAssumptions} from "vlayer-0.1.0/CallAssumptions.sol";
 import {IAavePool} from "../src/vlayer/interfaces/IAavePool.sol";
+import {ERC1967Proxy} from "openzeppelin-contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 /**
  * @title SimpleTeleportVerifierMinimalTest
@@ -37,14 +38,34 @@ contract SimpleTeleportVerifierMinimalTest is Test {
         mockAavePool = makeAddr("mockAavePool");
         
         vm.startPrank(deployer);
-        registry = new Registry(deployer);
+        // Deploy Registry using proxy pattern
+        Registry registryImpl = new Registry();
+        ERC1967Proxy registryProxy = new ERC1967Proxy(
+            address(registryImpl),
+            abi.encodeWithSelector(Registry.initialize.selector, deployer)
+        );
+        registry = Registry(address(registryProxy));
+        
         prover = new SimpleTeleportProver();
-        CreditModel creditModel = new CreditModel();
+        
+        // Deploy CreditModel using proxy pattern
+        CreditModel creditModelImpl = new CreditModel();
+        ERC1967Proxy creditModelProxy = new ERC1967Proxy(
+            address(creditModelImpl),
+            abi.encodeWithSelector(CreditModel.initialize.selector, deployer)
+        );
+        CreditModel creditModel = CreditModel(address(creditModelProxy));
         // Deploy UniswapV2PriceOracle for testing
         address uniswapV2Factory = address(0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f); // Mainnet factory
         UniswapV2PriceOracle priceOracle = new UniswapV2PriceOracle(uniswapV2Factory, address(registry));
         
-        verifier = new SimpleTeleportVerifier(address(prover), registry, address(creditModel), address(priceOracle));
+        verifier = new SimpleTeleportVerifier(
+            address(prover),
+            registry,
+            address(creditModel),
+            address(priceOracle),
+            deployer  // initialOwner
+        );
         vm.stopPrank();
         
         vm.etch(mockAavePool, new bytes(1));
@@ -208,5 +229,71 @@ contract SimpleTeleportVerifierMinimalTest is Test {
         // Test that events are properly defined by checking the contract ABI
         // This is a placeholder for when proper proof mocking is implemented
         assertTrue(true); // Placeholder assertion
+    }
+
+    /// @notice Test owner can update price oracle
+    function testSetPriceOracle() public {
+        address newPriceOracle = address(0x999);
+        address oldPriceOracle = address(verifier.priceOracle());
+        
+        vm.prank(deployer);
+        verifier.setPriceOracle(newPriceOracle);
+        
+        assertEq(address(verifier.priceOracle()), newPriceOracle);
+    }
+
+    /// @notice Test non-owner cannot update price oracle
+    function testSetPriceOracleOnlyOwner() public {
+        address newPriceOracle = address(0x999);
+        
+        vm.prank(user1);
+        vm.expectRevert();
+        verifier.setPriceOracle(newPriceOracle);
+    }
+
+    /// @notice Test cannot set price oracle to zero address
+    function testSetPriceOracleZeroAddress() public {
+        vm.prank(deployer);
+        vm.expectRevert("Price oracle cannot be zero address");
+        verifier.setPriceOracle(address(0));
+    }
+
+    /// @notice Test ownership can be transferred
+    function testOwnershipTransfer() public {
+        address newOwner = address(0x888);
+        
+        vm.prank(deployer);
+        verifier.transferOwnership(newOwner);
+        
+        // Accept ownership from new owner
+        vm.prank(newOwner);
+        verifier.acceptOwnership();
+        
+        assertEq(verifier.owner(), newOwner);
+        
+        // New owner can update price oracle
+        address newPriceOracle = address(0x777);
+        vm.prank(newOwner);
+        verifier.setPriceOracle(newPriceOracle);
+        
+        assertEq(address(verifier.priceOracle()), newPriceOracle);
+    }
+
+    /// @notice Test pending owner must accept ownership
+    function testOwnershipTransferTwoStep() public {
+        address newOwner = address(0x888);
+        
+        vm.prank(deployer);
+        verifier.transferOwnership(newOwner);
+        
+        // Owner hasn't changed yet
+        assertEq(verifier.owner(), deployer);
+        
+        // Pending owner must accept
+        vm.prank(newOwner);
+        verifier.acceptOwnership();
+        
+        // Now ownership has changed
+        assertEq(verifier.owner(), newOwner);
     }
 }

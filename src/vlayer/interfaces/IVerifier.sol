@@ -57,6 +57,11 @@ interface IVerifier {
     /// @param repayCount The total number of repay transactions for this user
     event UserRepaid(address indexed user, Protocol indexed protocol, uint256 amount, uint256 newTotalRepaid, uint256 repayCount);
 
+    /// @notice Emitted when the price oracle is updated
+    /// @param oldPriceOracle The address of the previous price oracle
+    /// @param newPriceOracle The address of the new price oracle
+    event PriceOracleUpdated(address indexed oldPriceOracle, address indexed newPriceOracle);
+
     // ============ CORE FUNCTIONS ============
 
     /**
@@ -178,5 +183,26 @@ interface IVerifier {
         external
         view
         returns (UserInfo memory userInfo);
+
+    // ============ ADMIN FUNCTIONS ============
+
+    /**
+     * @notice Updates the price oracle contract address
+     * @dev Only the contract owner can call this function
+     * @param newPriceOracle The address of the new price oracle contract
+     * 
+     * @dev Requirements:
+     *      - Caller must be the contract owner
+     *      - newPriceOracle must not be the zero address
+     * 
+     * @dev Emits:
+     *      - PriceOracleUpdated event with old and new addresses
+     * 
+     * @dev Security:
+     *      - This is a critical function that changes the price feed
+     *      - Only the verified owner can execute this
+     *      - Two-step ownership transfer provides additional safety
+     */
+    function setPriceOracle(address newPriceOracle) external;
 
 }

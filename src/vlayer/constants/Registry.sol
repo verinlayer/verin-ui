@@ -2,6 +2,8 @@
 pragma solidity ^0.8.21;
 
 import {AccessControl} from "openzeppelin-contracts/access/AccessControl.sol";
+import {Initializable} from "openzeppelin-contracts/proxy/utils/Initializable.sol";
+import {UUPSUpgradeable} from "openzeppelin-contracts/proxy/utils/UUPSUpgradeable.sol";
 import {IRegistry} from "../interfaces/IRegistry.sol";
 
 /**
@@ -13,8 +15,9 @@ import {IRegistry} from "../interfaces/IRegistry.sol";
  * - Native tokens: Tokens that are natively issued on each chain (e.g., WETH on L2s)
  * - Bridged tokens: Tokens that are bridged from Ethereum mainnet to L2s
  * - Native L2 tokens: Tokens that are natively issued by the token issuer on L2s (e.g., Circle's USDC on Base)
+ * @custom:oz-upgrades-from Registry
  */
-contract Registry is AccessControl, IRegistry {
+contract Registry is Initializable, AccessControl, UUPSUpgradeable, IRegistry {
     // Role definitions
     bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
     bytes32 public constant UPDATER_ROLE = keccak256("UPDATER_ROLE");
@@ -60,7 +63,19 @@ contract Registry is AccessControl, IRegistry {
     // Chain-specific address mappings
     mapping(uint256 => ChainAddresses) private chainAddresses;
 
-    constructor(address admin) {
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
+
+    /**
+     * @notice Initializes the Registry contract
+     * @dev This replaces the constructor for upgradeable contracts
+     * @param admin The address that will be granted all roles
+     */
+    function initialize(address admin) public initializer {
+        require(admin != address(0), "Admin cannot be zero address");
+
         // Initialize access control
         _grantRole(DEFAULT_ADMIN_ROLE, admin);
         _grantRole(ADMIN_ROLE, admin);
@@ -79,7 +94,7 @@ contract Registry is AccessControl, IRegistry {
 
         // Initialize optimism addresses
         chainAddresses[10] = ChainAddresses({
-            aavePool: PLACEHOLDER_ADDRESS,
+            aavePool: AAVE_POOL_ADDRESS,
             morphoLens: PLACEHOLDER_ADDRESS,
             compoundComptroller: PLACEHOLDER_ADDRESS,
             usdc: OP_USDC_ADDRESS,
@@ -90,7 +105,7 @@ contract Registry is AccessControl, IRegistry {
 
         // Initialize base addresses
         chainAddresses[8453] = ChainAddresses({
-            aavePool: PLACEHOLDER_ADDRESS,
+            aavePool: AAVE_POOL_ADDRESS,
             morphoLens: PLACEHOLDER_ADDRESS,
             compoundComptroller: PLACEHOLDER_ADDRESS,
             usdc: BASE_USDC_ADDRESS,
@@ -202,4 +217,16 @@ contract Registry is AccessControl, IRegistry {
         emit ProtocolAddressesUpdated(chainId, aavePool, morphoLens, compoundComptroller);
     }
 
+    /**
+     * @dev Function that should revert when msg.sender is not authorized to upgrade the contract
+     * @param newImplementation Address of the new implementation
+     */
+    function _authorizeUpgrade(address newImplementation) internal override onlyRole(ADMIN_ROLE) {}
+
+    /**
+     * @dev This empty reserved space is put in place to allow future versions to add new
+     * variables without shifting down storage in the inheritance chain.
+     * See https://docs.openzeppelin.com/contracts/4.x/upgradeable#storage_gaps
+     */
+    uint256[49] private __gap;
 }

@@ -7,6 +7,7 @@ import {SimpleTeleportVerifier} from "../src/vlayer/SimpleTeleportVerifier.sol";
 import {Registry} from "../src/vlayer/constants/Registry.sol";
 import {CreditModel} from "../src/vlayer/CreditModel.sol";
 import {UniswapV2PriceOracle} from "../src/vlayer/UniswapV2PriceOracle.sol";
+import {ERC1967Proxy} from "openzeppelin-contracts/proxy/ERC1967/ERC1967Proxy.sol";
 
 /**
  * @title DeployTeleportTest
@@ -23,16 +24,26 @@ contract DeployTeleportTest is Script {
 
         vm.startBroadcast();
 
-        // 1. Deploy Registry
-        Registry registry = new Registry(deployer);
-        console.log("Registry:", address(registry));
+        // 1. Deploy Registry (using proxy pattern)
+        Registry registryImpl = new Registry();
+        ERC1967Proxy registryProxy = new ERC1967Proxy(
+            address(registryImpl),
+            abi.encodeWithSelector(Registry.initialize.selector, deployer)
+        );
+        Registry registry = Registry(address(registryProxy));
+        console.log("Registry proxy:", address(registry));
 
         // 2. Deploy SimpleTeleportProver
         SimpleTeleportProver prover = new SimpleTeleportProver();
         console.log("SimpleTeleportProver:", address(prover));
 
-        // 3. Deploy CreditModel
-        CreditModel creditModel = new CreditModel();
+        // 3. Deploy CreditModel (upgradeable with proxy)
+        CreditModel creditModelImpl = new CreditModel();
+        ERC1967Proxy creditModelProxy = new ERC1967Proxy(
+            address(creditModelImpl),
+            abi.encodeWithSelector(CreditModel.initialize.selector, deployer)
+        );
+        CreditModel creditModel = CreditModel(address(creditModelProxy));
         console.log("CreditModel:", address(creditModel));
 
         // 4. Deploy SimpleTeleportVerifier
@@ -44,7 +55,8 @@ contract DeployTeleportTest is Script {
             address(prover),
             registry,
             address(creditModel),
-            address(priceOracle)
+            address(priceOracle),
+            deployer  // initialOwner
         );
         console.log("SimpleTeleportVerifier:", address(verifier));
 

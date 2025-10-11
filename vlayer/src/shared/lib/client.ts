@@ -88,11 +88,11 @@ export interface SupplyBorrowData {
 }
 
 const createQuery = (user: string, timestampFilter?: number) => {
-    const timestampCondition = timestampFilter ? `{timestamp_gt: ${timestampFilter}}` : `{timestamp_lt: 1759460262}`;
+    const timestampCondition = timestampFilter ? `{timestamp_gt: ${timestampFilter}}` : `{timestamp_lt: 1791606704}`;
     
     return `query {
   userTransactions(
-    first: 1
+    first: 30
     orderBy: timestamp
     orderDirection: asc
     where: {and: 
@@ -647,8 +647,6 @@ export const getSupplyBorrowDataForUser = async (userAddress: string, currentCha
   }
 };
 
-
-
 // New function to get TokenConfig structures for a user (matching smart contract structure)
 export const getTokenConfigsForUserNew = async (userAddress: string, currentChainId?: number): Promise<TokenConfig[]> => {
   try {
@@ -1080,30 +1078,4 @@ export const getTokenConfigsForUnclaimedData = async (userAddress: string, curre
     console.error('Error getting TokenConfig structures for unclaimed data:', error);
     throw error;
   }
-};
-
-// Legacy function for backward compatibility
-export const queryBorrowHistory = async (user: string, asset: string) => {
-    const transactions = await queryUserTransactions(user);
-    const assetTxs = transactions.filter((item: any) => item.reserve.underlyingAsset === asset.toLowerCase());
-    console.log('txs borrow given asset', assetTxs.length);
-
-    let sumBorrow = BigInt(0);
-    let sumRepay = BigInt(0);
-
-    assetTxs.forEach((item: any) => {
-        if (item.action === 'Borrow') {
-          console.log('tx hash borrow', item.txHash);
-            sumBorrow = sumBorrow + BigInt(item.amount);
-        }
-        if (item.action === 'Repay') {
-          console.log('tx hash repay', item.txHash);
-            sumRepay = sumRepay + BigInt(item.amount);
-        }
-    });
-
-    console.log('sumBorrow', sumBorrow);
-    console.log('sumRepay', sumRepay);
-
-    return assetTxs;
 };

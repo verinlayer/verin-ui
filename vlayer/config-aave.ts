@@ -29,10 +29,14 @@ export const aaveContractAddresses: Record<string, AaveConfig> = {
     verifier: "0x7E07cedF47975bC76210E8AbE155d1BD58d71473",
   },
   optimism: {
-    registry: "0xF3122c8ad8bF6b94646df826d710fa80f0A91e92",
-    prover: "0x0a05dE411c2750669De86554e03c66A4E8c65D67",
-    creditModel: "0x73EfE5e5096E0F0eF9b6FaAF14a9cbD15b623477",
-    verifier: "0xd629f02607fab45605e29168577C44F65706a656",
+    registry: "0xE45F42E67271768CBAB25a88C854D25A4916dc6F",
+    prover: "0x075FC16eF11e0466d7918950913A8afC141e6B89",
+    creditModel: "0xB43968076B149606777f3eaED843D6F3AE478502",
+    verifier: "0x0063216834A0c5D25622A1a5Fc7fDB1DD5546840",
+    // registry: "0xF3122c8ad8bF6b94646df826d710fa80f0A91e92",
+    // prover: "0x0a05dE411c2750669De86554e03c66A4E8c65D67",
+    // creditModel: "0x73EfE5e5096E0F0eF9b6FaAF14a9cbD15b623477",
+    // verifier: "0xd629f02607fab45605e29168577C44F65706a656",
   },
   base: {
     registry: "0x0000000000000000000000000000000000000000", // Replace with actual address

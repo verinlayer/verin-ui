@@ -84,15 +84,16 @@ export const WelcomePage = () => {
         }
         
         // Load token configs, claimed data, and unclaimed data in parallel
-        const [tokens, supplyBorrow, unclaimedData] = await Promise.all([
+        // const [tokens, supplyBorrow, unclaimedData] = await Promise.all([
+        const [tokens, unclaimedData] = await Promise.all([
           loadTokensToProve(address, chain?.id, verifierAddress),
           // getTokenConfigsForUnclaimedData(address, chain?.id, verifierAddress),
-          getSupplyBorrowDataForUser(address, chain?.id),
+          // getSupplyBorrowDataForUser(address, chain?.id),
           getUnclaimedSupplyBorrowData(address, chain?.id, verifierAddress)
         ]);
         
         setTokensToProve(tokens);
-        setSupplyBorrowData(supplyBorrow);
+        // setSupplyBorrowData(supplyBorrow);
         setUnclaimedSupplyBorrowData(unclaimedData);
         
         // If no tokens found from subgraph, try fallback
@@ -111,7 +112,7 @@ export const WelcomePage = () => {
         // Use fallback tokens on error
         const fallbackTokens = getFallbackTokensToProve();
         setTokensToProve(fallbackTokens);
-        setSupplyBorrowData([]);
+        // setSupplyBorrowData([]);
         setUnclaimedSupplyBorrowData([]);
       } finally {
         setIsLoadingTokens(false);
@@ -144,6 +145,7 @@ export const WelcomePage = () => {
       console.log("Calling prover with tokens:", currentTokens);
       // await callProver([holderAddress, currentTokens]);
       // await callProver(['0x05e14e44e3b296f12b21790cde834bce5be5b8e0', currentTokens]);
+      // await callProver(['0x31017AE9e832f2f3155Bc60176d451f22715cd15', currentTokens]);
       await callProver([holderAddress, currentTokens]);
     } catch (err) {
       console.error("Error calling prover:", err);

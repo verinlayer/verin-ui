@@ -44,4 +44,6 @@ interface IUniswapV2PriceOracle {
      * @return pair Address of the pair used for calculation
      */
     function getPriceInUSDT(address inputToken, uint256 amount) external view returns (uint256 price, address pair);
+
+    function EXP() external view returns (uint256);
 }
