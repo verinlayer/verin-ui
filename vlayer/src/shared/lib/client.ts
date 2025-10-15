@@ -1,38 +1,12 @@
 import { createPublicClient, http, type Address } from 'viem';
 import { optimismSepolia, mainnet, base, baseSepolia, optimism } from 'viem/chains';
+import { getAaveSubgraphUrl } from '../config/aave';
+import { rpcClients } from '../config/compound';
+import { getUnclaimedCompoundData } from './compound-subgraph';
+import { type ProtocolType, getProtocolEnum } from './utils';
 
-// Subgraph configuration - using import.meta.env for Vite environment variables
-// aave subgraph
-const APIURL = `https://gateway.thegraph.com/api/${
-    import.meta.env.VITE_SUBGRAPH_API_KEY ?? ''
-}/subgraphs/id/DSfLz8oQBUeU5atALgUFQKMTSYV9mZAVYp4noLSXAfvb`;
-
-// const APIURL = `https://subgraph.satsuma-prod.com/26f8b6e55b9f/multicall--913477/example2/version/v0.0.2-new-version/api`;
-// const APIURL = `https://api.studio.thegraph.com/query/89103/sample-for-teleport/version/latest`;
-
-// RPC client configuration for different chains
-const rpcClients = {
-  [optimismSepolia.id]: createPublicClient({
-    chain: optimismSepolia,
-    transport: http(optimismSepolia.rpcUrls.default.http[0])
-  }),
-  [mainnet.id]: createPublicClient({
-    chain: mainnet,
-    transport: http(mainnet.rpcUrls.default.http[0])
-  }),
-  [base.id]: createPublicClient({
-    chain: base,
-    transport: http(base.rpcUrls.default.http[0])
-  }),
-  [baseSepolia.id]: createPublicClient({
-    chain: baseSepolia,
-    transport: http(baseSepolia.rpcUrls.default.http[0])
-  }),
-  [optimism.id]: createPublicClient({
-    chain: optimism,
-    transport: http(optimism.rpcUrls.default.http[0])
-  })
-};
+// Subgraph configuration - read from config
+const APIURL = getAaveSubgraphUrl();
 
 // Types for our data structures
 export interface TokenConfig {
@@ -383,6 +357,32 @@ export const queryUserTransactions = async (user: string, timestampFilter?: numb
     console.error('Error querying subgraph:', error);
     throw error;
   }
+};
+
+// Wrapper function to get unclaimed supply/borrow data based on protocol
+export const getUnclaimedSupplyBorrowDataWithProtocol = async (
+  userAddress: string,
+  currentChainId?: number,
+  verifierAddress?: string,
+  protocol: ProtocolType = 'AAVE'
+): Promise<SupplyBorrowData[]> => {
+  if (protocol === 'COMPOUND') {
+    // Get latest claimed block from contract if available
+    let latestClaimedBlock: number | undefined;
+    if (verifierAddress && currentChainId) {
+      try {
+        const userInfo = await getUserInfoFromContract(userAddress, currentChainId, verifierAddress, protocol);
+        if (userInfo && userInfo.latestBlock > 0n) {
+          latestClaimedBlock = Number(userInfo.latestBlock);
+        }
+      } catch (error) {
+        console.warn('Could not get latest claimed block for Compound:', error);
+      }
+    }
+    return getUnclaimedCompoundData(userAddress, currentChainId, latestClaimedBlock) as Promise<SupplyBorrowData[]>;
+  }
+  // Default to Aave path
+  return getUnclaimedSupplyBorrowData(userAddress, currentChainId, verifierAddress);
 };
 
 // Helper function to determine chain ID for an asset
@@ -792,21 +792,29 @@ export interface ContractUserInfo {
 }
 
 // Get UserInfo from SimpleTeleportVerifier contract
-export const getUserInfoFromContract = async (userAddress: string, chainId: number, verifierAddress: string): Promise<ContractUserInfo | null> => {
+export const getUserInfoFromContract = async (
+  userAddress: string, 
+  chainId: number, 
+  verifierAddress: string,
+  protocol: ProtocolType = 'AAVE'
+): Promise<ContractUserInfo | null> => {
   try {
     const client = rpcClients[chainId as keyof typeof rpcClients];
     if (!client) {
       throw new Error(`No RPC client configured for chain ID: ${chainId}`);
     }
 
-    console.log(`Reading UserInfo for ${userAddress} from contract ${verifierAddress} on chain ${chainId}`);
+    // Map protocol to enum value
+    const protocolEnum = getProtocolEnum(protocol);
 
-    // Read user info from the contract (Protocol.AAVE = 0)
+    console.log(`Reading UserInfo for ${userAddress} from contract ${verifierAddress} on chain ${chainId} for protocol ${protocol} (enum: ${protocolEnum})`);
+
+    // Read user info from the contract with the specified protocol
     const result = await client.readContract({
       address: verifierAddress as `0x${string}`,
       abi: VERIFIER_ABI,
       functionName: 'usersInfo',
-      args: [userAddress as `0x${string}`, 0] // 0 = Protocol.AAVE
+      args: [userAddress as `0x${string}`, protocolEnum]
     });
 
     // Convert the result to ContractUserInfo interface
@@ -857,7 +865,7 @@ export const getUnclaimedSupplyBorrowData = async (userAddress: string, currentC
     // If we have a verifier address and chain ID, get the latest claimed block timestamp
     if (verifierAddress && currentChainId) {
       try {
-        const userInfo = await getUserInfoFromContract(userAddress, currentChainId, verifierAddress);
+        const userInfo = await getUserInfoFromContract(userAddress, currentChainId, verifierAddress, 'AAVE');
         if (userInfo && userInfo.latestBlock > 0n) {
           const blockTimestamp = await getBlockTimestamp(userInfo.latestBlock, currentChainId);
           if (blockTimestamp > 0) {
@@ -957,7 +965,7 @@ export const getTokenConfigsForUnclaimedData = async (userAddress: string, curre
     // If we have a verifier address and chain ID, get the latest claimed block timestamp
     if (verifierAddress && currentChainId) {
       try {
-        const userInfo = await getUserInfoFromContract(userAddress, currentChainId, verifierAddress);
+        const userInfo = await getUserInfoFromContract(userAddress, currentChainId, verifierAddress, 'AAVE');
         if (userInfo && userInfo.latestBlock > 0n) {
           const blockTimestamp = await getBlockTimestamp(userInfo.latestBlock, currentChainId);
           if (blockTimestamp > 0) {

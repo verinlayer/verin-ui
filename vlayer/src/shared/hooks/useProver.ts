@@ -27,7 +27,10 @@ export const useProver = () => {
     // Don't throw error - let the app continue with the connected chain
   }
 
-  // Get contract addresses from config based on current chain
+  // Get selected protocol from localStorage (default to AAVE for backward compatibility)
+  const selectedProtocol = (localStorage.getItem('selectedProtocol') || 'AAVE') as 'AAVE' | 'COMPOUND';
+
+  // Get contract addresses from config based on current chain and protocol
   let proverAddress: `0x${string}` = import.meta.env.VITE_PROVER_ADDRESS as `0x${string}`; // fallback to env
   try {
     if (wagmiChain?.name) {
@@ -48,13 +51,17 @@ export const useProver = () => {
         chainName = 'anvil';
       }
       
+      // Get contract addresses (same for both protocols)
       const addresses = getAaveContractAddresses(chainName);
       proverAddress = addresses.prover;
-      console.log(`Using prover address from config: ${proverAddress} for chain: ${wagmiChain.name}`);
+      console.log(`Using prover address from config: ${proverAddress} for chain: ${wagmiChain.name}, protocol: ${selectedProtocol}`);
     }
   } catch (err) {
     console.warn("Could not get prover address from config, using env variable:", err);
   }
+
+  // Pick function name based on selected protocol
+  const dynamicFunctionName = selectedProtocol === 'COMPOUND' ? 'proveCompoundData' : 'proveAaveData';
 
   const {
     callProver,
@@ -62,9 +69,8 @@ export const useProver = () => {
     error: provingError,
   } = useCallProver({
     address: proverAddress,
-    proverAbi: proverSpec.abi,
-    // functionName: "crossChainBalanceOf",
-    functionName: "proveAaveData",
+    proverAbi: proverSpec.abi as any,
+    functionName: dynamicFunctionName as any,
     vgasLimit: Number(import.meta.env.VITE_GAS_LIMIT),
     chainId: chain?.id,
   });

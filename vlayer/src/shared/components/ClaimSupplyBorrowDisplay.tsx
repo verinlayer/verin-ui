@@ -4,6 +4,7 @@ import { createPublicClient, http, formatUnits } from 'viem';
 import { optimismSepolia, mainnet, base, baseSepolia, optimism } from 'viem/chains';
 import { getAaveContractAddresses } from '../../../config-aave';
 import { getTokenDecimals } from '../utils/tokenDecimals';
+import { type ProtocolType, getProtocolEnum } from '../lib/utils';
 
 // ABI for SimpleTeleportVerifier contract
 const VERIFIER_ABI = [
@@ -82,6 +83,7 @@ interface UserInfo {
 
 interface ClaimSupplyBorrowDisplayProps {
   isLoading?: boolean;
+  protocol?: ProtocolType;
 }
 
 interface CreditScore {
@@ -154,7 +156,8 @@ const getBlockTimestamp = async (blockNumber: bigint, chainId: number): Promise<
 };
 
 export const ClaimSupplyBorrowDisplay: React.FC<ClaimSupplyBorrowDisplayProps> = ({ 
-  isLoading = false 
+  isLoading = false,
+  protocol = 'AAVE'
 }) => {
   const { address, chain } = useAccount();
   const [userInfo, setUserInfo] = useState<UserInfo | null>(null);
@@ -165,7 +168,7 @@ export const ClaimSupplyBorrowDisplay: React.FC<ClaimSupplyBorrowDisplayProps> =
 
   useEffect(() => {
     const fetchUserInfo = async () => {
-      if (!address || !chain) return;
+      if (!address || !chain || !protocol) return;
 
       // Only fetch data if connected to Optimism (chain ID 10)
       if (chain.id !== 10) {
@@ -197,7 +200,9 @@ export const ClaimSupplyBorrowDisplay: React.FC<ClaimSupplyBorrowDisplayProps> =
           }
         }
         
-        console.log(`Using chain config: ${chainName} for chain: ${chain.name}`);
+        console.log(`Using chain config: ${chainName} for chain: ${chain.name}, protocol: ${protocol}`);
+        
+        // Get contract addresses (same for both protocols)
         const addresses = getAaveContractAddresses(chainName);
         
         if (!addresses.verifier || addresses.verifier === "0x0000000000000000000000000000000000000000") {
@@ -210,14 +215,15 @@ export const ClaimSupplyBorrowDisplay: React.FC<ClaimSupplyBorrowDisplayProps> =
           throw new Error(`No RPC client configured for chain ID: ${chain.id}`);
         }
 
-        // Read user info from the contract (Protocol.AAVE = 0)
+        // Map protocol to enum value
+        const protocolEnum = getProtocolEnum(protocol);
+
+        // Read user info from the contract
         const result = await client.readContract({
           address: addresses.verifier as `0x${string}`,
           abi: VERIFIER_ABI,
           functionName: 'usersInfo',
-          // args: ['0x05e14e44e3b296f12b21790cde834bce5be5b8e0' as `0x${string}`, 0] // 0 = Protocol.AAVE
-          // args: ['0x31017AE9e832f2f3155Bc60176d451f22715cd15' as `0x${string}`, 0] // 0 = Protocol.AAVE
-          args: [address as `0x${string}`, 0] // 0 = Protocol.AAVE
+          args: [address as `0x${string}`, protocolEnum]
         });
 
         // Convert the result to UserInfo interface
@@ -248,9 +254,7 @@ export const ClaimSupplyBorrowDisplay: React.FC<ClaimSupplyBorrowDisplayProps> =
             address: addresses.verifier as `0x${string}`,
             abi: VERIFIER_ABI,
             functionName: 'calculateCreditScore',
-            // args: ['0x05e14e44e3b296f12b21790cde834bce5be5b8e0' as `0x${string}`, 0] // 0 = Protocol.AAVE
-            // args: ['0x31017AE9e832f2f3155Bc60176d451f22715cd15' as `0x${string}`, 0] // 0 = Protocol.AAVE
-            args: [address as `0x${string}`, 0] // 0 = Protocol.AAVE
+            args: [address as `0x${string}`, protocolEnum]
           });
 
           const creditScoreData: CreditScore = {
@@ -273,7 +277,7 @@ export const ClaimSupplyBorrowDisplay: React.FC<ClaimSupplyBorrowDisplayProps> =
     };
 
     fetchUserInfo();
-  }, [address, chain]);
+  }, [address, chain, protocol]);
 
   if (isLoading || isLoadingData) {
     return (
@@ -341,7 +345,7 @@ const formatCreditTier = (tier: number): string => {
 
   return (
     <div className="mb-6 space-y-4">
-      <h3 className="text-lg font-semibold text-slate-900">Summary of Claimed DeFi Data</h3>
+      <h3 className="text-lg font-semibold text-slate-900">Summary of Claimed {protocol} Data</h3>
       
       {/* Overall Summary */}
       <div className="bg-gradient-to-r from-green-50 to-blue-50 border border-green-200 rounded-xl p-4">
