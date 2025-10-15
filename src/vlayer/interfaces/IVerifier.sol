@@ -2,7 +2,7 @@
 pragma solidity ^0.8.21;
 
 import {Protocol} from "../types/TeleportTypes.sol";
-import {Erc20Token} from "../types/TeleportTypes.sol";
+import {Erc20Token, CToken} from "../types/TeleportTypes.sol";
 import {Proof} from "vlayer-0.1.0/Proof.sol";
 
 /**
@@ -102,6 +102,27 @@ interface IVerifier {
      *      - Requires cryptographic proof of data authenticity
      */
     function claim(Proof calldata, address claimer, Erc20Token[] memory tokens) external;
+
+    /**
+     * @notice Claims and processes Compound protocol data for a user
+     * @dev This function processes verified Compound token data to track user's borrowing,
+     *      supplying, repayment, and withdrawal activities for the Compound protocol.
+     *
+     * @dev Parameters:
+     *      - proof: The cryptographic proof that validates the data authenticity
+     *      - claimer: The address of the user claiming their data
+     *      - tokens: Array of CToken structs containing Compound token balances and metadata
+     *
+     * @dev Processing Logic:
+     *      - Only processes tokens with block numbers greater than the last processed block
+     *      - CTokenType.BASE: Tracks borrows (balance increase) and repays (balance decrease)
+     *      - CTokenType.COLLATERAL: Tracks supplied collateral (balance increase) and withdrawals (balance decrease)
+     *
+     * @dev Modifiers:
+     *      - onlyVerified: Ensures the proof is valid and comes from the trusted prover
+     *      - onlyClaimer: Ensures only the data owner can claim their information
+     */
+    function claimCompoundData(Proof calldata, address claimer, CToken[] memory tokens) external;
 
     // ============ CREDIT SCORING FUNCTIONS ============
 

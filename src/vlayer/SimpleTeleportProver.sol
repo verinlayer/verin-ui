@@ -5,7 +5,8 @@ import {Proof} from "vlayer-0.1.0/Proof.sol";
 import {Prover} from "vlayer-0.1.0/Prover.sol";
 import {IERC20} from "openzeppelin-contracts/token/ERC20/IERC20.sol";
 import {IProver} from "./interfaces/IProver.sol";
-import {Erc20Token, Protocol, TokenType} from "./types/TeleportTypes.sol";
+import {Erc20Token, CToken, Protocol, TokenType, CTokenType} from "./types/TeleportTypes.sol";
+import {ICToken} from "./interfaces/ICToken.sol";
 
 contract SimpleTeleportProver is Prover, IProver {
     function crossChainBalanceOf(address _owner, Erc20Token[] memory tokens)
@@ -31,17 +32,35 @@ contract SimpleTeleportProver is Prover, IProver {
         return (proof(), _owner, tokens);
     }
 
+    function proveCompoundData(address _owner, CToken[] memory tokens)
+        external
+        returns (Proof memory, address, CToken[] memory)
+    {
+        for (uint256 i = 0; i < tokens.length; i++) {
+            setChain(tokens[i].chainId, tokens[i].blockNumber);
+            if(tokens[i].tokenType == CTokenType.BASE) {
+                tokens[i].balance = ICToken(tokens[i].cTokenAddress).borrowBalanceOf(_owner);
+            } else if(tokens[i].tokenType == CTokenType.COLLATERAL) {
+                tokens[i].balance = ICToken(tokens[i].cTokenAddress).userCollateral(_owner, tokens[i].collateralAddress).balance;
+            }
+        }
+        return (proof(), _owner, tokens);
+
+    }
+
     function proveMorphoData(address _owner, Erc20Token[] memory tokens)
         external
         returns (Proof memory, address, Erc20Token[] memory)
     {
-
+        // TODO: Implement Morpho data proving logic
+        return (proof(), _owner, tokens);
     }
 
-    function proveCompoundData(address _owner, Erc20Token[] memory tokens)
+    function proveFluidIOData(address _owner, Erc20Token[] memory tokens)
         external
         returns (Proof memory, address, Erc20Token[] memory)
     {
-
+        // TODO: Implement FluidIO data proving logic
+        return (proof(), _owner, tokens);
     }
 }
