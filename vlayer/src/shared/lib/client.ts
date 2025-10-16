@@ -4,6 +4,8 @@ import { getAaveSubgraphUrl } from '../config/aave';
 import { rpcClients } from '../config/compound';
 import { getUnclaimedCompoundData } from './compound-subgraph';
 import { type ProtocolType, getProtocolEnum } from './utils';
+import verifierAbi from "../../contracts/SimpleTeleportVerifier.json";
+// const VERIFIER_ABI = verifierAbi.abi;
 
 // Subgraph configuration - read from config
 const APIURL = getAaveSubgraphUrl();
@@ -62,11 +64,20 @@ export interface SupplyBorrowData {
 }
 
 const createQuery = (user: string, timestampFilter?: number) => {
-    const timestampCondition = timestampFilter ? `{timestamp_gt: ${timestampFilter}}` : `{timestamp_lt: 1791606704}`;
+    // Calculate timestamp for 14 days ago (in seconds)
+    const fourteenDaysAgo = Math.floor(Date.now() / 1000) - (14 * 24 * 60 * 60) - 3600;
+    
+    // Use the maximum between timestampFilter and 14 days ago
+    const effectiveTimestamp = timestampFilter 
+        ? Math.max(timestampFilter, fourteenDaysAgo)
+        : fourteenDaysAgo;
+    
+    const timestampCondition = `{timestamp_gt: ${effectiveTimestamp}}`;
+    // const timestampCondition = `{timestamp_gt: 0}`;
     
     return `query {
   userTransactions(
-    first: 30
+    first: 100
     orderBy: timestamp
     orderDirection: asc
     where: {and: 
@@ -359,30 +370,116 @@ export const queryUserTransactions = async (user: string, timestampFilter?: numb
   }
 };
 
-// Wrapper function to get unclaimed supply/borrow data based on protocol
+// Get unclaimed supply/borrow data based on protocol
 export const getUnclaimedSupplyBorrowDataWithProtocol = async (
   userAddress: string,
   currentChainId?: number,
   verifierAddress?: string,
   protocol: ProtocolType = 'AAVE'
 ): Promise<SupplyBorrowData[]> => {
-  if (protocol === 'COMPOUND') {
-    // Get latest claimed block from contract if available
-    let latestClaimedBlock: number | undefined;
+  try {
+    console.log(`Fetching unclaimed ${protocol} data for user: ${userAddress}`);
+    
+    let timestampFilter: number | undefined;
+    
+    // Get latest claimed block from contract and convert to timestamp
     if (verifierAddress && currentChainId) {
       try {
         const userInfo = await getUserInfoFromContract(userAddress, currentChainId, verifierAddress, protocol);
         if (userInfo && userInfo.latestBlock > 0n) {
-          latestClaimedBlock = Number(userInfo.latestBlock);
+          const blockTimestamp = await getBlockTimestamp(userInfo.latestBlock, currentChainId);
+          if (blockTimestamp > 0) {
+            timestampFilter = blockTimestamp;
+            console.log(`Using timestamp filter for ${protocol} unclaimed data: ${timestampFilter} (from block ${userInfo.latestBlock})`);
+          }
         }
       } catch (error) {
-        console.warn('Could not get latest claimed block for Compound:', error);
+        console.warn(`Could not get latest claimed block timestamp for ${protocol}, using default:`, error);
       }
     }
-    return getUnclaimedCompoundData(userAddress, currentChainId, latestClaimedBlock) as Promise<SupplyBorrowData[]>;
+    
+    
+    // Handle Compound protocol
+    if (protocol === 'COMPOUND') {
+      return getUnclaimedCompoundData(userAddress, currentChainId, timestampFilter) as Promise<SupplyBorrowData[]>;
+    }
+    
+    // Handle AAVE protocol
+    const transactions = await queryUserTransactions(userAddress, timestampFilter);
+    
+    if (transactions.length === 0) {
+      console.log(`No unclaimed ${protocol} transactions found for user`);
+      return [];
+    }
+    
+    // Group transactions by asset
+    const uniqueAssets = new Map<string, SubgraphTransaction[]>();
+    
+    transactions.forEach(tx => {
+      const asset = tx.reserve.underlyingAsset.toLowerCase();
+      if (!uniqueAssets.has(asset)) {
+        uniqueAssets.set(asset, []);
+      }
+      uniqueAssets.get(asset)!.push(tx);
+    });
+
+    const supplyBorrowData: SupplyBorrowData[] = [];
+
+    // Process each unique asset
+    for (const [asset, assetTxs] of uniqueAssets) {
+      console.log(`\n=== Processing ${protocol} asset ${asset} ===`);
+      console.log(`Found ${assetTxs.length} transactions for this asset`);
+      
+      // Get the most recent transaction for price data
+      const latestTx = assetTxs[assetTxs.length - 1];
+      
+      // Calculate supply and borrow amounts
+      const supplyAmount = calculateSupplyAmount(assetTxs);
+      const totalBorrowAmount = calculateTotalBorrowAmount(assetTxs);
+      const repayAmount = calculateRepayAmount(assetTxs);
+      
+      // Determine chain ID based on the asset and transaction
+      const chainId = await getChainIdFromTransaction(latestTx.txHash, asset);
+      
+      console.log(`Processing asset ${asset}: determined chain ${chainId}, current chain: ${currentChainId}`);
+      
+      // Filter by current chain if specified
+      if (currentChainId && chainId !== currentChainId) {
+        console.log(`Skipping asset ${asset} on chain ${chainId} - not current chain ${currentChainId}`);
+        continue;
+      }
+      
+      console.log(`\n=== Final calculations for ${asset} ===`);
+      console.log(`Supply Amount: ${supplyAmount}`);
+      console.log(`Total Borrow Amount: ${totalBorrowAmount}`);
+      console.log(`Repay Amount: ${repayAmount}`);
+      
+      // Only include assets with some activity
+      if (supplyAmount > 0n || totalBorrowAmount > 0n || repayAmount > 0n) {
+        supplyBorrowData.push({
+          asset,
+          chainId: chainId.toString(),
+          supplyAmount: supplyAmount.toString(),
+          borrowAmount: totalBorrowAmount.toString(),
+          repayAmount: repayAmount.toString(),
+          totalBorrowAmount: totalBorrowAmount.toString(),
+          assetPriceUSD: latestTx.assetPriceUSD,
+          stableTokenDebt: latestTx.stableTokenDebt,
+          variableTokenDebt: latestTx.variableTokenDebt,
+          transactions: assetTxs,
+        });
+        console.log(`✅ Added to unclaimed supply/borrow data with ${assetTxs.length} transactions`);
+      } else {
+        console.log(`❌ Skipped - no activity`);
+      }
+    }
+    
+    console.log(`Created ${supplyBorrowData.length} unclaimed ${protocol} data entries`);
+    return supplyBorrowData;
+  } catch (error) {
+    console.error(`Error getting unclaimed ${protocol} data:`, error);
+    throw error;
   }
-  // Default to Aave path
-  return getUnclaimedSupplyBorrowData(userAddress, currentChainId, verifierAddress);
 };
 
 // Helper function to determine chain ID for an asset
@@ -852,107 +949,6 @@ export const getBlockTimestamp = async (blockNumber: bigint, chainId: number): P
   } catch (error) {
     console.error(`Error getting block timestamp for block ${blockNumber}:`, error);
     return 0;
-  }
-};
-
-// Get unclaimed supply/borrow data (data after the latest claimed block)
-export const getUnclaimedSupplyBorrowData = async (userAddress: string, currentChainId?: number, verifierAddress?: string): Promise<SupplyBorrowData[]> => {
-  try {
-    console.log(`Fetching unclaimed supply/borrow data for user: ${userAddress}`);
-    
-    let timestampFilter: number | undefined;
-    
-    // If we have a verifier address and chain ID, get the latest claimed block timestamp
-    if (verifierAddress && currentChainId) {
-      try {
-        const userInfo = await getUserInfoFromContract(userAddress, currentChainId, verifierAddress, 'AAVE');
-        if (userInfo && userInfo.latestBlock > 0n) {
-          const blockTimestamp = await getBlockTimestamp(userInfo.latestBlock, currentChainId);
-          if (blockTimestamp > 0) {
-            timestampFilter = blockTimestamp;
-            console.log(`Using timestamp filter: ${timestampFilter} (from block ${userInfo.latestBlock})`);
-          }
-        }
-      } catch (error) {
-        console.warn('Could not get latest claimed block timestamp, using all data:', error);
-      }
-    }
-    
-    // Query subgraph for user transactions with timestamp filter
-    const transactions = await queryUserTransactions(userAddress, timestampFilter);
-    
-    if (transactions.length === 0) {
-      console.log('No unclaimed transactions found for user');
-      return [];
-    }
-    
-    // Group transactions by asset
-    const uniqueAssets = new Map<string, SubgraphTransaction[]>();
-    
-    transactions.forEach(tx => {
-      const asset = tx.reserve.underlyingAsset.toLowerCase();
-      if (!uniqueAssets.has(asset)) {
-        uniqueAssets.set(asset, []);
-      }
-      uniqueAssets.get(asset)!.push(tx);
-    });
-
-    const supplyBorrowData: SupplyBorrowData[] = [];
-
-    // Process each unique asset
-    for (const [asset, assetTxs] of uniqueAssets) {
-      console.log(`\n=== Processing asset ${asset} ===`);
-      console.log(`Found ${assetTxs.length} transactions for this asset`);
-      
-      // Get the most recent transaction for price data
-      const latestTx = assetTxs[assetTxs.length - 1];
-      
-      // Calculate supply and borrow amounts
-      const supplyAmount = calculateSupplyAmount(assetTxs);
-      const totalBorrowAmount = calculateTotalBorrowAmount(assetTxs);
-      const repayAmount = calculateRepayAmount(assetTxs);
-      
-      // Determine chain ID based on the asset and transaction
-      const chainId = await getChainIdFromTransaction(latestTx.txHash, asset);
-      
-      console.log(`Processing asset ${asset}: determined chain ${chainId}, current chain: ${currentChainId}`);
-      
-      // Filter by current chain if specified
-      if (currentChainId && chainId !== currentChainId) {
-        console.log(`Skipping asset ${asset} on chain ${chainId} - not current chain ${currentChainId}`);
-        continue;
-      }
-      
-      console.log(`\n=== Final calculations for ${asset} ===`);
-      console.log(`Supply Amount: ${supplyAmount}`);
-      console.log(`Total Borrow Amount: ${totalBorrowAmount}`);
-      console.log(`Repay Amount: ${repayAmount}`);
-      
-      // Only include assets with some activity
-      if (supplyAmount > 0n || totalBorrowAmount > 0n || repayAmount > 0n) {
-        supplyBorrowData.push({
-          asset,
-          chainId: chainId.toString(),
-          supplyAmount: supplyAmount.toString(),
-          borrowAmount: totalBorrowAmount.toString(),
-          repayAmount: repayAmount.toString(),
-          totalBorrowAmount: totalBorrowAmount.toString(),
-          assetPriceUSD: latestTx.assetPriceUSD,
-          stableTokenDebt: latestTx.stableTokenDebt,
-          variableTokenDebt: latestTx.variableTokenDebt,
-          transactions: assetTxs,
-        });
-        console.log(`✅ Added to unclaimed supply/borrow data with ${assetTxs.length} transactions`);
-      } else {
-        console.log(`❌ Skipped - no activity`);
-      }
-    }
-    
-    console.log(`Created ${supplyBorrowData.length} unclaimed supply/borrow data entries`);
-    return supplyBorrowData;
-  } catch (error) {
-    console.error('Error getting unclaimed supply/borrow data for user:', error);
-    throw error;
   }
 };
 

@@ -8,7 +8,7 @@ import { ConnectWalletButton } from "../../shared/components/ConnectWalletButton
 import { SupplyBorrowDisplay } from "../../shared/components/SupplyBorrowDisplay";
 import { ClaimSupplyBorrowDisplay } from "../../shared/components/ClaimSupplyBorrowDisplay";
 import { type SupplyBorrowData } from "../../shared/lib/aave-subgraph";
-import { loadTokensToProve, getTokensToProve, getFallbackTokensToProve, type ProtocolTokenConfig, type ProtocolType } from "../../shared/lib/utils";
+import { loadTokensToProve, getTokensToProve, getFallbackTokensToProve, type ProtocolTokenConfig, type ProtocolType, getProtocolMetadata } from "../../shared/lib/utils";
 import { getSupplyBorrowDataForUser, getUnclaimedSupplyBorrowDataWithProtocol, getTokenConfigsForUnclaimedData } from "../../shared/lib/aave-subgraph";
 import { useAccount } from "wagmi";
 import { getAaveContractAddresses } from "../../../config-aave";
@@ -22,6 +22,23 @@ export const WelcomePage = () => {
   const isWrongChain = isConnected && !isOptimismChain;
   const navigate = useNavigate();
   const [selectedProtocol, setSelectedProtocol] = useState<ProtocolType | null>(null);
+  
+  // Define available protocols (only AAVE and COMPOUND are currently supported)
+  const availableProtocols: ProtocolType[] = ['AAVE', 'COMPOUND'];
+  
+  // Define coming soon protocols
+  const comingSoonProtocols: ProtocolType[] = ['FLUID', 'MORPHO'];
+  
+  // Define protocol border colors for UI
+  const protocolBorderColors: Record<ProtocolType, { default: string; hover: string }> = {
+    'AAVE': { default: 'border-blue-400', hover: 'hover:border-blue-600' },
+    'COMPOUND': { default: 'border-green-400', hover: 'hover:border-green-600' },
+    'FLUID': { default: 'border-purple-400', hover: 'hover:border-purple-600' },
+    'MORPHO': { default: 'border-indigo-400', hover: 'hover:border-indigo-600' },
+    'SPARK': { default: 'border-orange-400', hover: 'hover:border-orange-600' },
+    'MAPPLE': { default: 'border-pink-400', hover: 'hover:border-pink-600' },
+    'GEARBOX': { default: 'border-red-400', hover: 'hover:border-red-600' },
+  };
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingTokens, setIsLoadingTokens] = useState(false);
   const [tokensToProve, setTokensToProve] = useState<ProtocolTokenConfig[]>([]);
@@ -105,7 +122,7 @@ export const WelcomePage = () => {
           console.log("⚠️ No tokens found from subgraph, trying fallback...");
           const fallbackTokens = getFallbackTokensToProve();
           setTokensToProve(fallbackTokens);
-          setError(`No ${selectedProtocol} activity found for this address.`);
+          // setError(`No ${selectedProtocol} activity found for this address.`);
         } else {
           setError(null); // Clear any previous errors
         }
@@ -179,63 +196,60 @@ export const WelcomePage = () => {
             Supporting projects
           </div>
           <div className="flex flex-wrap gap-4 mb- justify-center">
-            {/* Aave */}
-            <div className="bg-white border border-gray-200 rounded-lg p-4 w-full max-w-md flex items-center shadow-sm hover:shadow-md transition-shadow cursor-pointer">
-              <div>
-                <img src="/img/AAVE.png" alt="AAVE" className="w-12 h-12" />
-              </div>
-              <div className="ml-4">
-                <div className="text-xl font-bold text-gray-900">AAVE</div>
-                <div className="text-sm text-gray-600 mt-1">
-                  The world's largest liquidity protocol. Supply, borrow, swap,
-                  stake and more.
+            {availableProtocols.map((protocol) => {
+              const metadata = getProtocolMetadata(protocol);
+              return (
+                <div 
+                  key={protocol}
+                  className="bg-white border border-gray-200 rounded-lg p-4 w-full max-w-md flex items-center shadow-sm hover:shadow-md transition-shadow cursor-pointer"
+                >
+                  <div>
+                    <img 
+                      src={metadata.image} 
+                      alt={metadata.displayName} 
+                      className="w-12 h-12 object-contain" 
+                    />
+                  </div>
+                  <div className="ml-4">
+                    <div className="text-xl font-bold text-gray-900">{metadata.displayName}</div>
+                    {metadata.description && (
+                      <div className="text-sm text-gray-600 mt-1">
+                        {metadata.description}
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
-            </div>
-
-            {/* Compound */}
-            <div className="bg-white border border-gray-200 rounded-lg p-4 w-full max-w-md flex items-center shadow-sm hover:shadow-md transition-shadow cursor-pointer">
-              <div>
-                <img src="/img/comp.png" alt="Compound" className="w-12 h-12" />
-              </div>
-              <div className="ml-4">
-                <div className="text-xl font-bold text-gray-900">Compound</div>
-                <div className="text-sm text-gray-600 mt-1">
-                  Earn interest or borrow crypto via an automated lending
-                  protocol.
-                </div>
-              </div>
-            </div>
+              );
+            })}
           </div>
 
           <div className="text-2xl font-bold mb-4 mt-12 text-gray-900 text-center">Coming soon</div>
           <div className="flex flex-wrap gap-4 justify-center">
-            {/* Fluid Protocol */}
-            <div className="bg-white border border-gray-200 rounded-lg p-4 w-full max-w-md flex items-center shadow-sm hover:shadow-md transition-shadow cursor-pointer">
-              <div>
-                {/* If you add an asset, place it in /public/img and update the src below */}
-                <img src="/img/fluid.jpeg" alt="Fluid" className="w-12 h-12" style={{objectFit: 'contain'}} />
-              </div>
-              <div className="ml-4">
-                <div className="text-xl font-bold text-gray-900">Fluid</div>
-                <div className="text-sm text-gray-600 mt-1">
-                Financial system of the future
-
+            {comingSoonProtocols.map((protocol) => {
+              const metadata = getProtocolMetadata(protocol);
+              return (
+                <div 
+                  key={protocol}
+                  className="bg-white border border-gray-200 rounded-lg p-4 w-full max-w-md flex items-center shadow-sm hover:shadow-md transition-shadow cursor-pointer"
+                >
+                  <div>
+                    <img 
+                      src={metadata.image} 
+                      alt={metadata.displayName} 
+                      className="w-12 h-12 object-contain" 
+                    />
+                  </div>
+                  <div className="ml-4">
+                    <div className="text-xl font-bold text-gray-900">{metadata.displayName}</div>
+                    {metadata.description && (
+                      <div className="text-sm text-gray-600 mt-1">
+                        {metadata.description}
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
-            </div>
-
-            <div className="bg-white border border-gray-200 rounded-lg p-4 w-full max-w-md flex items-center shadow-sm hover:shadow-md transition-shadow cursor-pointer">
-              <div>
-                <img src="/img/morpho-logo.png" alt="Morpho" className="w-12 h-12" style={{objectFit: 'contain'}} />
-              </div>
-              <div className="ml-4">
-                <div className="text-xl font-bold text-gray-900">Morpho</div>
-                <div className="text-sm text-gray-600 mt-1">
-                  Connect to the universal lending network
-                </div>
-              </div>
-            </div>
+              );
+            })}
           </div>
         </div>
         
@@ -281,47 +295,37 @@ export const WelcomePage = () => {
             Select a Protocol
           </div>
           <div className="flex flex-wrap gap-4 justify-center">
-            {/* Aave Protocol Card */}
-            <div 
-              onClick={() => !isWrongChain && setSelectedProtocol('AAVE')}
-              className={`bg-white border-2 rounded-lg p-6 w-full max-w-md flex items-center shadow-md transition-all cursor-pointer ${
-                isWrongChain 
-                  ? 'opacity-50 cursor-not-allowed border-gray-200' 
-                  : 'border-blue-400 hover:border-blue-600 hover:shadow-lg'
-              }`}
-            >
-              <div>
-                <img src="/img/AAVE.png" alt="AAVE" className="w-16 h-16" />
-              </div>
-              <div className="ml-4 flex-1">
-                <div className="text-2xl font-bold text-gray-900">AAVE</div>
-                <div className="text-sm text-gray-600 mt-1">
-                  The world's largest liquidity protocol. Supply, borrow, swap,
-                  stake and more.
+            {availableProtocols.map((protocol) => {
+              const metadata = getProtocolMetadata(protocol);
+              const borderColors = protocolBorderColors[protocol];
+              return (
+                <div 
+                  key={protocol}
+                  onClick={() => !isWrongChain && setSelectedProtocol(protocol)}
+                  className={`bg-white border-2 rounded-lg p-6 w-full max-w-md flex items-center shadow-md transition-all cursor-pointer ${
+                    isWrongChain 
+                      ? 'opacity-50 cursor-not-allowed border-gray-200' 
+                      : `${borderColors.default} ${borderColors.hover} hover:shadow-lg`
+                  }`}
+                >
+                  <div>
+                    <img 
+                      src={metadata.image} 
+                      alt={metadata.displayName} 
+                      className="w-16 h-16 object-contain" 
+                    />
+                  </div>
+                  <div className="ml-4 flex-1">
+                    <div className="text-2xl font-bold text-gray-900">{metadata.displayName}</div>
+                    {metadata.description && (
+                      <div className="text-sm text-gray-600 mt-1">
+                        {metadata.description}
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
-            </div>
-
-            {/* Compound Protocol Card */}
-            <div 
-              onClick={() => !isWrongChain && setSelectedProtocol('COMPOUND')}
-              className={`bg-white border-2 rounded-lg p-6 w-full max-w-md flex items-center shadow-md transition-all cursor-pointer ${
-                isWrongChain 
-                  ? 'opacity-50 cursor-not-allowed border-gray-200' 
-                  : 'border-green-400 hover:border-green-600 hover:shadow-lg'
-              }`}
-            >
-              <div>
-                <img src="/img/comp.png" alt="Compound" className="w-16 h-16" />
-              </div>
-              <div className="ml-4 flex-1">
-                <div className="text-2xl font-bold text-gray-900">Compound</div>
-                <div className="text-sm text-gray-600 mt-1">
-                  Earn interest or borrow crypto via an automated lending
-                  protocol.
-                </div>
-              </div>
-            </div>
+              );
+            })}
           </div>
         </div>
       </div>
@@ -330,29 +334,6 @@ export const WelcomePage = () => {
 
   return (
     <div>
-      {/* Protocol Header with Back Button */}
-      <div className="mb-4 flex items-center justify-between bg-gradient-to-r from-blue-50 to-purple-50 p-4 rounded-lg border border-gray-200">
-        <div className="flex items-center">
-          <img 
-            src={selectedProtocol === 'AAVE' ? '/img/AAVE.png' : '/img/comp.png'} 
-            alt={selectedProtocol} 
-            className="w-10 h-10 mr-3" 
-          />
-          <div>
-            <div className="text-xl font-bold text-gray-900">{selectedProtocol}</div>
-          </div>
-        </div>
-        <button
-          onClick={() => setSelectedProtocol(null)}
-          className="px-4 py-2 bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 text-sm font-medium rounded-md transition-colors flex items-center"
-        >
-          <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-          </svg>
-          Change to another Protocol
-        </button>
-      </div>
-
       {/* Wrong Chain Error */}
       {isWrongChain && (
         <div className="mb-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded-lg">
@@ -403,6 +384,7 @@ export const WelcomePage = () => {
         <ClaimSupplyBorrowDisplay 
           isLoading={isLoadingSupplyBorrow}
           protocol={selectedProtocol}
+          onChangeProtocol={() => setSelectedProtocol(null)}
         />
       </div>
       

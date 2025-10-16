@@ -25,6 +25,54 @@ export const getProtocolEnum = (protocol: ProtocolType): number => {
   return protocolMap[protocol];
 };
 
+// Protocol metadata including display names and image paths
+interface ProtocolMetadata {
+  displayName: string;
+  image: string;
+  description?: string;
+}
+
+export const getProtocolMetadata = (protocol: ProtocolType): ProtocolMetadata => {
+  const protocolMetadata: Record<ProtocolType, ProtocolMetadata> = {
+    'AAVE': {
+      displayName: 'Aave',
+      image: '/img/AAVE.png',
+      description: 'The world\'s largest liquidity protocol',
+    },
+    'COMPOUND': {
+      displayName: 'Compound',
+      image: '/img/comp.png',
+      description: 'Automated lending protocol',
+    },
+    'FLUID': {
+      displayName: 'Fluid',
+      image: '/img/fluid.jpeg',
+      description: 'Financial system of the future',
+    },
+    'MORPHO': {
+      displayName: 'Morpho',
+      image: '/img/morpho-logo.png',
+      description: 'Universal lending network',
+    },
+    'SPARK': {
+      displayName: 'Spark',
+      image: '/img/spark.png',
+      description: 'DeFi infrastructure',
+    },
+    'MAPPLE': {
+      displayName: 'Mapple Finance',
+      image: '/img/mapple.png',
+      description: 'Institutional lending',
+    },
+    'GEARBOX': {
+      displayName: 'Gearbox',
+      image: '/img/gearbox.png',
+      description: 'Leverage protocol',
+    },
+  };
+  return protocolMetadata[protocol];
+};
+
 export const shortenAndFormatHash = (hash: string | null) =>
   hash ? `${hash.slice(0, 4)}...${hash.slice(-4)}` : ""; // 0x00...012 instead of long hash
 

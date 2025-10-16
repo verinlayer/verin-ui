@@ -54,7 +54,7 @@ export const UsersInfoDisplay: React.FC<UsersInfoDisplayProps> = ({
     return (
       <div className={`p-4 bg-gray-100 border border-gray-300 text-gray-600 rounded ${className}`}>
         <h3 className="text-lg font-semibold mb-2">User Activity</h3>
-        <p>No DeFi activity found for this address.</p>
+        <p>No activity found for this address.</p>
       </div>
     );
   }

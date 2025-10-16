@@ -84,13 +84,34 @@ export interface CompoundSupplyBorrowData {
 }
 
 // Create GraphQL query for Compound
-const createCompoundQuery = (user: string, blockNumberFilter?: number) => {
+const createCompoundQuery = (user: string, timestampFilter?: number, blockNumberFilter?: number) => {
+  // Calculate timestamp for 14 days ago (in seconds)
+  const fourteenDaysAgo = Math.floor(Date.now() / 1000) - (14 * 24 * 60 * 60) - 3600;
+  
+  // Use the maximum between timestampFilter and 14 days ago
+  const effectiveTimestamp = timestampFilter 
+    ? Math.max(timestampFilter, fourteenDaysAgo)
+    : fourteenDaysAgo;
+  
+  console.log('🕐 Compound query using effective timestamp:', effectiveTimestamp, '(', new Date(effectiveTimestamp * 1000).toISOString(), ')');
+  console.log('📅 14 days ago timestamp:', fourteenDaysAgo, '(', new Date(fourteenDaysAgo * 1000).toISOString(), ')');
+  
+  // Build the where clause for filtering
+  let whereClause = '';
+  if (blockNumberFilter) {
+    whereClause = `where: {transaction_: {blockNumber_gt: "${blockNumberFilter}"}}`;
+    console.log('🔢 Using block number filter in query:', blockNumberFilter);
+  } else {
+    whereClause = `where: {transaction_: {timestamp_gt: ${effectiveTimestamp}}}`;
+    console.log('⏰ Using timestamp filter in query:', effectiveTimestamp);
+  }
+  
   return `query {
   accounts(where: {address: "${user.toLowerCase()}"}) {
     positions {
       supplyCollateralInteractions(
         first: 100
-        ${blockNumberFilter ? `where: {transaction_: {blockNumber_gt: "${blockNumberFilter}"}}` : ''}
+        ${whereClause}
       ) {
         amount
         amountUsd
@@ -116,7 +137,7 @@ const createCompoundQuery = (user: string, blockNumberFilter?: number) => {
       }
       supplyBaseInteractions(
         first: 100
-        ${blockNumberFilter ? `where: {transaction_: {blockNumber_gt: "${blockNumberFilter}"}}` : ''}
+        ${whereClause}
       ) {
         amount
         amountUsd
@@ -142,7 +163,7 @@ const createCompoundQuery = (user: string, blockNumberFilter?: number) => {
       }
       withdrawCollateralInteractions(
         first: 100
-        ${blockNumberFilter ? `where: {transaction_: {blockNumber_gt: "${blockNumberFilter}"}}` : ''}
+        ${whereClause}
       ) {
         amount
         amountUsd
@@ -168,7 +189,7 @@ const createCompoundQuery = (user: string, blockNumberFilter?: number) => {
       }
       withdrawBaseInteractions(
         first: 100
-        ${blockNumberFilter ? `where: {transaction_: {blockNumber_gt: "${blockNumberFilter}"}}` : ''}
+        ${whereClause}
       ) {
         amount
         amountUsd
@@ -200,6 +221,7 @@ const createCompoundQuery = (user: string, blockNumberFilter?: number) => {
 // Query Compound subgraph for user's transactions
 export const queryCompoundUserTransactions = async (
   user: string,
+  timestampFilter?: number,
   blockNumberFilter?: number,
   chainId?: number
 ): Promise<CompoundSubgraphTransaction[]> => {
@@ -207,7 +229,14 @@ export const queryCompoundUserTransactions = async (
     console.log('🔍 Querying Compound subgraph for user:', user);
     console.log('📡 Compound API URL:', COMPOUND_APIURL);
     
-    const query = createCompoundQuery(user, blockNumberFilter);
+    if (timestampFilter) {
+      console.log('⏰ Using timestamp filter:', timestampFilter, '(', new Date(timestampFilter * 1000).toISOString(), ')');
+    }
+    if (blockNumberFilter) {
+      console.log('🔢 Using block number filter:', blockNumberFilter);
+    }
+    
+    const query = createCompoundQuery(user, timestampFilter, blockNumberFilter);
     console.log('📝 Compound GraphQL Query:', query);
     
     const result = await fetch(COMPOUND_APIURL, {
@@ -430,8 +459,8 @@ export const getCompoundSupplyBorrowData = async (userAddress: string, currentCh
   try {
     console.log(`Fetching Compound supply/borrow data for user: ${userAddress}`);
     
-    // Query Compound subgraph
-    const transactions = await queryCompoundUserTransactions(userAddress, undefined, currentChainId);
+    // Query Compound subgraph (use timestamp filter by default)
+    const transactions = await queryCompoundUserTransactions(userAddress, undefined, undefined, currentChainId);
     
     if (transactions.length === 0) {
       console.log('No Compound transactions found for user');
@@ -519,8 +548,8 @@ export const getCompoundTokenConfigs = async (userAddress: string, currentChainI
   try {
     console.log(`Fetching Compound TokenConfig structures for user: ${userAddress}`);
     
-    // Query Compound subgraph
-    const transactions = await queryCompoundUserTransactions(userAddress, undefined, currentChainId);
+    // Query Compound subgraph (use timestamp filter by default)
+    const transactions = await queryCompoundUserTransactions(userAddress, undefined, undefined, currentChainId);
     
     if (transactions.length === 0) {
       console.log('No Compound transactions found for user');
@@ -559,20 +588,20 @@ export const getCompoundTokenConfigs = async (userAddress: string, currentChainI
   }
 };
 
-// Get unclaimed Compound data (data after the latest claimed block)
+// Get unclaimed Compound data (data after the latest claimed timestamp)
 export const getUnclaimedCompoundData = async (
   userAddress: string, 
   currentChainId?: number, 
-  latestClaimedBlock?: number
+  timestampFilter?: number
 ): Promise<CompoundSupplyBorrowData[]> => {
   try {
     console.log(`Fetching unclaimed Compound data for user: ${userAddress}`);
-    if (latestClaimedBlock) {
-      console.log(`Using block number filter: ${latestClaimedBlock}`);
+    if (timestampFilter) {
+      console.log(`Using timestamp filter for unclaimed data: ${timestampFilter} (${new Date(timestampFilter * 1000).toISOString()})`);
     }
     
-    // Query Compound subgraph with block filter
-    const transactions = await queryCompoundUserTransactions(userAddress, latestClaimedBlock, currentChainId);
+    // Query Compound subgraph with timestamp filter (not block number)
+    const transactions = await queryCompoundUserTransactions(userAddress, timestampFilter, undefined, currentChainId);
     
     if (transactions.length === 0) {
       console.log('No unclaimed Compound transactions found for user');
