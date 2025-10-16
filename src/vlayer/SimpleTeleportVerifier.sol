@@ -411,7 +411,51 @@ contract SimpleTeleportVerifier is Verifier, IVerifier, Ownable2Step {
     // ============ CREDIT SCORING FUNCTIONS ============
 
     /// @inheritdoc IVerifier
-    function calculateCreditScore(address user, Protocol protocol)
+    function calculateCreditScore(address user)
+        public
+        view
+        returns (uint256 score, uint8 tier)
+    {
+        UserInfo memory userInfo = totals[user];
+        uint256 currentBlock = block.number;
+
+        // Call the credit score calculator with UserInfo struct
+        CreditModel.Tier creditTier;
+        (score, creditTier) = creditScoreCalculator.computeScoreAndTier(userInfo, currentBlock);
+        tier = uint8(creditTier);
+    }
+
+    /// @inheritdoc IVerifier
+    function getCreditScore(address user)
+        external
+        view
+        returns (uint256 score)
+    {
+        UserInfo memory userInfo = totals[user];
+        uint256 currentBlock = block.number;
+
+        // Call the credit score calculator with UserInfo struct
+        (score,) = creditScoreCalculator.computeScoreAndTier(userInfo, currentBlock);
+    }
+
+    /**
+     * @notice Calculate credit score for a specific protocol
+     * @dev Computes credit score and tier based on user's activity in a single protocol
+     *      Uses the same credit model as the aggregate score but only considers
+     *      data from the specified protocol.
+     *
+     * @param user The address of the user to calculate the credit score for
+     * @param protocol The specific protocol (AAVE or COMPOUND) to calculate the score for
+     * @return score The calculated credit score (0-1000)
+     * @return tier The credit tier (0: Bronze, 1: Silver, 2: Gold, 3: Platinum, 4: Diamond)
+     *
+     * @dev This function allows users and dApps to see protocol-specific credit scores,
+     *      which can be useful for:
+     *      - Understanding performance on individual protocols
+     *      - Protocol-specific lending decisions
+     *      - Comparative analysis across protocols
+     */
+    function calculateCreditScorePerProtocol(address user, Protocol protocol)
         public
         view
         returns (uint256 score, uint8 tier)
@@ -425,8 +469,15 @@ contract SimpleTeleportVerifier is Verifier, IVerifier, Ownable2Step {
         tier = uint8(creditTier);
     }
 
-    /// @inheritdoc IVerifier
-    function getCreditScore(address user, Protocol protocol)
+    /**
+     * @notice Get credit score for a specific protocol (score only)
+     * @dev Returns just the credit score without the tier for a specific protocol
+     *
+     * @param user The address of the user to get the credit score for
+     * @param protocol The specific protocol (AAVE or COMPOUND) to get the score for
+     * @return score The calculated credit score (0-1000)
+     */
+    function getCreditScorePerProtocol(address user, Protocol protocol)
         external
         view
         returns (uint256 score)
@@ -457,17 +508,6 @@ contract SimpleTeleportVerifier is Verifier, IVerifier, Ownable2Step {
         if (totals[user].firstActivityBlock == 0 || blockNumber < totals[user].firstActivityBlock) {
             totals[user].firstActivityBlock = blockNumber;
         }
-    }
-
-    // ============ EXTERNAL FUNCTIONS ============
-
-    /// @inheritdoc IVerifier
-    function recordLiquidation(address user, Protocol protocol) external {
-        UserInfo storage userInfo = _usersInfo[user][protocol];
-        userInfo.liquidations++;
-        
-        // Update totals
-        totals[user].liquidations++;
     }
 
     // ============ ADMIN FUNCTIONS ============
