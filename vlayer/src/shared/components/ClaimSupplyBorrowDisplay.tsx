@@ -376,9 +376,36 @@ export const ClaimSupplyBorrowDisplay: React.FC<ClaimSupplyBorrowDisplayProps> =
   // If no activity at all, show a simple message
   if (!hasTotalActivity) {
     return (
-      <div className="mb-4 p-4 bg-gray-50 border border-gray-200 rounded-lg">
-        <p className="text-gray-600 text-sm">No claimed DeFi data found for this address.</p>
-      </div>
+      <>
+        <div className="mb-4 p-4 bg-gray-50 border border-gray-200 rounded-lg">
+          <p className="text-gray-600 text-sm">No claimed DeFi data found for this address.</p>
+        </div>
+        
+        {/* Show protocol switch button even when there's no data */}
+        {onChangeProtocol && (
+          <div className="mt-4 flex items-center justify-between bg-gradient-to-r from-blue-50 to-purple-50 p-4 rounded-lg border border-gray-200">
+            <div className="flex items-center">
+              <img 
+                src={getProtocolMetadata(protocol).image} 
+                alt={getProtocolMetadata(protocol).displayName} 
+                className="w-10 h-10 mr-3 object-contain" 
+              />
+              <div>
+                <div className="text-xl font-bold text-gray-900">{getProtocolMetadata(protocol).displayName}</div>
+              </div>
+            </div>
+            <button
+              onClick={onChangeProtocol}
+              className="px-4 py-2 bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 text-sm font-medium rounded-md transition-colors flex items-center"
+            >
+              <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+              </svg>
+              Switch to other Protocols
+            </button>
+          </div>
+        )}
+      </>
     );
   }
 

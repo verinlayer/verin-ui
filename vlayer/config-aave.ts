@@ -29,11 +29,16 @@ export const aaveContractAddresses: Record<string, AaveConfig> = {
     verifier: "0x7E07cedF47975bC76210E8AbE155d1BD58d71473",
   },
   optimism: {
+    // newest aave + compound
+    registry: "0x04e25d76Fb91f25225848043288206c54CdD8A98",
+    prover: "0x717694E59A5EA52a39D6c4C81d6919503bd112B3",
+    creditModel: "0xd90CfDcE6b72B22c42da1Acc7a0B1Dd413ac1202",
+    verifier: "0x27d7BB6dbcdb1f40E00604c45766A6Aecf9C09FE",
     // aave + compound
-    registry: "0xF7dc9D42BA3D08382A63bAcdBD568E627c6E80C1",
-    prover: "0x7cE1c988F125F6b05EC875bEa292D442f7272101",
-    creditModel: "0xe233aca82D0008f36b857D32a7BD568a8211f72d",
-    verifier: "0x0F52445C9ef4917af118Be00C0c0e439b6B005B2",
+    // registry: "0xF7dc9D42BA3D08382A63bAcdBD568E627c6E80C1",
+    // prover: "0x7cE1c988F125F6b05EC875bEa292D442f7272101",
+    // creditModel: "0xe233aca82D0008f36b857D32a7BD568a8211f72d",
+    // verifier: "0x0F52445C9ef4917af118Be00C0c0e439b6B005B2",
 
     // only Aave
     // registry: "0xE45F42E67271768CBAB25a88C854D25A4916dc6F",
