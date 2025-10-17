@@ -60,8 +60,37 @@ contract Registry is Initializable, AccessControl, UUPSUpgradeable, IRegistry {
     address public constant ARB_USDT_ADDRESS = 0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9; // Bridged USDT
     address public constant ARB_WETH_ADDRESS = 0x82aF49447D8a07e3bd95BD0d56f35241523fBab1; // Native WETH (Arbitrum's native ETH wrapper)
     address public constant ARB_WBTC_ADDRESS = 0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f; // Bridged WBTC
+
+    // commpound addresses
+    // optimism
+    address public constant OP_COMPOUND_C_USDCV3_ADDRESS = 0x2e44e174f7D53F0212823acC11C01A11d58c5bCB;
+    address public constant OP_COMPOUND_C_USDTV3_ADDRESS = 0x995E394b8B2437aC8Ce61Ee0bC610D617962B214;
+    address public constant OP_COMPOUND_C_WETHV3_ADDRESS = 0xE36A30D249f7761327fd973001A32010b521b6Fd;
+    address public constant OP_COMPOUND_C_WBTCV3_ADDRESS = 0x0000000000000000000000000000000000000000;
+    address public constant OP_COMPOUND_C_USDSV3_ADDRESS = 0x0000000000000000000000000000000000000000;
+    address public constant OP_COMPOUND_C_WSTETHV3_ADDRESS = 0x0000000000000000000000000000000000000000;
+
+    // base
+    address public constant BASE_COMPOUND_C_USDCV3_ADDRESS = 0xb125E6687d4313864e53df431d5425969c15Eb2F;
+    address public constant BASE_COMPOUND_C_USDTV3_ADDRESS = 0x0000000000000000000000000000000000000000;
+    address public constant BASE_COMPOUND_C_WETHV3_ADDRESS = 0x46e6b214b524310239732D51387075E0e70970bf;
+    address public constant BASE_COMPOUND_C_WBTCV3_ADDRESS = 0x0000000000000000000000000000000000000000;
+    address public constant BASE_COMPOUND_C_USDSV3_ADDRESS = 0x0000000000000000000000000000000000000000;
+    address public constant BASE_COMPOUND_C_WSTETHV3_ADDRESS = 0x0000000000000000000000000000000000000000;
+
+    // eth mainnet
+    address public constant MAINNET_COMPOUND_C_USDCV3_ADDRESS = 0xc3d688B66703497DAA19211EEdff47f25384cdc3;
+    address public constant MAINNET_COMPOUND_C_USDTV3_ADDRESS = 0x3Afdc9BCA9213A35503b077a6072F3D0d5AB0840;
+    address public constant MAINNET_COMPOUND_C_WETHV3_ADDRESS = 0xA17581A9E3356d9A858b789D68B4d866e593aE94;
+    address public constant MAINNET_COMPOUND_C_WBTCV3_ADDRESS = 0x0000000000000000000000000000000000000000;
+    address public constant MAINNET_COMPOUND_C_USDSV3_ADDRESS = 0x5D409e56D886231aDAf00c8775665AD0f9897b56;
+    address public constant MAINNET_COMPOUND_C_WSTETHV3_ADDRESS = 0x3D0bb1ccaB520A66e607822fC55BC921738fAFE3;
+
     // Chain-specific address mappings
     mapping(uint256 => ChainAddresses) private chainAddresses;
+
+    // chain to compound addresses
+    mapping(uint256 => CompoundAddresses) private compoundAddresses;
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
@@ -113,6 +142,36 @@ contract Registry is Initializable, AccessControl, UUPSUpgradeable, IRegistry {
             weth: BASE_WETH_ADDRESS,
             wbtc: BASE_WBTC_ADDRESS
         });
+
+        // Initialize Compound addresses for Ethereum mainnet (chain ID: 1)
+        compoundAddresses[1] = CompoundAddresses({
+            cUSDCV3: MAINNET_COMPOUND_C_USDCV3_ADDRESS,
+            cUSDTV3: MAINNET_COMPOUND_C_USDTV3_ADDRESS,
+            cWETHV3: MAINNET_COMPOUND_C_WETHV3_ADDRESS,
+            cWBTCV3: MAINNET_COMPOUND_C_WBTCV3_ADDRESS,
+            cUSDSV3: MAINNET_COMPOUND_C_USDSV3_ADDRESS,
+            cwstETHV3: MAINNET_COMPOUND_C_WSTETHV3_ADDRESS
+        });
+
+        // Initialize Compound addresses for Optimism (chain ID: 10)
+        compoundAddresses[10] = CompoundAddresses({
+            cUSDCV3: OP_COMPOUND_C_USDCV3_ADDRESS,
+            cUSDTV3: OP_COMPOUND_C_USDTV3_ADDRESS,
+            cWETHV3: OP_COMPOUND_C_WETHV3_ADDRESS,
+            cWBTCV3: OP_COMPOUND_C_WBTCV3_ADDRESS,
+            cUSDSV3: OP_COMPOUND_C_USDSV3_ADDRESS,
+            cwstETHV3: OP_COMPOUND_C_WSTETHV3_ADDRESS
+        });
+
+        // Initialize Compound addresses for Base (chain ID: 8453)
+        compoundAddresses[8453] = CompoundAddresses({
+            cUSDCV3: BASE_COMPOUND_C_USDCV3_ADDRESS,
+            cUSDTV3: BASE_COMPOUND_C_USDTV3_ADDRESS,
+            cWETHV3: BASE_COMPOUND_C_WETHV3_ADDRESS,
+            cWBTCV3: BASE_COMPOUND_C_WBTCV3_ADDRESS,
+            cUSDSV3: BASE_COMPOUND_C_USDSV3_ADDRESS,
+            cwstETHV3: BASE_COMPOUND_C_WSTETHV3_ADDRESS
+        });
     }
 
     /**
@@ -156,6 +215,17 @@ contract Registry is Initializable, AccessControl, UUPSUpgradeable, IRegistry {
         ChainAddresses memory addresses = chainAddresses[chainId];
         require(addresses.aavePool != address(0), "Unsupported chain ID");
         return addresses.compoundComptroller;
+    }
+
+    /**
+     * @notice Get Compound addresses for a specific chain
+     * @param chainId The chain ID
+     * @return The Compound addresses for the chain
+     */
+    function getCompoundAddresses(uint256 chainId) external view returns (CompoundAddresses memory) {
+        CompoundAddresses memory addresses = compoundAddresses[chainId];
+        require(addresses.cUSDCV3 != address(0) || addresses.cWETHV3 != address(0), "Unsupported chain ID for Compound");
+        return addresses;
     }
 
     /**
@@ -215,6 +285,16 @@ contract Registry is Initializable, AccessControl, UUPSUpgradeable, IRegistry {
         addresses.compoundComptroller = compoundComptroller;
 
         emit ProtocolAddressesUpdated(chainId, aavePool, morphoLens, compoundComptroller);
+    }
+
+    /**
+     * @notice Update Compound addresses for a specific chain (only admin role)
+     * @param chainId The chain ID
+     * @param addresses The new Compound addresses for the chain
+     */
+    function updateCompoundAddresses(uint256 chainId, CompoundAddresses calldata addresses) external onlyRole(ADMIN_ROLE) {
+        compoundAddresses[chainId] = addresses;
+        emit CompoundAddressesUpdated(chainId, addresses);
     }
 
     /**

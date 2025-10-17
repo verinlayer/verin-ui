@@ -7,6 +7,7 @@ export const HodlerForm = ({
   loadingLabel,
   submitLabel,
   isEditable,
+  isDisabled = false,
 }: {
   holderAddress: string;
   onSubmit: (e: FormEvent<HTMLFormElement>) => void;
@@ -14,6 +15,7 @@ export const HodlerForm = ({
   loadingLabel: string;
   submitLabel: string;
   isEditable: boolean;
+  isDisabled?: boolean;
 }) => {
   return (
     <form onSubmit={onSubmit}>
@@ -25,7 +27,11 @@ export const HodlerForm = ({
         />
       </div>
       <div className="mt-5 flex justify-center">
-        <button type="submit" id="nextButton" disabled={isLoading}>
+        <button
+          type="submit"
+          id="nextButton"
+          disabled={isLoading || isDisabled}
+        >
           {isLoading ? loadingLabel : submitLabel}
         </button>
       </div>

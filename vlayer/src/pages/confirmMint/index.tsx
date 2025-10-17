@@ -9,7 +9,7 @@ import { useLocalStorage } from "usehooks-ts";
 import { useAccount, useBalance, useWriteContract } from "wagmi";
 import { useNavigate } from "react-router";
 import { ConnectWalletButton } from "../../shared/components/ConnectWalletButton";
-import { parseProverResult, getTokensToProve } from "../../shared/lib/utils";
+import { parseProverResult, getTokensToProve, type ProtocolType } from "../../shared/lib/utils";
 import { AlreadyMintedError } from "../../shared/errors/appErrors";
 import { Chain, optimismSepolia } from "viem/chains";
 import { match } from "ts-pattern";
@@ -68,7 +68,26 @@ export const ConfirmMintPage = () => {
     setIsLoading(true);
     setUserCancelled(false);
     
-    // Get verifier address from config based on current chain
+    // Get selected protocol from localStorage (default to AAVE for backward compatibility)
+    const selectedProtocol = (localStorage.getItem('selectedProtocol') || 'AAVE') as ProtocolType;
+    
+    // Determine which claim function to call based on protocol
+    let claimFunctionName: string;
+    switch (selectedProtocol) {
+      case 'COMPOUND':
+        claimFunctionName = 'claimCompoundData';
+        break;
+      case 'AAVE':
+      default:
+        claimFunctionName = 'claim';
+        break;
+      // Add more protocols here as they are implemented:
+      // case 'FLUID':
+      //   claimFunctionName = 'claimFluidData';
+      //   break;
+    }
+    
+    // Get verifier address from config based on current chain and protocol
     let verifierAddress: `0x${string}` = import.meta.env.VITE_VERIFIER_ADDRESS as `0x${string}`; // fallback to env
     try {
       if (chain?.name) {
@@ -89,9 +108,11 @@ export const ConfirmMintPage = () => {
           chainName = 'anvil';
         }
         
+        // Get contract addresses (same for both protocols)
         const addresses = getAaveContractAddresses(chainName);
         verifierAddress = addresses.verifier;
-        console.log(`Using verifier address from config: ${verifierAddress} for chain: ${chain.name}`);
+        console.log(`Using verifier address from config: ${verifierAddress} for chain: ${chain.name}, protocol: ${selectedProtocol}`);
+        console.log(`Calling claim function: ${claimFunctionName}`);
       }
     } catch (err) {
       console.warn("Could not get verifier address from config, using env variable:", err);
@@ -100,7 +121,7 @@ export const ConfirmMintPage = () => {
     writeContract({
       address: verifierAddress,
       abi: verifierSpec.abi,
-      functionName: "claim",
+      functionName: claimFunctionName,
       args: [proof, owner, tokens],
     });
   };

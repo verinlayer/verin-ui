@@ -4,6 +4,7 @@ import { createPublicClient, http, formatUnits } from 'viem';
 import { optimismSepolia, mainnet, base, baseSepolia, optimism } from 'viem/chains';
 import { getAaveContractAddresses } from '../../../config-aave';
 import { getTokenDecimals } from '../utils/tokenDecimals';
+import { type ProtocolType, getProtocolEnum, getProtocolMetadata } from '../lib/utils';
 
 // ABI for SimpleTeleportVerifier contract
 const VERIFIER_ABI = [
@@ -30,13 +31,45 @@ const VERIFIER_ABI = [
   },
   {
     "inputs": [
-      {"name": "user", "type": "address"},
-      {"name": "protocol", "type": "uint8"}
+      {"name": "user", "type": "address"}
     ],
     "name": "calculateCreditScore",
     "outputs": [
       {"name": "score", "type": "uint256"},
       {"name": "tier", "type": "uint8"}
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {"name": "user", "type": "address"},
+      {"name": "protocol", "type": "uint8"}
+    ],
+    "name": "calculateCreditScorePerProtocol",
+    "outputs": [
+      {"name": "score", "type": "uint256"},
+      {"name": "tier", "type": "uint8"}
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {"name": "", "type": "address"}
+    ],
+    "name": "totals",
+    "outputs": [
+      {"name": "borrowedAmount", "type": "uint256"},
+      {"name": "suppliedAmount", "type": "uint256"},
+      {"name": "repaidAmount", "type": "uint256"},
+      {"name": "latestBlock", "type": "uint256"},
+      {"name": "latestBalance", "type": "uint256"},
+      {"name": "borrowTimes", "type": "uint256"},
+      {"name": "supplyTimes", "type": "uint256"},
+      {"name": "repayTimes", "type": "uint256"},
+      {"name": "firstActivityBlock", "type": "uint256"},
+      {"name": "liquidations", "type": "uint256"}
     ],
     "stateMutability": "view",
     "type": "function"
@@ -82,6 +115,8 @@ interface UserInfo {
 
 interface ClaimSupplyBorrowDisplayProps {
   isLoading?: boolean;
+  protocol?: ProtocolType;
+  onChangeProtocol?: () => void;
 }
 
 interface CreditScore {
@@ -154,10 +189,13 @@ const getBlockTimestamp = async (blockNumber: bigint, chainId: number): Promise<
 };
 
 export const ClaimSupplyBorrowDisplay: React.FC<ClaimSupplyBorrowDisplayProps> = ({ 
-  isLoading = false 
+  isLoading = false,
+  protocol = 'AAVE',
+  onChangeProtocol
 }) => {
   const { address, chain } = useAccount();
   const [userInfo, setUserInfo] = useState<UserInfo | null>(null);
+  const [totalsInfo, setTotalsInfo] = useState<UserInfo | null>(null);
   const [creditScore, setCreditScore] = useState<CreditScore | null>(null);
   const [latestBlockTimestamp, setLatestBlockTimestamp] = useState<number>(0);
   const [isLoadingData, setIsLoadingData] = useState(false);
@@ -165,7 +203,7 @@ export const ClaimSupplyBorrowDisplay: React.FC<ClaimSupplyBorrowDisplayProps> =
 
   useEffect(() => {
     const fetchUserInfo = async () => {
-      if (!address || !chain) return;
+      if (!address || !chain || !protocol) return;
 
       // Only fetch data if connected to Optimism (chain ID 10)
       if (chain.id !== 10) {
@@ -197,7 +235,9 @@ export const ClaimSupplyBorrowDisplay: React.FC<ClaimSupplyBorrowDisplayProps> =
           }
         }
         
-        console.log(`Using chain config: ${chainName} for chain: ${chain.name}`);
+        console.log(`Using chain config: ${chainName} for chain: ${chain.name}, protocol: ${protocol}`);
+        
+        // Get contract addresses (same for both protocols)
         const addresses = getAaveContractAddresses(chainName);
         
         if (!addresses.verifier || addresses.verifier === "0x0000000000000000000000000000000000000000") {
@@ -210,14 +250,15 @@ export const ClaimSupplyBorrowDisplay: React.FC<ClaimSupplyBorrowDisplayProps> =
           throw new Error(`No RPC client configured for chain ID: ${chain.id}`);
         }
 
-        // Read user info from the contract (Protocol.AAVE = 0)
+        // Map protocol to enum value
+        const protocolEnum = getProtocolEnum(protocol);
+
+        // Read user info from the contract
         const result = await client.readContract({
           address: addresses.verifier as `0x${string}`,
           abi: VERIFIER_ABI,
           functionName: 'usersInfo',
-          // args: ['0x05e14e44e3b296f12b21790cde834bce5be5b8e0' as `0x${string}`, 0] // 0 = Protocol.AAVE
-          // args: ['0x31017AE9e832f2f3155Bc60176d451f22715cd15' as `0x${string}`, 0] // 0 = Protocol.AAVE
-          args: [address as `0x${string}`, 0] // 0 = Protocol.AAVE
+          args: [address as `0x${string}`, protocolEnum]
         });
 
         // Convert the result to UserInfo interface
@@ -242,15 +283,41 @@ export const ClaimSupplyBorrowDisplay: React.FC<ClaimSupplyBorrowDisplayProps> =
           setLatestBlockTimestamp(timestamp);
         }
 
-        // Fetch credit score
+        // Fetch totals across all protocols
+        try {
+          const totalsResult = await client.readContract({
+            address: addresses.verifier as `0x${string}`,
+            abi: VERIFIER_ABI,
+            functionName: 'totals',
+            args: [address as `0x${string}`]
+          });
+
+          const totalsData: UserInfo = {
+            borrowedAmount: totalsResult[0],
+            suppliedAmount: totalsResult[1],
+            repaidAmount: totalsResult[2],
+            latestBlock: totalsResult[3],
+            latestBalance: totalsResult[4],
+            borrowTimes: totalsResult[5],
+            supplyTimes: totalsResult[6],
+            repayTimes: totalsResult[7],
+            firstActivityBlock: totalsResult[8],
+            liquidations: totalsResult[9]
+          };
+
+          setTotalsInfo(totalsData);
+        } catch (totalsError) {
+          console.error('Error fetching totals:', totalsError);
+          // Don't set error state for totals failure, just log it
+        }
+
+        // Fetch credit score (uses totals internally)
         try {
           const creditScoreResult = await client.readContract({
             address: addresses.verifier as `0x${string}`,
             abi: VERIFIER_ABI,
             functionName: 'calculateCreditScore',
-            // args: ['0x05e14e44e3b296f12b21790cde834bce5be5b8e0' as `0x${string}`, 0] // 0 = Protocol.AAVE
-            // args: ['0x31017AE9e832f2f3155Bc60176d451f22715cd15' as `0x${string}`, 0] // 0 = Protocol.AAVE
-            args: [address as `0x${string}`, 0] // 0 = Protocol.AAVE
+            args: [address as `0x${string}`]
           });
 
           const creditScoreData: CreditScore = {
@@ -273,7 +340,7 @@ export const ClaimSupplyBorrowDisplay: React.FC<ClaimSupplyBorrowDisplayProps> =
     };
 
     fetchUserInfo();
-  }, [address, chain]);
+  }, [address, chain, protocol]);
 
   if (isLoading || isLoadingData) {
     return (
@@ -297,23 +364,48 @@ export const ClaimSupplyBorrowDisplay: React.FC<ClaimSupplyBorrowDisplayProps> =
     );
   }
 
-  if (!userInfo) {
-    return (
-      <div className="mb-4 p-4 bg-gray-50 border border-gray-200 rounded-lg">
-        <p className="text-gray-600 text-sm">No claimed DeFi data found for this address.</p>
-      </div>
-    );
-  }
-
-  // Check if user has any activity
-  const hasActivity = userInfo.borrowedAmount > 0n || userInfo.suppliedAmount > 0n || userInfo.repaidAmount > 0n;
+  // Check if user has any activity across all protocols
+  const hasTotalActivity = totalsInfo && (totalsInfo.borrowedAmount > 0n || totalsInfo.suppliedAmount > 0n || totalsInfo.repaidAmount > 0n);
+  
+  // Check if user has activity in the specific protocol
+  const hasProtocolActivity = userInfo && (userInfo.borrowedAmount > 0n || userInfo.suppliedAmount > 0n || userInfo.repaidAmount > 0n);
+  
   console.log('userInfo', userInfo);
+  console.log('totalsInfo', totalsInfo);
 
-  if (!hasActivity) {
+  // If no activity at all, show a simple message
+  if (!hasTotalActivity) {
     return (
-      <div className="mb-4 p-4 bg-gray-50 border border-gray-200 rounded-lg">
-        <p className="text-gray-600 text-sm">No claimed DeFi activity found for this address.</p>
-      </div>
+      <>
+        <div className="mb-4 p-4 bg-gray-50 border border-gray-200 rounded-lg">
+          <p className="text-gray-600 text-sm">No claimed DeFi data found for this address.</p>
+        </div>
+        
+        {/* Show protocol switch button even when there's no data */}
+        {onChangeProtocol && (
+          <div className="mt-4 flex items-center justify-between bg-gradient-to-r from-blue-50 to-purple-50 p-4 rounded-lg border border-gray-200">
+            <div className="flex items-center">
+              <img 
+                src={getProtocolMetadata(protocol).image} 
+                alt={getProtocolMetadata(protocol).displayName} 
+                className="w-10 h-10 mr-3 object-contain" 
+              />
+              <div>
+                <div className="text-xl font-bold text-gray-900">{getProtocolMetadata(protocol).displayName}</div>
+              </div>
+            </div>
+            <button
+              onClick={onChangeProtocol}
+              className="px-4 py-2 bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 text-sm font-medium rounded-md transition-colors flex items-center"
+            >
+              <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+              </svg>
+              Switch to other Protocols
+            </button>
+          </div>
+        )}
+      </>
     );
   }
 
@@ -341,81 +433,125 @@ const formatCreditTier = (tier: number): string => {
 
   return (
     <div className="mb-6 space-y-4">
-      <h3 className="text-lg font-semibold text-slate-900">Summary of Claimed DeFi Data</h3>
+      {/* Total Summary Across All Protocols */}
+      {totalsInfo && hasTotalActivity && (
+        <>
+          <h3 className="text-xl font-bold text-slate-900">Total Claimed Data Across All Protocols</h3>
+          <div className="bg-gradient-to-r from-purple-50 to-indigo-50 border-2 border-purple-300 rounded-xl p-5 shadow-lg">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+              <div className="bg-green-100 rounded-lg p-3 border border-green-300">
+                <div className="text-sm font-medium text-green-800">Total Supplied (USD)</div>
+                <div className="text-xl font-bold text-green-900">{formatTokenAmountSmart(totalsInfo.suppliedAmount, chain?.id || 1, 'supply')}</div>
+              </div>
+              <div className="bg-orange-100 rounded-lg p-3 border border-orange-300">
+                <div className="text-sm font-medium text-orange-800">Total Borrowed (USD)</div>
+                <div className="text-xl font-bold text-orange-900">{formatTokenAmountSmart(totalsInfo.borrowedAmount, chain?.id || 1, 'borrow')}</div>
+              </div>
+              <div className="bg-blue-100 rounded-lg p-3 border border-blue-300">
+                <div className="text-sm font-medium text-blue-800">Total Repaid (USD)</div>
+                <div className="text-xl font-bold text-blue-900">{formatTokenAmountSmart(totalsInfo.repaidAmount, chain?.id || 1, 'repay')}</div>
+              </div>
+              <div className="bg-purple-100 rounded-lg p-3 border border-purple-300">
+                <div className="text-sm font-medium text-purple-800">Credit Score</div>
+                <div className="text-xl font-bold text-purple-900">
+                  {creditScore ? creditScore.score.toString() : 'N/A'}
+                </div>
+              </div>
+              <div className="bg-indigo-100 rounded-lg p-3 border border-indigo-300">
+                <div className="text-sm font-medium text-indigo-800">Credit Tier</div>
+                <div className="text-xl font-bold text-indigo-900">
+                  {creditScore ? formatCreditTier(creditScore.tier) : 'N/A'}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Protocol Header with Change Button */}
+          {onChangeProtocol && (
+            <div className="mt-4 flex items-center justify-between bg-gradient-to-r from-blue-50 to-purple-50 p-4 rounded-lg border border-gray-200">
+              <div className="flex items-center">
+                <img 
+                  src={getProtocolMetadata(protocol).image} 
+                  alt={getProtocolMetadata(protocol).displayName} 
+                  className="w-10 h-10 mr-3 object-contain" 
+                />
+                <div>
+                  <div className="text-xl font-bold text-gray-900">{getProtocolMetadata(protocol).displayName}</div>
+                </div>
+              </div>
+              <button
+                onClick={onChangeProtocol}
+                className="px-4 py-2 bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 text-sm font-medium rounded-md transition-colors flex items-center"
+              >
+                <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                </svg>
+                Switch to other Protocols
+              </button>
+            </div>
+          )}
+        </>
+      )}
+
+      {/* Protocol-Specific Data */}
+      <h3 className="text-lg font-semibold text-slate-900 mt-6">Summary of Claimed {getProtocolMetadata(protocol).displayName} Data</h3>
       
-      {/* Overall Summary */}
-      <div className="bg-gradient-to-r from-green-50 to-blue-50 border border-green-200 rounded-xl p-4">
-        {/* <h4 className="text-md font-semibold text-slate-800 mb-3">Claimed Activity Summary</h4> */}
-        
-        {/* Main Activity Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
-          <div className="bg-green-100 rounded-lg p-3">
-            <div className="text-sm font-medium text-green-800">Total Supplied (USD)</div>
-            <div className="text-lg font-bold text-green-900">{formatTokenAmountSmart(userInfo.suppliedAmount, chain?.id || 1, 'supply')}</div>
-            {/* <div className="text-xs text-green-600">{userInfo.supplyTimes.toString()} transactions</div> */}
-          </div>
-          <div className="bg-orange-100 rounded-lg p-3">
-            <div className="text-sm font-medium text-orange-800">Total Borrowed (USD)</div>
-            <div className="text-lg font-bold text-orange-900">{formatTokenAmountSmart(userInfo.borrowedAmount, chain?.id || 1, 'borrow')}</div>
-            {/* <div className="text-xs text-orange-600">{userInfo.borrowTimes.toString()} transactions</div> */}
-          </div>
-          <div className="bg-blue-100 rounded-lg p-3">
-            <div className="text-sm font-medium text-blue-800">Total Repaid (USD)</div>
-            <div className="text-lg font-bold text-blue-900">{formatTokenAmountSmart(userInfo.repaidAmount, chain?.id || 1, 'repay')}</div>
-            {/* <div className="text-xs text-blue-600">{userInfo.repayTimes.toString()} transactions</div> */}
-          </div>
-          <div className="bg-purple-100 rounded-lg p-3">
-            <div className="text-sm font-medium text-purple-800">Credit Score</div>
-            <div className="text-lg font-bold text-purple-900">
-              {creditScore ? creditScore.score.toString() : 'N/A'}
+      {hasProtocolActivity ? (
+        <div className="bg-gradient-to-r from-green-50 to-blue-50 border border-green-200 rounded-xl p-4">
+          {/* Main Activity Stats */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+            <div className="bg-green-100 rounded-lg p-3">
+              <div className="text-sm font-medium text-green-800">Supplied (USD)</div>
+              <div className="text-lg font-bold text-green-900">{formatTokenAmountSmart(userInfo.suppliedAmount, chain?.id || 1, 'supply')}</div>
             </div>
-          </div>
-          <div className="bg-indigo-100 rounded-lg p-3">
-            <div className="text-sm font-medium text-indigo-800">Credit Tier</div>
-            <div className="text-lg font-bold text-indigo-900">
-              {creditScore ? formatCreditTier(creditScore.tier) : 'N/A'}
+            <div className="bg-orange-100 rounded-lg p-3">
+              <div className="text-sm font-medium text-orange-800">Borrowed (USD)</div>
+              <div className="text-lg font-bold text-orange-900">{formatTokenAmountSmart(userInfo.borrowedAmount, chain?.id || 1, 'borrow')}</div>
             </div>
-          </div>
-        </div>
-
-        {/* Additional Information */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="space-y-3">
-            <div>
-              <div className="text-sm font-medium text-slate-600">Liquidations</div>
-              <div className="text-lg font-semibold text-red-600">{userInfo.liquidations.toString()}</div>
+            <div className="bg-blue-100 rounded-lg p-3">
+              <div className="text-sm font-medium text-blue-800">Repaid (USD)</div>
+              <div className="text-lg font-bold text-blue-900">{formatTokenAmountSmart(userInfo.repaidAmount, chain?.id || 1, 'repay')}</div>
+            </div>
+            <div className="bg-slate-100 rounded-lg p-3">
+              <div className="text-sm font-medium text-slate-800">Supply Txs</div>
+              <div className="text-lg font-bold text-slate-900">{userInfo.supplyTimes.toString()}</div>
+            </div>
+            <div className="bg-slate-100 rounded-lg p-3">
+              <div className="text-sm font-medium text-slate-800">Borrow Txs</div>
+              <div className="text-lg font-bold text-slate-900">{userInfo.borrowTimes.toString()}</div>
+            </div>
+            <div className="bg-slate-100 rounded-lg p-3">
+              <div className="text-sm font-medium text-slate-800">Repay Txs</div>
+              <div className="text-lg font-bold text-slate-900">{userInfo.repayTimes.toString()}</div>
             </div>
           </div>
 
-          <div className="space-y-3">
-            <div>
-              <div className="text-sm font-medium text-slate-600">Latest Block</div>
-              <div className="text-lg font-semibold text-slate-900">{userInfo.latestBlock.toString()}</div>
-              {latestBlockTimestamp > 0 && (
-                <div className="text-xs text-slate-500">{formatDate(latestBlockTimestamp)}</div>
-              )}
+          {/* Additional Information */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-3">
+              <div>
+                <div className="text-sm font-medium text-slate-600">Liquidations</div>
+                <div className="text-lg font-semibold text-red-600">{userInfo.liquidations.toString()}</div>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <div>
+                <div className="text-sm font-medium text-slate-600">Latest Block</div>
+                <div className="text-lg font-semibold text-slate-900">{userInfo.latestBlock.toString()}</div>
+                {latestBlockTimestamp > 0 && (
+                  <div className="text-xs text-slate-500">{formatDate(latestBlockTimestamp)}</div>
+                )}
+              </div>
             </div>
           </div>
         </div>
-
-        {/* <div className="mt-3 text-xs text-slate-600 bg-slate-50 p-2 rounded">
-          💡 Amounts are automatically formatted using smart decimal detection (6 decimals for USDT/USDC, 18 decimals for other tokens)
-        </div> */}
-      </div>
-
-
-      {/* Credit Score Information */}
-      {/* <div className="bg-slate-50 rounded-lg p-4">
-        <div className="text-sm font-medium text-slate-700 mb-2">Credit Score Data</div>
-        <div className="text-xs text-slate-600">
-          <p>This data is used to calculate your credit score based on:</p>
-          <ul className="mt-1 ml-4 space-y-1">
-            <li>• Repayment rate: {userInfo.borrowedAmount > 0n ? `${((Number(userInfo.repaidAmount) / Number(userInfo.borrowedAmount)) * 100).toFixed(1)}%` : 'N/A'}</li>
-            <li>• Activity frequency: {Number(userInfo.borrowTimes + userInfo.supplyTimes + userInfo.repayTimes)} total transactions</li>
-            <li>• Liquidation history: {userInfo.liquidations.toString()} liquidations</li>
-          </ul>
+      ) : (
+        <div className="mb-4 p-4 bg-gray-50 border border-gray-200 rounded-lg">
+          <p className="text-gray-600 text-sm">No {protocol} activity found for this address. Check the totals above to see activity on other protocols.</p>
         </div>
-      </div> */}
+      )}
+
     </div>
   );
 };

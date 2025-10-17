@@ -13,10 +13,13 @@ const HIGHLIGHTED_TOKENS = {
   // USDT addresses on different chains
   "0xd7bfa30cA5cBB252F228AB6Ba3b1b2814d752081": "USDT", // OP Sepolia
   "0xdac17f958d2ee523a2206206994597c13d831ec7": "USDT", // Ethereum Mainnet
+  "0x94b008aa00579c1307b0ef2c499ad98a8ce58e58": "USDT", // Optimism
   // USDC addresses on different chains  
   "0x64dF24D36d68583766aEeeD77F05EA6D9f399378": "USDC", // OP Sepolia
   "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48": "USDC", // Ethereum Mainnet
-  "0x0b2c639c533813f4aa9d7837caf62653d097ff85": "USDC", // Base Mainnet
+  "0x7f5c764cbc14f9669b88837ca1490cca17c31607": "USDC", // Optimism
+  "0x0b2c639c533813f4aa9d7837caf62653d097ff85": "USDC", // Optimism (Bridged)
+  "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913": "USDC", // Base Mainnet
 } as const;
 
 export const ShowBalancePage = () => {

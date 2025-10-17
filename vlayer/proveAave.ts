@@ -22,14 +22,13 @@ import { loadFixtures } from "./loadFixtures";
 import { getTeleportConfig } from "./constants";
 import { 
   getSupplyBorrowDataForUser, 
-  getTokenConfigsForUser,
   getTokenConfigsForUserNew,
   getBlockNumberFromTxHash,
   queryUserTransactions,
   type SupplyBorrowData,
   type SubgraphTransaction,
   type TokenConfig
-} from "./src/shared/lib/client";
+} from "./src/shared/lib/aave-subgraph";
 import { getAaveContractAddresses, validateContractAddresses } from "./config-aave";
 import debug from "debug";
 

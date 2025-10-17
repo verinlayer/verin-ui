@@ -56,7 +56,20 @@ export const TOKEN_DECIMALS: Record<string, TokenDecimalInfo> = {
     name: 'USD Coin',
     chainId: 10, // Optimism
   },
-
+  '0x0b2c639c533813f4aa9d7837caf62653d097ff85': {
+    address: '0x0b2c639c533813f4aa9d7837caf62653d097ff85',
+    decimals: 6,
+    symbol: 'USDC',
+    name: 'USD Coin',
+    chainId: 10, // Optimism (Circle's native USDC)
+  },
+  '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913': {
+    address: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
+    decimals: 6,
+    symbol: 'USDC',
+    name: 'USD Coin',
+    chainId: 8453, // Base Mainnet
+  },
   // 18-decimal tokens
   '0x4200000000000000000000000000000000000042': {
     address: '0x4200000000000000000000000000000000000042',
@@ -72,19 +85,26 @@ export const TOKEN_DECIMALS: Record<string, TokenDecimalInfo> = {
     name: 'Wrapped Ether',
     chainId: 1, // Ethereum Mainnet
   },
-  '0x4200000000000000000000000000000000000006': {
-    address: '0x4200000000000000000000000000000000000006',
-    decimals: 18,
-    symbol: 'WETH',
-    name: 'Wrapped Ether',
-    chainId: 10, // Optimism
-  },
   '0x6b175474e89094c44da98b954eedeac495271d0f': {
     address: '0x6b175474e89094c44da98b954eedeac495271d0f',
     decimals: 18,
     symbol: 'DAI',
     name: 'Dai Stablecoin',
     chainId: 1, // Ethereum Mainnet
+  },
+  '0x2260fac5e5542a773aa44fbcfedf7c193bc2c599': {
+    address: '0x2260fac5e5542a773aa44fbcfedf7c193bc2c599',
+    decimals: 8,
+    symbol: 'WBTC',
+    name: 'Wrapped Bitcoin',
+    chainId: 1, // Ethereum Mainnet
+  },
+  '0x4200000000000000000000000000000000000006': {
+    address: '0x4200000000000000000000000000000000000006',
+    decimals: 18,
+    symbol: 'WETH',
+    name: 'Wrapped Ether',
+    chainId: 10, // Optimism
   },
   '0xda10009cbd5d07dd0cecc66161fc93d7c9000da1': {
     address: '0xda10009cbd5d07dd0cecc66161fc93d7c9000da1',

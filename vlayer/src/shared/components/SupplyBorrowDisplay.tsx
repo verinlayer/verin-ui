@@ -2,7 +2,7 @@ import React from 'react';
 import { formatUnits } from 'viem';
 import { getChainName } from '../lib/utils';
 import { TokenConfig, TokenType, getTokenTypeName, getTokenTypeColor, getTokenTypeIcon } from '../types/TeleportTypes';
-import { type SupplyBorrowData, type SubgraphTransaction } from '../lib/client';
+import { type SupplyBorrowData, type SubgraphTransaction } from '../lib/aave-subgraph';
 import { getTokenDecimals, getTokenSymbol } from '../utils/tokenDecimals';
 
 interface SupplyBorrowDisplayProps {
@@ -33,11 +33,27 @@ const formatTokenAmount = (value: string, asset: string) => {
 
 const formatUSD = (value: string, asset: string, priceUSD?: string) => {
   try {
-    const decimals = getTokenDecimals(asset);
-    const amount = formatUnits(BigInt(value), decimals);
-    const price = priceUSD ? parseFloat(priceUSD) : 0;
-    const usdValue = parseFloat(amount) * price;
-    return usdValue > 0.01 ? `$${usdValue.toFixed(2)}` : '';
+    if (!priceUSD || parseFloat(priceUSD) === 0) {
+      return '';
+    }
+    
+    // Check if priceUSD is already a total USD value (Compound) or price per token (Aave)
+    // Compound's amountUsd is typically the total USD value
+    // Aave's assetPriceUSD is the price per token
+    const usdValueFromSubgraph = parseFloat(priceUSD);
+    
+    // If the USD value is very small (< 0.01), it's likely a price per token (Aave)
+    // Otherwise, it's likely a total USD value (Compound)
+    if (usdValueFromSubgraph < 0.01 && usdValueFromSubgraph > 0) {
+      // This is likely a price per token, so multiply by amount
+      const decimals = getTokenDecimals(asset);
+      const amount = formatUnits(BigInt(value), decimals);
+      const usdValue = parseFloat(amount) * usdValueFromSubgraph;
+      return usdValue > 0.01 ? `$${usdValue.toFixed(2)}` : '';
+    } else {
+      // This is likely already a total USD value, use it directly
+      return usdValueFromSubgraph > 0.01 ? `$${usdValueFromSubgraph.toFixed(2)}` : '';
+    }
   } catch {
     return '';
   }
@@ -171,8 +187,13 @@ export const SupplyBorrowDisplay: React.FC<SupplyBorrowDisplayProps> = ({
     );
   }
 
-  // Calculate totals in USD value to avoid decimal mixing issues
+  // Calculate totals in USD value
   const totalSupplyUSD = data.reduce((sum, item) => {
+    // If direct USD value available (Compound), use it
+    if (item.supplyAmountUSD) {
+      return sum + parseFloat(item.supplyAmountUSD);
+    }
+    // Otherwise calculate from price (Aave)
     const decimals = getTokenDecimals(item.asset);
     const amount = formatUnits(BigInt(item.supplyAmount), decimals);
     const price = item.assetPriceUSD ? parseFloat(item.assetPriceUSD) : 0;
@@ -180,6 +201,11 @@ export const SupplyBorrowDisplay: React.FC<SupplyBorrowDisplayProps> = ({
   }, 0);
 
   const totalBorrowUSD = data.reduce((sum, item) => {
+    // If direct USD value available (Compound), use it
+    if (item.borrowAmountUSD) {
+      return sum + parseFloat(item.borrowAmountUSD);
+    }
+    // Otherwise calculate from price (Aave)
     const decimals = getTokenDecimals(item.asset);
     const amount = formatUnits(BigInt(item.borrowAmount), decimals);
     const price = item.assetPriceUSD ? parseFloat(item.assetPriceUSD) : 0;
@@ -187,6 +213,11 @@ export const SupplyBorrowDisplay: React.FC<SupplyBorrowDisplayProps> = ({
   }, 0);
 
   const totalRepayUSD = data.reduce((sum, item) => {
+    // If direct USD value available (Compound), use it
+    if (item.repayAmountUSD) {
+      return sum + parseFloat(item.repayAmountUSD);
+    }
+    // Otherwise calculate from price (Aave)
     const decimals = getTokenDecimals(item.asset);
     const amount = formatUnits(BigInt(item.repayAmount), decimals);
     const price = item.assetPriceUSD ? parseFloat(item.assetPriceUSD) : 0;
@@ -225,9 +256,17 @@ export const SupplyBorrowDisplay: React.FC<SupplyBorrowDisplayProps> = ({
           const supplyFormatted = formatTokenAmount(item.supplyAmount, item.asset);
           const totalBorrowFormatted = formatTokenAmount(item.totalBorrowAmount, item.asset);
           const repayFormatted = formatTokenAmount(item.repayAmount, item.asset);
-          const supplyUSD = formatUSD(item.supplyAmount, item.asset, item.assetPriceUSD);
-          const totalBorrowUSD = formatUSD(item.totalBorrowAmount, item.asset, item.assetPriceUSD);
-          const repayUSD = formatUSD(item.repayAmount, item.asset, item.assetPriceUSD);
+          
+          // Use direct USD values if available (Compound), otherwise calculate (Aave)
+          const supplyUSD = item.supplyAmountUSD 
+            ? `$${parseFloat(item.supplyAmountUSD).toFixed(2)}`
+            : formatUSD(item.supplyAmount, item.asset, item.assetPriceUSD);
+          const totalBorrowUSD = item.borrowAmountUSD 
+            ? `$${parseFloat(item.borrowAmountUSD).toFixed(2)}`
+            : formatUSD(item.totalBorrowAmount, item.asset, item.assetPriceUSD);
+          const repayUSD = item.repayAmountUSD 
+            ? `$${parseFloat(item.repayAmountUSD).toFixed(2)}`
+            : formatUSD(item.repayAmount, item.asset, item.assetPriceUSD);
           
           return (
             <div key={`${item.asset}-${index}`} className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow">

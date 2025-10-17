@@ -2,7 +2,7 @@
 pragma solidity ^0.8.21;
 
 import {Proof} from "vlayer-0.1.0/Proof.sol";
-import {Erc20Token, Protocol, TokenType} from "../types/TeleportTypes.sol";
+import {Erc20Token, CToken, Protocol, TokenType, CTokenType} from "../types/TeleportTypes.sol";
 
 /**
  * @title IProver
@@ -49,12 +49,12 @@ interface IProver {
     /**
      * @notice Proves Compound protocol data for a given owner
      * @param _owner The address of the token owner
-     * @param tokens Array of Erc20Token structs containing Compound token information
+     * @param tokens Array of CToken structs containing Compound token information
      * @return proof The generated proof
      * @return owner The verified owner address
      * @return tokensWithBalances Array of tokens with updated balance information
      */
-    function proveCompoundData(address _owner, Erc20Token[] memory tokens)
+    function proveCompoundData(address _owner, CToken[] memory tokens)
         external
-        returns (Proof memory, address, Erc20Token[] memory);
+        returns (Proof memory, address, CToken[] memory);
 }

@@ -184,8 +184,12 @@ contract SimpleTeleportVerifierMinimalTest is Test {
     
     function testProtocolEnum() public pure {
         assertEq(uint256(Protocol.AAVE), 0);
-        assertEq(uint256(Protocol.MORPHO), 1);
-        assertEq(uint256(Protocol.COMPOUND), 2);
+        assertEq(uint256(Protocol.COMPOUND), 1);
+        assertEq(uint256(Protocol.FLUID), 2);
+        assertEq(uint256(Protocol.MORPHO), 3);
+        assertEq(uint256(Protocol.SPARK), 4);
+        assertEq(uint256(Protocol.MAPPLE), 5);
+        assertEq(uint256(Protocol.GEARBOX), 6);
     }
     
     function testOnlyClaimerModifier() public view {

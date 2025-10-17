@@ -10,18 +10,39 @@ struct Erc20Token {
     TokenType tokenType;
 }
 
+struct CToken{
+    address collateralAddress;
+    address cTokenAddress;
+    uint256 chainId;
+    uint256 blockNumber;
+    uint256 balance;
+    CTokenType tokenType;
+}
+
+struct UserCollateral {
+        uint128 balance;
+        uint128 _reserved;
+    }
+
 enum Protocol {
     AAVE,
-    MORPHO,
     COMPOUND,
-    SPARK,
     FLUID,
+    MORPHO,
+    SPARK,
     MAPPLE,
     GEARBOX
 }
 
+// Aave token type
 enum TokenType {
     ARESERVE,
     AVARIABLEDEBT,
     ASTABLEDEBT
+}
+
+// Compound token type
+enum CTokenType{
+    BASE,
+    COLLATERAL
 }

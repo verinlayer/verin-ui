@@ -7,11 +7,12 @@ import { HodlerForm } from "../../shared/forms/HodlerForm";
 import { ConnectWalletButton } from "../../shared/components/ConnectWalletButton";
 import { SupplyBorrowDisplay } from "../../shared/components/SupplyBorrowDisplay";
 import { ClaimSupplyBorrowDisplay } from "../../shared/components/ClaimSupplyBorrowDisplay";
-import { type SupplyBorrowData } from "../../shared/lib/client";
-import { loadTokensToProve, getTokensToProve, getFallbackTokensToProve, type TokenConfig } from "../../shared/lib/utils";
-import { getSupplyBorrowDataForUser, getUnclaimedSupplyBorrowData, getTokenConfigsForUnclaimedData } from "../../shared/lib/client";
+import { type SupplyBorrowData } from "../../shared/lib/aave-subgraph";
+import { loadTokensToProve, getTokensToProve, getFallbackTokensToProve, type ProtocolTokenConfig, type ProtocolType, getProtocolMetadata } from "../../shared/lib/utils";
+import { getSupplyBorrowDataForUser, getUnclaimedSupplyBorrowDataWithProtocol, getTokenConfigsForUnclaimedData } from "../../shared/lib/aave-subgraph";
 import { useAccount } from "wagmi";
 import { getAaveContractAddresses } from "../../../config-aave";
+
 export const WelcomePage = () => {
   const { address, chain, isConnected, isConnecting } = useAccount();
   console.log("Wallet state:", { address, isConnected, isConnecting, chain: chain?.name });
@@ -20,9 +21,27 @@ export const WelcomePage = () => {
   const isOptimismChain = chain?.id === 10; // Optimism chain ID is 10
   const isWrongChain = isConnected && !isOptimismChain;
   const navigate = useNavigate();
+  const [selectedProtocol, setSelectedProtocol] = useState<ProtocolType | null>(null);
+  
+  // Define available protocols (only AAVE and COMPOUND are currently supported)
+  const availableProtocols: ProtocolType[] = ['AAVE', 'COMPOUND'];
+  
+  // Define coming soon protocols
+  const comingSoonProtocols: ProtocolType[] = ['FLUID', 'MORPHO'];
+  
+  // Define protocol border colors for UI
+  const protocolBorderColors: Record<ProtocolType, { default: string; hover: string }> = {
+    'AAVE': { default: 'border-blue-400', hover: 'hover:border-blue-600' },
+    'COMPOUND': { default: 'border-green-400', hover: 'hover:border-green-600' },
+    'FLUID': { default: 'border-purple-400', hover: 'hover:border-purple-600' },
+    'MORPHO': { default: 'border-indigo-400', hover: 'hover:border-indigo-600' },
+    'SPARK': { default: 'border-orange-400', hover: 'hover:border-orange-600' },
+    'MAPPLE': { default: 'border-pink-400', hover: 'hover:border-pink-600' },
+    'GEARBOX': { default: 'border-red-400', hover: 'hover:border-red-600' },
+  };
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingTokens, setIsLoadingTokens] = useState(false);
-  const [tokensToProve, setTokensToProve] = useState<TokenConfig[]>([]);
+  const [tokensToProve, setTokensToProve] = useState<ProtocolTokenConfig[]>([]);
   const [supplyBorrowData, setSupplyBorrowData] = useState<SupplyBorrowData[]>([]);
   const [unclaimedSupplyBorrowData, setUnclaimedSupplyBorrowData] = useState<SupplyBorrowData[]>([]);
   const [isLoadingSupplyBorrow, setIsLoadingSupplyBorrow] = useState(false);
@@ -34,10 +53,10 @@ export const WelcomePage = () => {
 
 
 
-  // Load token configs and supply/borrow data when component mounts or address changes
+  // Load token configs and supply/borrow data when protocol is selected or address/chain changes
   useEffect(() => {
     const loadData = async () => {
-      if (!address) return;
+      if (!address || !selectedProtocol) return;
       
       // Don't load data if connected to wrong chain
       if (isWrongChain) {
@@ -51,10 +70,10 @@ export const WelcomePage = () => {
       setError(null);
       
       try {
-        console.log("🔄 Loading data for address:", address);
+        console.log(`🔄 Loading ${selectedProtocol} data for address:`, address);
         console.log("🌐 Current chain:", chain?.name, "ID:", chain?.id);
         
-        // Get contract addresses for the current chain
+        // Get contract addresses for the current chain based on protocol
         let verifierAddress: string | undefined;
         try {
           // Map chain names to our config keys
@@ -77,6 +96,8 @@ export const WelcomePage = () => {
           }
           
           console.log(`Using chain config: ${chainName} for chain: ${chain?.name}`);
+          
+          // Get addresses (same for both protocols)
           const addresses = getAaveContractAddresses(chainName);
           verifierAddress = addresses.verifier;
         } catch (err) {
@@ -86,10 +107,10 @@ export const WelcomePage = () => {
         // Load token configs, claimed data, and unclaimed data in parallel
         // const [tokens, supplyBorrow, unclaimedData] = await Promise.all([
         const [tokens, unclaimedData] = await Promise.all([
-          loadTokensToProve(address, chain?.id, verifierAddress),
+          loadTokensToProve(address, chain?.id, verifierAddress, selectedProtocol),
           // getTokenConfigsForUnclaimedData(address, chain?.id, verifierAddress),
           // getSupplyBorrowDataForUser(address, chain?.id),
-          getUnclaimedSupplyBorrowData(address, chain?.id, verifierAddress)
+          getUnclaimedSupplyBorrowDataWithProtocol(address, chain?.id, verifierAddress, selectedProtocol)
         ]);
         
         setTokensToProve(tokens);
@@ -101,7 +122,7 @@ export const WelcomePage = () => {
           console.log("⚠️ No tokens found from subgraph, trying fallback...");
           const fallbackTokens = getFallbackTokensToProve();
           setTokensToProve(fallbackTokens);
-          setError("No DeFi activity found for this address.");
+          // setError(`No ${selectedProtocol} activity found for this address.`);
         } else {
           setError(null); // Clear any previous errors
         }
@@ -122,7 +143,7 @@ export const WelcomePage = () => {
     };
 
     loadData();
-  }, [address, chain?.id, isWrongChain]);
+  }, [address, chain?.id, isWrongChain, selectedProtocol]);
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -142,10 +163,12 @@ export const WelcomePage = () => {
         return;
       }
       
-      console.log("Calling prover with tokens:", currentTokens);
-      // await callProver([holderAddress, currentTokens]);
-      // await callProver(['0x05e14e44e3b296f12b21790cde834bce5be5b8e0', currentTokens]);
-      // await callProver(['0x31017AE9e832f2f3155Bc60176d451f22715cd15', currentTokens]);
+      // Store selected protocol in localStorage for later use
+      if (selectedProtocol) {
+        localStorage.setItem('selectedProtocol', selectedProtocol);
+      }
+      
+      console.log("Calling prover with tokens:", currentTokens, "protocol:", selectedProtocol);
       await callProver([holderAddress, currentTokens]);
     } catch (err) {
       console.error("Error calling prover:", err);
@@ -173,50 +196,138 @@ export const WelcomePage = () => {
             Supporting projects
           </div>
           <div className="flex flex-wrap gap-4 mb- justify-center">
-            <div className="bg-white border border-gray-200 rounded-lg p-4 w-full max-w-md flex items-center shadow-sm hover:shadow-md transition-shadow cursor-pointer">
-              <div>
-                <img src="/img/AAVE.png" alt="AAVE" className="w-12 h-12" />
-              </div>
-              <div className="ml-4">
-                <div className="text-xl font-bold text-gray-900">AAVE</div>
-                <div className="text-sm text-gray-600 mt-1">
-                  The world's largest liquidity protocol. Supply, borrow, swap,
-                  stake and more.
+            {availableProtocols.map((protocol) => {
+              const metadata = getProtocolMetadata(protocol);
+              return (
+                <div 
+                  key={protocol}
+                  className="bg-white border border-gray-200 rounded-lg p-4 w-full max-w-md flex items-center shadow-sm hover:shadow-md transition-shadow cursor-pointer"
+                >
+                  <div>
+                    <img 
+                      src={metadata.image} 
+                      alt={metadata.displayName} 
+                      className="w-12 h-12 object-contain" 
+                    />
+                  </div>
+                  <div className="ml-4">
+                    <div className="text-xl font-bold text-gray-900">{metadata.displayName}</div>
+                    {metadata.description && (
+                      <div className="text-sm text-gray-600 mt-1">
+                        {metadata.description}
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
-            </div>
+              );
+            })}
           </div>
 
           <div className="text-2xl font-bold mb-4 mt-12 text-gray-900 text-center">Coming soon</div>
           <div className="flex flex-wrap gap-4 justify-center">
-            <div className="bg-white border border-gray-200 rounded-lg p-4 w-full max-w-md flex items-center shadow-sm hover:shadow-md transition-shadow cursor-pointer">
-              <div>
-                <img src="/img/morpho-logo.png" alt="Morpho" className="w-12 h-12" style={{objectFit: 'contain'}} />
-              </div>
-              <div className="ml-4">
-                <div className="text-xl font-bold text-gray-900">Morpho</div>
-                <div className="text-sm text-gray-600 mt-1">
-                  Connect to the universal lending network
+            {comingSoonProtocols.map((protocol) => {
+              const metadata = getProtocolMetadata(protocol);
+              return (
+                <div 
+                  key={protocol}
+                  className="bg-white border border-gray-200 rounded-lg p-4 w-full max-w-md flex items-center shadow-sm hover:shadow-md transition-shadow cursor-pointer"
+                >
+                  <div>
+                    <img 
+                      src={metadata.image} 
+                      alt={metadata.displayName} 
+                      className="w-12 h-12 object-contain" 
+                    />
+                  </div>
+                  <div className="ml-4">
+                    <div className="text-xl font-bold text-gray-900">{metadata.displayName}</div>
+                    {metadata.description && (
+                      <div className="text-sm text-gray-600 mt-1">
+                        {metadata.description}
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
-            </div>
-
-            <div className="bg-white border border-gray-200 rounded-lg p-4 w-full max-w-md flex items-center shadow-sm hover:shadow-md transition-shadow cursor-pointer">
-              <div>
-                <img src="/img/comp.png" alt="Compound" className="w-12 h-12" />
-              </div>
-              <div className="ml-4">
-                <div className="text-xl font-bold text-gray-900">Compound</div>
-                <div className="text-sm text-gray-600 mt-1">
-                  Earn interest or borrow crypto via an automated lending
-                  protocol.
-                </div>
-              </div>
-            </div>
+              );
+            })}
           </div>
         </div>
         
         <ConnectWalletButton />
+      </div>
+    );
+  }
+
+  // If no protocol selected yet, show protocol selection
+  if (!selectedProtocol) {
+    return (
+      <div>
+        {/* Wrong Chain Warning */}
+        {isWrongChain && (
+          <div className="mb-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded-lg">
+            <div className="flex items-start">
+              <svg className="w-6 h-6 text-red-500 mr-3 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+              </svg>
+              <div className="flex-1">
+                <h3 className="text-lg font-bold mb-2">⚠️ Wrong Network Detected</h3>
+                <div className="bg-white border border-red-300 rounded p-3 mb-3">
+                  <ol className="text-sm space-y-1 list-decimal list-inside">
+                    Switch to Optimism network and Refresh this page
+                  </ol>
+                </div>
+                <div className="flex space-x-3">
+                  <button
+                    onClick={() => window.location.reload()}
+                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-md transition-colors"
+                  >
+                    Refresh Page
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Protocol Selection */}
+        <div className="mb-6">
+          <div className="text-2xl font-bold mb-4 text-gray-900 text-center">
+            Select a Protocol
+          </div>
+          <div className="flex flex-wrap gap-4 justify-center">
+            {availableProtocols.map((protocol) => {
+              const metadata = getProtocolMetadata(protocol);
+              const borderColors = protocolBorderColors[protocol];
+              return (
+                <div 
+                  key={protocol}
+                  onClick={() => !isWrongChain && setSelectedProtocol(protocol)}
+                  className={`bg-white border-2 rounded-lg p-6 w-full max-w-md flex items-center shadow-md transition-all cursor-pointer ${
+                    isWrongChain 
+                      ? 'opacity-50 cursor-not-allowed border-gray-200' 
+                      : `${borderColors.default} ${borderColors.hover} hover:shadow-lg`
+                  }`}
+                >
+                  <div>
+                    <img 
+                      src={metadata.image} 
+                      alt={metadata.displayName} 
+                      className="w-16 h-16 object-contain" 
+                    />
+                  </div>
+                  <div className="ml-4 flex-1">
+                    <div className="text-2xl font-bold text-gray-900">{metadata.displayName}</div>
+                    {metadata.description && (
+                      <div className="text-sm text-gray-600 mt-1">
+                        {metadata.description}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
       </div>
     );
   }
@@ -232,16 +343,9 @@ export const WelcomePage = () => {
             </svg>
             <div className="flex-1">
               <h3 className="text-lg font-bold mb-2">⚠️ Wrong Network Detected</h3>
-              {/* <p className="text-sm mb-3">
-                You are connected to <span className="font-semibold font-mono">{chain?.name}</span>, 
-                but this app requires <span className="font-semibold font-mono text-green-700">Optimism (OP Mainnet)</span>.
-              </p> */}
               <div className="bg-white border border-red-300 rounded p-3 mb-3">
-                {/* <p className="text-sm font-medium mb-2">To fix this:</p> */}
                 <ol className="text-sm space-y-1 list-decimal list-inside">
-                  {/* <li>Open your wallet (MetaMask, Zerion, etc.)</li> */}
                   Switch to Optimism network and Refresh this page
-                  {/* <li>Refresh this page</li> */}
                 </ol>
               </div>
               <div className="flex space-x-3">
@@ -251,12 +355,6 @@ export const WelcomePage = () => {
                 >
                   Refresh Page
                 </button>
-                {/* <button
-                  onClick={() => navigate('/wallet-connect')}
-                  className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-md transition-colors"
-                >
-                  Connect to Optimism
-                </button> */}
               </div>
             </div>
           </div>
@@ -277,14 +375,16 @@ export const WelcomePage = () => {
       
       {isLoadingTokens && (
         <div className="mb-3 p-3 bg-blue-100 border border-blue-400 text-blue-700 rounded">
-          Loading token configurations from subgraph...
+          Loading {selectedProtocol} token configurations from subgraph...
         </div>
       )}
       
       {/* Display claimed supply and borrow data */}
       <div className="mb-3">
         <ClaimSupplyBorrowDisplay 
-          isLoading={isLoadingSupplyBorrow} 
+          isLoading={isLoadingSupplyBorrow}
+          protocol={selectedProtocol}
+          onChangeProtocol={() => setSelectedProtocol(null)}
         />
       </div>
       
@@ -303,6 +403,7 @@ export const WelcomePage = () => {
         loadingLabel={isLoadingTokens ? "Loading tokens..." : "Generating proof..."}
         submitLabel="Get proof"
         isEditable={true}
+        isDisabled={tokensToProve.length === 0}
       />
       
       {/* {tokensToProve.length > 0 && (

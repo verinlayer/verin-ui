@@ -29,10 +29,23 @@ export const aaveContractAddresses: Record<string, AaveConfig> = {
     verifier: "0x7E07cedF47975bC76210E8AbE155d1BD58d71473",
   },
   optimism: {
-    registry: "0xE45F42E67271768CBAB25a88C854D25A4916dc6F",
-    prover: "0x075FC16eF11e0466d7918950913A8afC141e6B89",
-    creditModel: "0xB43968076B149606777f3eaED843D6F3AE478502",
-    verifier: "0x0063216834A0c5D25622A1a5Fc7fDB1DD5546840",
+    // newest aave + compound
+    registry: "0x04e25d76Fb91f25225848043288206c54CdD8A98",
+    prover: "0x717694E59A5EA52a39D6c4C81d6919503bd112B3",
+    creditModel: "0xd90CfDcE6b72B22c42da1Acc7a0B1Dd413ac1202",
+    verifier: "0x27d7BB6dbcdb1f40E00604c45766A6Aecf9C09FE",
+    // aave + compound
+    // registry: "0xF7dc9D42BA3D08382A63bAcdBD568E627c6E80C1",
+    // prover: "0x7cE1c988F125F6b05EC875bEa292D442f7272101",
+    // creditModel: "0xe233aca82D0008f36b857D32a7BD568a8211f72d",
+    // verifier: "0x0F52445C9ef4917af118Be00C0c0e439b6B005B2",
+
+    // only Aave
+    // registry: "0xE45F42E67271768CBAB25a88C854D25A4916dc6F",
+    // prover: "0x075FC16eF11e0466d7918950913A8afC141e6B89",
+    // creditModel: "0xB43968076B149606777f3eaED843D6F3AE478502",
+    // verifier: "0x0063216834A0c5D25622A1a5Fc7fDB1DD5546840",
+
     // registry: "0xF3122c8ad8bF6b94646df826d710fa80f0A91e92",
     // prover: "0x0a05dE411c2750669De86554e03c66A4E8c65D67",
     // creditModel: "0x73EfE5e5096E0F0eF9b6FaAF14a9cbD15b623477",

@@ -2,7 +2,7 @@
 pragma solidity ^0.8.21;
 
 import {Protocol} from "../types/TeleportTypes.sol";
-import {Erc20Token} from "../types/TeleportTypes.sol";
+import {Erc20Token, CToken} from "../types/TeleportTypes.sol";
 import {Proof} from "vlayer-0.1.0/Proof.sol";
 
 /**
@@ -103,6 +103,27 @@ interface IVerifier {
      */
     function claim(Proof calldata, address claimer, Erc20Token[] memory tokens) external;
 
+    /**
+     * @notice Claims and processes Compound protocol data for a user
+     * @dev This function processes verified Compound token data to track user's borrowing,
+     *      supplying, repayment, and withdrawal activities for the Compound protocol.
+     *
+     * @dev Parameters:
+     *      - proof: The cryptographic proof that validates the data authenticity
+     *      - claimer: The address of the user claiming their data
+     *      - tokens: Array of CToken structs containing Compound token balances and metadata
+     *
+     * @dev Processing Logic:
+     *      - Only processes tokens with block numbers greater than the last processed block
+     *      - CTokenType.BASE: Tracks borrows (balance increase) and repays (balance decrease)
+     *      - CTokenType.COLLATERAL: Tracks supplied collateral (balance increase) and withdrawals (balance decrease)
+     *
+     * @dev Modifiers:
+     *      - onlyVerified: Ensures the proof is valid and comes from the trusted prover
+     *      - onlyClaimer: Ensures only the data owner can claim their information
+     */
+    function claimCompoundData(Proof calldata, address claimer, CToken[] memory tokens) external;
+
     // ============ CREDIT SCORING FUNCTIONS ============
 
     /**
@@ -115,7 +136,6 @@ interface IVerifier {
      *      - Recency (10% weight): Days since last activity (penalty after 90 days)
      *
      * @param user The user address to calculate credit score for
-     * @param protocol The DeFi protocol to analyze (AAVE, MORPHO, COMPOUND)
      * @return score The credit score (0-100, where 100 is excellent)
      * @return tier The credit tier (A: 85-100, B: 70-84, C: 50-69, D: 0-49)
      *
@@ -126,7 +146,7 @@ interface IVerifier {
      *      - Penalty for liquidations (automatic score of 10)
      *      - Time-based factors favor established, active users
      */
-    function calculateCreditScore(address user, Protocol protocol)
+    function calculateCreditScore(address user)
         external
         view
         returns (uint256 score, uint8 tier);
@@ -137,39 +157,50 @@ interface IVerifier {
      *      without the tier classification. Useful for integrations that only need the score.
      *
      * @param user The user address to get credit score for
-     * @param protocol The DeFi protocol to analyze (AAVE, MORPHO, COMPOUND)
      * @return score The credit score (0-100, where 100 is excellent)
      *
      * @dev This function internally calls calculateCreditScore and discards the tier
      * @dev See calculateCreditScore for detailed scoring methodology
      */
-    function getCreditScore(address user, Protocol protocol)
+    function getCreditScore(address user)
         external
         view
         returns (uint256 score);
 
-    // ============ EXTERNAL FUNCTIONS ============
+    /**
+     * @notice Calculate credit score for a specific protocol
+     * @dev Computes credit score and tier based on user's activity in a single protocol
+     *      Uses the same credit model as the aggregate score but only considers
+     *      data from the specified protocol.
+     *
+     * @param user The address of the user to calculate the credit score for
+     * @param protocol The specific protocol (AAVE or COMPOUND) to calculate the score for
+     * @return score The calculated credit score (0-1000)
+     * @return tier The credit tier (0: Bronze, 1: Silver, 2: Gold, 3: Platinum, 4: Diamond)
+     *
+     * @dev This function allows users and dApps to see protocol-specific credit scores,
+     *      which can be useful for:
+     *      - Understanding performance on individual protocols
+     *      - Protocol-specific lending decisions
+     *      - Comparative analysis across protocols
+     */
+    function calculateCreditScorePerProtocol(address user, Protocol protocol)
+        external
+        view
+        returns (uint256 score, uint8 tier);
 
     /**
-     * @notice Record a liquidation event for a user (penalty)
-     * @dev Records when a user's position has been liquidated, which significantly
-     *      impacts their credit score. Liquidations result in an automatic score of 10.
-     *      This function should be called by external liquidation monitoring systems.
+     * @notice Get credit score for a specific protocol (score only)
+     * @dev Returns just the credit score without the tier for a specific protocol
      *
-     * @param user The user address that was liquidated
-     * @param protocol The DeFi protocol where the liquidation occurred
-     *
-     * @dev Credit Score Impact:
-     *      - Liquidations are heavily penalized (score drops to 10)
-     *      - This reflects the high risk associated with liquidated positions
-     *      - Multiple liquidations are tracked but don't further reduce the score
-     *
-     * @dev Security:
-     *      - This function is external and can be called by anyone
-     *      - Consider adding access controls in production
-     *      - Should be integrated with liquidation monitoring systems
+     * @param user The address of the user to get the credit score for
+     * @param protocol The specific protocol (AAVE or COMPOUND) to get the score for
+     * @return score The calculated credit score (0-1000)
      */
-    function recordLiquidation(address user, Protocol protocol) external;
+    function getCreditScorePerProtocol(address user, Protocol protocol)
+        external
+        view
+        returns (uint256 score);
 
     // ============ VIEW FUNCTIONS ============
 
