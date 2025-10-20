@@ -11,28 +11,17 @@ import {Erc20Token, CToken, Protocol, TokenType, CTokenType} from "../types/Tele
  */
 interface IProver {
     /**
-     * @notice Proves cross-chain balance of ERC20 tokens for a given owner
-     * @param _owner The address of the token owner
-     * @param tokens Array of Erc20Token structs containing token information
-     * @return proof The generated proof
-     * @return owner The verified owner address
-     * @return tokensWithBalances Array of tokens with updated balance information
-     */
-    function crossChainBalanceOf(address _owner, Erc20Token[] memory tokens)
-        external
-        returns (Proof memory, address, Erc20Token[] memory);
-
-    /**
      * @notice Proves Aave protocol data for a given owner
      * @param _owner The address of the token owner
      * @param tokens Array of Erc20Token structs containing Aave token information
      * @return proof The generated proof
      * @return owner The verified owner address
-     * @return tokensWithBalances Array of tokens with updated balance information
+     * @return selector The function selector for routing
+     * @return encodedData The encoded token data
      */
     function proveAaveData(address _owner, Erc20Token[] memory tokens)
         external
-        returns (Proof memory, address, Erc20Token[] memory);
+        returns (Proof memory, address, bytes4, bytes memory);
 
     /**
      * @notice Proves Morpho protocol data for a given owner
@@ -52,9 +41,10 @@ interface IProver {
      * @param tokens Array of CToken structs containing Compound token information
      * @return proof The generated proof
      * @return owner The verified owner address
-     * @return tokensWithBalances Array of tokens with updated balance information
+     * @return selector The function selector for routing
+     * @return encodedData The encoded token data
      */
     function proveCompoundData(address _owner, CToken[] memory tokens)
         external
-        returns (Proof memory, address, CToken[] memory);
+        returns (Proof memory, address, bytes4, bytes memory);
 }
