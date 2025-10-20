@@ -51,20 +51,16 @@ contract DeployTeleportTest is Script {
         address uniswapV2Factory = address(0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f); // Mainnet factory
         UniswapV2PriceOracle priceOracle = new UniswapV2PriceOracle(uniswapV2Factory, address(registry));
         
-        SimpleTeleportVerifier verifier = new SimpleTeleportVerifier(
-            address(prover),
-            registry,
-            address(creditModel),
-            address(priceOracle),
-            deployer  // initialOwner
-        );
-        console.log("SimpleTeleportVerifier:", address(verifier));
+        // NOTE: This script is deprecated. Use DeployTeleportWithController.s.sol instead
+        console.log("ERROR: This deployment script is deprecated.");
+        console.log("Please use DeployTeleportWithController.s.sol instead.");
+        revert("Use DeployTeleportWithController.s.sol instead");
 
         vm.stopBroadcast();
 
-        // Verify deployment
-        require(verifier.prover() == address(prover), "Prover address mismatch");
-        require(address(verifier.registry()) == address(registry), "Registry address mismatch");
+        // NOTE: Verification code removed because deployment is deprecated
+        // require(verifier.prover() == address(prover), "Prover address mismatch");
+        // require(address(verifier.registry()) == address(registry), "Registry address mismatch");
 
         console.log("\n[SUCCESS] Deployment successful!");
         console.log("All contracts deployed and verified.");

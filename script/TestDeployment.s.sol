@@ -46,17 +46,16 @@ contract TestDeployment is Script, Test {
         address uniswapV2Factory = address(0x0c3c1c532F1e39EdF36BE9Fe0bE1410313E074Bf); // Mainnet factory
         UniswapV2PriceOracle priceOracle = new UniswapV2PriceOracle(uniswapV2Factory, address(registry));
         
-        // Deploy SimpleTeleportVerifier
-        SimpleTeleportVerifier verifier = new SimpleTeleportVerifier(
-            address(prover),
-            registry,
-            address(creditModel),
-            address(priceOracle),
-            deployer  // initialOwner
-        );
+        // NOTE: This script is deprecated. Use DeployTeleportWithController.s.sol instead
+        console.log("ERROR: This deployment script is deprecated.");
+        console.log("Please use DeployTeleportWithController.s.sol instead.");
+        revert("Use DeployTeleportWithController.s.sol instead");
 
         vm.stopBroadcast();
 
+        // NOTE: All test code removed because deployment is deprecated
+        // The script reverts before verifier is created
+        /*
         // Test contract interactions
         console.log("\n=== Testing Contract Interactions ===");
 
@@ -70,9 +69,9 @@ contract TestDeployment is Script, Test {
         console.log("[OK] SimpleTeleportProver deployed correctly");
 
         // Test Verifier
-        assertEq(verifier.prover(), address(prover));
-        assertEq(address(verifier.registry()), address(registry));
-        console.log("[OK] SimpleTeleportVerifier initialized correctly");
+        // assertEq(verifier.prover(), address(prover)); // Commented: verifier not created
+        // assertEq(address(verifier.registry()), address(registry)); // Removed: registry is now in Controller
+        // console.log("[OK] SimpleTeleportVerifier initialized correctly");
 
         // Test Registry functions
         console.log("\n=== Testing Registry Functions ===");
@@ -91,5 +90,6 @@ contract TestDeployment is Script, Test {
         console.log("Registry:", address(registry));
         console.log("SimpleTeleportProver:", address(prover));
         console.log("SimpleTeleportVerifier:", address(verifier));
+        */
     }
 }
