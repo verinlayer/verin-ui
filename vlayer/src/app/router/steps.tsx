@@ -3,13 +3,13 @@ import {
   WelcomePage,
   ShowBalancePage,
   SuccessPage,
-  ConfirmMintPage,
+  ConfirmClaimPage,
 } from "../../pages";
 
 export const stepComponents: StepComponentMap = {
   [StepKind.welcome]: WelcomePage,
   [StepKind.showBalance]: ShowBalancePage,
-  [StepKind.confirmMint]: ConfirmMintPage,
+  [StepKind.confirmClaim]: ConfirmClaimPage,
   [StepKind.success]: SuccessPage,
 };
 

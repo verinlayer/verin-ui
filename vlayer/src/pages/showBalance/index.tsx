@@ -7,6 +7,8 @@ import { ConnectWalletButton } from "../../shared/components/ConnectWalletButton
 import { TokenConfigDisplay } from "../../shared/components/SupplyBorrowDisplay";
 import { getChainName, parseProverResult, getTokensToProve } from "../../shared/lib/utils";
 import { TokenConfig, TokenType, getTokenTypeName, getTokenTypeColor, getTokenTypeIcon } from "../../shared/types/TeleportTypes";
+import { getStepPath } from "../../app/router/steps";
+import { StepKind } from "../../app/router/types";
 
 // Common token addresses to highlight (can be expanded)
 const HIGHLIGHTED_TOKENS = {
@@ -53,7 +55,7 @@ export const ShowBalancePage = () => {
 
   const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    void navigate(`/confirm-mint`);
+    void navigate(`/${getStepPath(StepKind.confirmClaim)}`);
   };
 
 

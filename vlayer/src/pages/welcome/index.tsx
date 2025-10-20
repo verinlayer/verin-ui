@@ -51,7 +51,13 @@ export const WelcomePage = () => {
     .VITE_DEFAULT_TOKEN_HOLDER as `0x${string}`;
   const { callProver, result } = useProver();
 
-
+  // Restore selected protocol from localStorage on mount
+  useEffect(() => {
+    const savedProtocol = localStorage.getItem('selectedProtocol') as ProtocolType | null;
+    if (savedProtocol && availableProtocols.includes(savedProtocol)) {
+      setSelectedProtocol(savedProtocol);
+    }
+  }, []); // Run only on mount
 
   // Load token configs and supply/borrow data when protocol is selected or address/chain changes
   useEffect(() => {
@@ -179,7 +185,7 @@ export const WelcomePage = () => {
 
   useEffect(() => {
     if (result) {
-      void navigate(getStepPath(StepKind.showBalance));
+      void navigate(`/${getStepPath(StepKind.showBalance)}`);
       setIsLoading(false);
     }
   }, [result]);

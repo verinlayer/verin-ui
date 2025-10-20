@@ -292,26 +292,26 @@ export const SupplyBorrowDisplay: React.FC<SupplyBorrowDisplayProps> = ({
                 <div className="bg-green-100 rounded-lg p-3">
                   <div className="text-sm font-medium text-green-800">Total Supplied</div>
                   <div className="text-lg font-bold text-green-900">{supplyFormatted} {tokenSymbol}</div>
-                  {supplyUSD && <div className="text-sm text-green-600 mt-1">{supplyUSD}</div>}
+                  {/* {supplyUSD && <div className="text-sm text-green-600 mt-1">{supplyUSD}</div>} */}
                 </div>
                 
                 {/* Total Borrowed */}
                 <div className="bg-orange-100 rounded-lg p-3">
                   <div className="text-sm font-medium text-orange-800">Total Borrowed</div>
                   <div className="text-lg font-bold text-orange-900">{totalBorrowFormatted} {tokenSymbol}</div>
-                  {totalBorrowUSD && <div className="text-sm text-orange-600 mt-1">{totalBorrowUSD}</div>}
+                  {/* {totalBorrowUSD && <div className="text-sm text-orange-600 mt-1">{totalBorrowUSD}</div>} */}
                 </div>
                 
                 {/* Total Repaid */}
                 <div className="bg-blue-100 rounded-lg p-3">
                   <div className="text-sm font-medium text-blue-800">Total Repaid</div>
                   <div className="text-lg font-bold text-blue-900">{repayFormatted} {tokenSymbol}</div>
-                  {repayUSD && <div className="text-sm text-blue-600 mt-1">{repayUSD}</div>}
+                  {/* {repayUSD && <div className="text-sm text-blue-600 mt-1">{repayUSD}</div>} */}
                 </div>
               </div>
               
               {/* Health Factor (if available) */}
-              {item.stableTokenDebt && item.variableTokenDebt && (
+              {/* {item.stableTokenDebt && item.variableTokenDebt && (
                 <div className="bg-slate-50 rounded-lg p-4 mb-4">
                   <div className="text-sm font-medium text-slate-700 mb-2">Debt Details</div>
                   <div className="space-y-1 ml-4">
@@ -325,11 +325,11 @@ export const SupplyBorrowDisplay: React.FC<SupplyBorrowDisplayProps> = ({
                     </div>
                   </div>
                 </div>
-              )}
+              )} */}
               
               {/* Transaction Details */}
               {item.transactions && item.transactions.length > 0 && (
-                <div className="bg-slate-50 rounded-lg p-4">
+                <div className="bg-slate-50 rounded-lg p-4 max-w-3xl mx-auto">
                   <div className="text-sm font-medium text-slate-700 mb-3">Transaction Details ({item.transactions.length} transactions)</div>
                   <div className="space-y-2 max-h-48 overflow-y-auto">
                     {item.transactions.map((tx, txIndex) => (
@@ -363,12 +363,12 @@ export const SupplyBorrowDisplay: React.FC<SupplyBorrowDisplayProps> = ({
                               </a>
                             </span>
                           </div>
-                          {tx.assetPriceUSD && (
+                          {/* {tx.assetPriceUSD && (
                             <div className="flex justify-between">
                               <span>Price:</span>
                               <span className="text-xs">${parseFloat(tx.assetPriceUSD).toFixed(4)}</span>
                             </div>
-                          )}
+                          )} */}
                         </div>
                       </div>
                     ))}

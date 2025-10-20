@@ -110,7 +110,7 @@ const createCompoundQuery = (user: string, timestampFilter?: number, blockNumber
   accounts(where: {address: "${user.toLowerCase()}"}) {
     positions {
       supplyCollateralInteractions(
-        first: 100
+        first: 5
         ${whereClause}
       ) {
         amount
@@ -136,7 +136,7 @@ const createCompoundQuery = (user: string, timestampFilter?: number, blockNumber
         }
       }
       supplyBaseInteractions(
-        first: 100
+        first: 5
         ${whereClause}
       ) {
         amount
@@ -162,7 +162,7 @@ const createCompoundQuery = (user: string, timestampFilter?: number, blockNumber
         }
       }
       withdrawCollateralInteractions(
-        first: 100
+        first: 5
         ${whereClause}
       ) {
         amount
@@ -188,7 +188,7 @@ const createCompoundQuery = (user: string, timestampFilter?: number, blockNumber
         }
       }
       withdrawBaseInteractions(
-        first: 100
+        first: 5
         ${whereClause}
       ) {
         amount

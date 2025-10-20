@@ -77,7 +77,7 @@ const createQuery = (user: string, timestampFilter?: number) => {
     
     return `query {
   userTransactions(
-    first: 100
+    first: 10
     orderBy: timestamp
     orderDirection: asc
     where: {and: 

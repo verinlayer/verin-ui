@@ -13,7 +13,7 @@ import { parseProverResult, getTokensToProve, type ProtocolType } from "../../sh
 import { AlreadyMintedError } from "../../shared/errors/appErrors";
 import { Chain, optimismSepolia } from "viem/chains";
 import { match } from "ts-pattern";
-export const ConfirmMintPage = () => {
+export const ConfirmClaimPage = () => {
   const { address, chain } = useAccount();
   const { data: balance } = useBalance({ address: address as `0x${string}` });
   const navigate = useNavigate();
@@ -225,3 +225,4 @@ const FaucetInfo = ({ chain }: { chain: Chain }) => {
     </p>
   );
 };
+

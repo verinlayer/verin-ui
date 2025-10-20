@@ -3,7 +3,7 @@ import { ComponentType } from "react";
 export enum StepKind {
   welcome,
   showBalance,
-  confirmMint,
+  confirmClaim,
   success,
 }
 
@@ -34,9 +34,9 @@ export const stepsMeta: Record<StepKind, StepMeta> = {
     // headerIcon: "/img/teleport-icon.svg",
     index: 1,
   },
-  [StepKind.confirmMint]: {
-    path: "confirm-mint",
-    kind: StepKind.confirmMint,
+  [StepKind.confirmClaim]: {
+    path: "confirm-claim",
+    kind: StepKind.confirmClaim,
     title: "Claim Proof Confirmation",
     description: "",
     // headerIcon: "/img/teleport-icon.svg",
