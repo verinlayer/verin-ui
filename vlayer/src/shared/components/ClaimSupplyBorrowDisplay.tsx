@@ -76,6 +76,63 @@ const VERIFIER_ABI = [
   }
 ] as const;
 
+// ABI for Controller contract
+const CONTROLLER_ABI = [
+  {
+    "inputs": [
+      {"name": "user", "type": "address"},
+      {"name": "protocol", "type": "uint8"}
+    ],
+    "name": "usersInfo",
+    "outputs": [
+      {"name": "borrowedAmount", "type": "uint256"},
+      {"name": "suppliedAmount", "type": "uint256"},
+      {"name": "repaidAmount", "type": "uint256"},
+      {"name": "latestBlock", "type": "uint256"},
+      {"name": "latestBalance", "type": "uint256"},
+      {"name": "borrowTimes", "type": "uint256"},
+      {"name": "supplyTimes", "type": "uint256"},
+      {"name": "repayTimes", "type": "uint256"},
+      {"name": "firstActivityBlock", "type": "uint256"},
+      {"name": "liquidations", "type": "uint256"}
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {"name": "user", "type": "address"}
+    ],
+    "name": "calculateCreditScore",
+    "outputs": [
+      {"name": "score", "type": "uint256"},
+      {"name": "tier", "type": "uint8"}
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {"name": "user", "type": "address"}
+    ],
+    "name": "totals",
+    "outputs": [
+      {"name": "borrowedAmount", "type": "uint256"},
+      {"name": "suppliedAmount", "type": "uint256"},
+      {"name": "repaidAmount", "type": "uint256"},
+      {"name": "latestBlock", "type": "uint256"},
+      {"name": "latestBalance", "type": "uint256"},
+      {"name": "borrowTimes", "type": "uint256"},
+      {"name": "supplyTimes", "type": "uint256"},
+      {"name": "repayTimes", "type": "uint256"},
+      {"name": "firstActivityBlock", "type": "uint256"},
+      {"name": "liquidations", "type": "uint256"}
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  }
+] as const;
+
 // RPC client configuration for different chains
 const rpcClients = {
   [optimismSepolia.id]: createPublicClient({
@@ -243,6 +300,10 @@ export const ClaimSupplyBorrowDisplay: React.FC<ClaimSupplyBorrowDisplayProps> =
         if (!addresses.verifier || addresses.verifier === "0x0000000000000000000000000000000000000000") {
           throw new Error(`Verifier contract not deployed on ${chain.name}`);
         }
+        
+        if (!addresses.controller || addresses.controller === "0x0000000000000000000000000000000000000000") {
+          throw new Error(`Controller contract not deployed on ${chain.name}`);
+        }
 
         // Get RPC client for the current chain
         const client = rpcClients[chain.id as keyof typeof rpcClients];
@@ -253,10 +314,10 @@ export const ClaimSupplyBorrowDisplay: React.FC<ClaimSupplyBorrowDisplayProps> =
         // Map protocol to enum value
         const protocolEnum = getProtocolEnum(protocol);
 
-        // Read user info from the contract
+        // Read user info from the Controller contract
         const result = await client.readContract({
-          address: addresses.verifier as `0x${string}`,
-          abi: VERIFIER_ABI,
+          address: addresses.controller as `0x${string}`,
+          abi: CONTROLLER_ABI,
           functionName: 'usersInfo',
           args: [address as `0x${string}`, protocolEnum]
         });
@@ -286,8 +347,8 @@ export const ClaimSupplyBorrowDisplay: React.FC<ClaimSupplyBorrowDisplayProps> =
         // Fetch totals across all protocols
         try {
           const totalsResult = await client.readContract({
-            address: addresses.verifier as `0x${string}`,
-            abi: VERIFIER_ABI,
+            address: addresses.controller as `0x${string}`,
+            abi: CONTROLLER_ABI,
             functionName: 'totals',
             args: [address as `0x${string}`]
           });
@@ -314,8 +375,8 @@ export const ClaimSupplyBorrowDisplay: React.FC<ClaimSupplyBorrowDisplayProps> =
         // Fetch credit score (uses totals internally)
         try {
           const creditScoreResult = await client.readContract({
-            address: addresses.verifier as `0x${string}`,
-            abi: VERIFIER_ABI,
+            address: addresses.controller as `0x${string}`,
+            abi: CONTROLLER_ABI,
             functionName: 'calculateCreditScore',
             args: [address as `0x${string}`]
           });

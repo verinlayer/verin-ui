@@ -1,6 +1,6 @@
 import React from 'react';
 import { formatUnits } from 'viem';
-import { getChainName } from '../lib/utils';
+import { getChainName, type CompoundTokenConfig } from '../lib/utils';
 import { TokenConfig, TokenType, getTokenTypeName, getTokenTypeColor, getTokenTypeIcon } from '../types/TeleportTypes';
 import { type SupplyBorrowData, type SubgraphTransaction } from '../lib/aave-subgraph';
 import { getTokenDecimals, getTokenSymbol } from '../utils/tokenDecimals';
@@ -63,7 +63,7 @@ const formatUSD = (value: string, asset: string, priceUSD?: string) => {
 
 // New component for displaying TokenConfig structures
 interface TokenConfigDisplayProps {
-  tokens: TokenConfig[];
+  tokens: (TokenConfig | CompoundTokenConfig)[];
   isLoading?: boolean;
 }
 
@@ -96,12 +96,20 @@ export const TokenConfigDisplay: React.FC<TokenConfigDisplayProps> = ({
       
       <div className="space-y-4">
         {tokens.map((token, index) => {
-          const tokenTypeName = getTokenTypeName(token.tokenType, token.underlingTokenAddress);
+          // Handle both TokenConfig and CompoundTokenConfig
+          const underlyingAddress = 'underlingTokenAddress' in token 
+            ? token.underlingTokenAddress 
+            : token.collateralAddress;
+          const tokenAddress = 'aTokenAddress' in token 
+            ? token.aTokenAddress 
+            : token.cTokenAddress;
+            
+          const tokenTypeName = getTokenTypeName(token.tokenType, underlyingAddress);
           const tokenTypeColor = getTokenTypeColor(token.tokenType);
           const tokenTypeIcon = getTokenTypeIcon(token.tokenType);
           
           return (
-            <div key={`${token.underlingTokenAddress}-${index}`} className={`bg-white border rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow ${tokenTypeColor}`}>
+            <div key={`${underlyingAddress}-${index}`} className={`bg-white border rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow ${tokenTypeColor}`}>
               {/* Token Header */}
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center space-x-3">
@@ -114,7 +122,7 @@ export const TokenConfigDisplay: React.FC<TokenConfigDisplayProps> = ({
                   </div>
                 </div>
                 {/* <div className="text-xs text-slate-400 bg-slate-50 px-2 py-1 rounded">
-                  {token.underlingTokenAddress.slice(0, 6)}...{token.underlingTokenAddress.slice(-4)}
+                  {underlyingAddress.slice(0, 6)}...{underlyingAddress.slice(-4)}
                 </div> */}
               </div>
               
@@ -123,11 +131,11 @@ export const TokenConfigDisplay: React.FC<TokenConfigDisplayProps> = ({
                 <div className="grid grid-cols-2 gap-4 text-sm">
                   {/* <div>
                     <span className="text-slate-600">Underlying Token:</span>
-                    <div className="font-mono text-xs break-all">{token.underlingTokenAddress}</div>
+                    <div className="font-mono text-xs break-all">{underlyingAddress}</div>
                   </div> */}
                   <div>
                     <span className="text-slate-600">Token Address:</span>
-                    <div className="font-mono text-xs break-all">{token.aTokenAddress}</div>
+                    <div className="font-mono text-xs break-all">{tokenAddress}</div>
                   </div>
                 </div>
                 

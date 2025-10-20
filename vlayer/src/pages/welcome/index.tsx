@@ -59,6 +59,19 @@ export const WelcomePage = () => {
     }
   }, []); // Run only on mount
 
+  // Update localStorage when selectedProtocol changes
+  useEffect(() => {
+    console.log('selectedProtocol changed to:', selectedProtocol);
+    if (selectedProtocol) {
+      localStorage.setItem('selectedProtocol', selectedProtocol);
+      console.log('Updated localStorage with:', selectedProtocol);
+    } else {
+      // Clear localStorage when protocol is unselected
+      localStorage.removeItem('selectedProtocol');
+      console.log('Removed selectedProtocol from localStorage');
+    }
+  }, [selectedProtocol]);
+
   // Load token configs and supply/borrow data when protocol is selected or address/chain changes
   useEffect(() => {
     const loadData = async () => {
@@ -69,6 +82,9 @@ export const WelcomePage = () => {
         console.log('Skipping data load - connected to wrong chain:', chain?.name);
         return;
       }
+      
+      // Clear previous tokens when protocol changes
+      setTokensToProve([]);
       
       setIsLoadingTokens(true);
       setIsLoadingSupplyBorrow(true);
@@ -81,6 +97,7 @@ export const WelcomePage = () => {
         
         // Get contract addresses for the current chain based on protocol
         let verifierAddress: string | undefined;
+        let controllerAddress: string | undefined;
         try {
           // Map chain names to our config keys
           let chainName = 'optimism'; // default
@@ -106,6 +123,7 @@ export const WelcomePage = () => {
           // Get addresses (same for both protocols)
           const addresses = getAaveContractAddresses(chainName);
           verifierAddress = addresses.verifier;
+          controllerAddress = addresses.controller;
         } catch (err) {
           console.warn("Could not get contract addresses:", err);
         }
@@ -113,10 +131,10 @@ export const WelcomePage = () => {
         // Load token configs, claimed data, and unclaimed data in parallel
         // const [tokens, supplyBorrow, unclaimedData] = await Promise.all([
         const [tokens, unclaimedData] = await Promise.all([
-          loadTokensToProve(address, chain?.id, verifierAddress, selectedProtocol),
-          // getTokenConfigsForUnclaimedData(address, chain?.id, verifierAddress),
+          loadTokensToProve(address, chain?.id, controllerAddress, selectedProtocol),
+          // getTokenConfigsForUnclaimedData(address, chain?.id, controllerAddress),
           // getSupplyBorrowDataForUser(address, chain?.id),
-          getUnclaimedSupplyBorrowDataWithProtocol(address, chain?.id, verifierAddress, selectedProtocol)
+          getUnclaimedSupplyBorrowDataWithProtocol(address, chain?.id, controllerAddress, selectedProtocol)
         ]);
         
         setTokensToProve(tokens);
@@ -169,12 +187,15 @@ export const WelcomePage = () => {
         return;
       }
       
-      // Store selected protocol in localStorage for later use
-      if (selectedProtocol) {
-        localStorage.setItem('selectedProtocol', selectedProtocol);
-      }
+      // Note: selectedProtocol is already stored in localStorage via useEffect
       
-      console.log("Calling prover with tokens:", currentTokens, "protocol:", selectedProtocol);
+      console.log("=== PROVER CALL DEBUG ===");
+      console.log("Selected Protocol:", selectedProtocol);
+      console.log("Number of tokens:", currentTokens.length);
+      console.log("Token type:", currentTokens[0] && ('aTokenAddress' in currentTokens[0] ? 'AAVE' : 'COMPOUND'));
+      console.log("All tokens:", currentTokens);
+      console.log("=========================");
+      
       await callProver([holderAddress, currentTokens]);
     } catch (err) {
       console.error("Error calling prover:", err);
@@ -307,7 +328,12 @@ export const WelcomePage = () => {
               return (
                 <div 
                   key={protocol}
-                  onClick={() => !isWrongChain && setSelectedProtocol(protocol)}
+                  onClick={() => {
+                    if (!isWrongChain) {
+                      console.log('Selecting protocol:', protocol);
+                      setSelectedProtocol(protocol);
+                    }
+                  }}
                   className={`bg-white border-2 rounded-lg p-6 w-full max-w-md flex items-center shadow-md transition-all cursor-pointer ${
                     isWrongChain 
                       ? 'opacity-50 cursor-not-allowed border-gray-200' 

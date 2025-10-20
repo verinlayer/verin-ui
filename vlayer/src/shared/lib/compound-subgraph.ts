@@ -2,6 +2,7 @@ import { createPublicClient, http } from 'viem';
 import { optimismSepolia, mainnet, base, baseSepolia, optimism } from 'viem/chains';
 import { getCwethAddressForChain, getWethAddressForChain, getCompoundSubgraphUrl } from '../config/compound';
 import { rpcClients } from '../config/compound';
+import { getUserInfoFromContract, getBlockTimestamp } from './client';
 
 // Compound Subgraph configuration
 const COMPOUND_APIURL = getCompoundSubgraphUrl();
@@ -110,7 +111,7 @@ const createCompoundQuery = (user: string, timestampFilter?: number, blockNumber
   accounts(where: {address: "${user.toLowerCase()}"}) {
     positions {
       supplyCollateralInteractions(
-        first: 5
+        first: 10
         ${whereClause}
       ) {
         amount
@@ -136,7 +137,7 @@ const createCompoundQuery = (user: string, timestampFilter?: number, blockNumber
         }
       }
       supplyBaseInteractions(
-        first: 5
+        first: 10
         ${whereClause}
       ) {
         amount
@@ -162,7 +163,7 @@ const createCompoundQuery = (user: string, timestampFilter?: number, blockNumber
         }
       }
       withdrawCollateralInteractions(
-        first: 5
+        first: 10
         ${whereClause}
       ) {
         amount
@@ -188,7 +189,7 @@ const createCompoundQuery = (user: string, timestampFilter?: number, blockNumber
         }
       }
       withdrawBaseInteractions(
-        first: 5
+        first: 10
         ${whereClause}
       ) {
         amount
@@ -544,12 +545,34 @@ export const getCompoundSupplyBorrowData = async (userAddress: string, currentCh
 };
 
 // Get TokenConfig structures for Compound user
-export const getCompoundTokenConfigs = async (userAddress: string, currentChainId?: number): Promise<CompoundTokenConfig[]> => {
+export const getCompoundTokenConfigs = async (
+  userAddress: string, 
+  currentChainId?: number, 
+  controllerAddress?: string
+): Promise<CompoundTokenConfig[]> => {
   try {
     console.log(`Fetching Compound TokenConfig structures for user: ${userAddress}`);
     
-    // Query Compound subgraph (use timestamp filter by default)
-    const transactions = await queryCompoundUserTransactions(userAddress, undefined, undefined, currentChainId);
+    let timestampFilter: number | undefined;
+    
+    // Get latest claimed block from contract and convert to timestamp
+    if (controllerAddress && currentChainId) {
+      try {
+        const userInfo = await getUserInfoFromContract(userAddress, currentChainId, controllerAddress, 'COMPOUND');
+        if (userInfo && userInfo.latestBlock > 0n) {
+          const blockTimestamp = await getBlockTimestamp(userInfo.latestBlock, currentChainId);
+          if (blockTimestamp > 0) {
+            timestampFilter = blockTimestamp;
+            console.log(`Using timestamp filter for Compound: ${timestampFilter} (from block ${userInfo.latestBlock})`);
+          }
+        }
+      } catch (error) {
+        console.warn('Could not get latest claimed block timestamp for Compound, using default:', error);
+      }
+    }
+    
+    // Query Compound subgraph with timestamp filter
+    const transactions = await queryCompoundUserTransactions(userAddress, timestampFilter, undefined, currentChainId);
     
     if (transactions.length === 0) {
       console.log('No Compound transactions found for user');

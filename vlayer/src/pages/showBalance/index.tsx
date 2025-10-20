@@ -2,13 +2,14 @@ import { FormEvent, useEffect, useState } from "react";
 import { useLocalStorage } from "usehooks-ts";
 import { useNavigate } from "react-router";
 import { useAccount } from "wagmi";
-import { formatUnits } from "viem";
+import { formatUnits, decodeAbiParameters } from "viem";
 import { ConnectWalletButton } from "../../shared/components/ConnectWalletButton";
 import { TokenConfigDisplay } from "../../shared/components/SupplyBorrowDisplay";
-import { getChainName, parseProverResult, getTokensToProve } from "../../shared/lib/utils";
-import { TokenConfig, TokenType, getTokenTypeName, getTokenTypeColor, getTokenTypeIcon } from "../../shared/types/TeleportTypes";
+import { getChainName, parseProverResult, getTokensToProve, type ProtocolTokenConfig, type TokenConfig, type CompoundTokenConfig } from "../../shared/lib/utils";
+import { TokenType, getTokenTypeName, getTokenTypeColor, getTokenTypeIcon } from "../../shared/types/TeleportTypes";
 import { getStepPath } from "../../app/router/steps";
 import { StepKind } from "../../app/router/types";
+import proverSpec from "../../contracts/SimpleTeleportProver.json";
 
 // Common token addresses to highlight (can be expanded)
 const HIGHLIGHTED_TOKENS = {
@@ -27,23 +28,82 @@ const HIGHLIGHTED_TOKENS = {
 export const ShowBalancePage = () => {
   const navigate = useNavigate();
   const { address } = useAccount();
-  const [tokensToProve, setTokens] = useState<TokenConfig[]>([]);
+  const [tokensToProve, setTokens] = useState<ProtocolTokenConfig[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [proverResult] = useLocalStorage("proverResult", "");
 
   useEffect(() => {
     if (proverResult) {
       try {
-        const [, , tokens] = parseProverResult(proverResult);
-        // Convert legacy token format to TokenConfig format
-        const tokenConfigs: TokenConfig[] = tokens.map((token: any) => ({
-          underlingTokenAddress: token.addr || token.underlingTokenAddress,
-          aTokenAddress: token.addr || token.aTokenAddress, // Default to same address
-          chainId: token.chainId,
-          blockNumber: token.blockNumber,
-          balance: token.balance,
-          tokenType: token.tokenType || TokenType.ARESERVE, // Default to ARESERVE
-        }));
+        // Parse the new prover result format
+        const { proof, claimer, selector, encodedData } = parseProverResult(proverResult);
+        
+        console.log('Prover result parsed:', { selector, encodedData });
+        
+        // Determine which function was called based on selector comparison
+        const isAave = selector.toLowerCase().startsWith('0x7b450eea'); // proveAaveData selector
+        const isCompound = selector.toLowerCase().startsWith('0x10dcfe73'); // proveCompoundData selector
+        
+        let tokenConfigs: ProtocolTokenConfig[];
+        
+        if (isAave) {
+          // Decode as Erc20Token[]
+          const [decodedTokens] = decodeAbiParameters(
+            [{ name: 'tokens', type: 'tuple[]', components: [
+              { name: 'underlingTokenAddress', type: 'address' },
+              { name: 'aTokenAddress', type: 'address' },
+              { name: 'chainId', type: 'uint256' },
+              { name: 'blockNumber', type: 'uint256' },
+              { name: 'balance', type: 'uint256' },
+              { name: 'tokenType', type: 'uint8' }
+            ]}],
+            encodedData as `0x${string}`
+          );
+          
+          console.log('Decoded Aave tokens:', decodedTokens);
+          
+          // Convert to TokenConfig format (Aave)
+          tokenConfigs = (decodedTokens as any[]).map((token: any): TokenConfig => ({
+            underlingTokenAddress: token.underlingTokenAddress,
+            aTokenAddress: token.aTokenAddress,
+            chainId: token.chainId.toString(),
+            blockNumber: token.blockNumber.toString(),
+            balance: token.balance.toString(),
+            tokenType: token.tokenType,
+          }));
+        } else if (isCompound) {
+          // Decode as CToken[]
+          const [decodedTokens] = decodeAbiParameters(
+            [{ name: 'tokens', type: 'tuple[]', components: [
+              { name: 'collateralAddress', type: 'address' },
+              { name: 'cTokenAddress', type: 'address' },
+              { name: 'chainId', type: 'uint256' },
+              { name: 'blockNumber', type: 'uint256' },
+              { name: 'balance', type: 'uint256' },
+              { name: 'tokenType', type: 'uint8' }
+            ]}],
+            encodedData as `0x${string}`
+          );
+          
+          console.log('Decoded Compound tokens:', decodedTokens);
+          
+          // Convert to CompoundTokenConfig format (Compound)
+          tokenConfigs = (decodedTokens as any[]).map((token: any): CompoundTokenConfig => ({
+            collateralAddress: token.collateralAddress,
+            cTokenAddress: token.cTokenAddress,
+            chainId: token.chainId.toString(),
+            blockNumber: token.blockNumber.toString(),
+            balance: token.balance.toString(),
+            tokenType: token.tokenType,
+          }));
+        } else {
+          throw new Error(`Unknown selector: ${selector}`);
+        }
+        
+        console.log('Total decoded tokens:', tokenConfigs.length);
+        console.log('Token configs:', tokenConfigs);
+        
+        // Show all tokens from prover (no deduplication)
         setTokens(tokenConfigs);
         setIsLoading(false);
       } catch (error) {
@@ -65,13 +125,17 @@ export const ShowBalancePage = () => {
 
   // Group tokens by type for better display
   const tokensByType = tokensToProve.reduce((groups, token) => {
-    const tokenTypeName = getTokenTypeName(token.tokenType, token.underlingTokenAddress);
+    // Handle both TokenConfig and CompoundTokenConfig
+    const underlyingAddress = 'underlingTokenAddress' in token 
+      ? token.underlingTokenAddress 
+      : token.collateralAddress;
+    const tokenTypeName = getTokenTypeName(token.tokenType, underlyingAddress);
     if (!groups[tokenTypeName]) {
       groups[tokenTypeName] = [];
     }
     groups[tokenTypeName].push(token);
     return groups;
-  }, {} as Record<string, TokenConfig[]>);
+  }, {} as Record<string, ProtocolTokenConfig[]>);
 
   console.log('tokensByType', tokensByType);
   console.log('tokensToProve', tokensToProve);
