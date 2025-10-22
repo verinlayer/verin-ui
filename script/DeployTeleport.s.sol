@@ -93,7 +93,8 @@ contract DeployTeleport is Script {
         // STEP 4: Deploy UniswapV2PriceOracle
         console.log("[4/7] Deploying UniswapV2PriceOracle...");
         // Note: Update this address based on your target chain
-        address uniswapV2Factory = address(0x0c3c1c532F1e39EdF36BE9Fe0bE1410313E074Bf);
+        // address uniswapV2Factory = address(0x0c3c1c532F1e39EdF36BE9Fe0bE1410313E074Bf); // OP mainnet
+        address uniswapV2Factory = address(0x8909Dc15e40173Ff4699343b6eB8132c65e18eC6); // OP mainnet
         console.log("  Using Uniswap V2 Factory:", uniswapV2Factory);
         priceOracle = new UniswapV2PriceOracle(uniswapV2Factory, address(registry));
         console.log("  UniswapV2PriceOracle:", address(priceOracle));
