@@ -1,5 +1,5 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { getAaveContractAddresses } from "../../../config-aave";
+import { getContractAddresses } from "../../../config-global";
 // Import actual ABI from compiled contract
 import verifierAbi from "../../contracts/SimpleTeleportVerifier.json";
 
@@ -93,7 +93,7 @@ export const ConfirmClaimPage = () => {
         }
         
         // Get contract addresses (same for both protocols)
-        const addresses = getAaveContractAddresses(chainName);
+        const addresses = getContractAddresses(chainName);
         verifierAddress = addresses.verifier;
         console.log(`Using verifier address from config: ${verifierAddress} for chain: ${chain.name}, protocol: ${selectedProtocol}`);
         console.log(`Calling unified claim function with selector: ${selector}`);

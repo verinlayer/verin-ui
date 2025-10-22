@@ -3,28 +3,41 @@ import { getChainSpecs } from "@vlayer/sdk";
 import { Chain } from "viem";
 import { createAppKit } from "@reown/appkit/react";
 import { injected, metaMask, walletConnect, safe } from "wagmi/connectors";
-import { mainnet, optimism, base, optimismSepolia } from '@reown/appkit/networks'
+import { mainnet, optimism, base, optimismSepolia, baseSepolia } from '@reown/appkit/networks'
 
 
 const appKitProjectId = import.meta.env.VITE_WALLETCONNECT_PROJECT_ID || `88cd40e876a44270a55cd4e034d55478`;
 
+// Configure all supported chains
+const chains: [Chain, ...Chain[]] = [
+  base,            // Base Mainnet
+  optimism,        // Optimism Mainnet
+  mainnet,         // Ethereum Mainnet
+  optimismSepolia, // Optimism Sepolia (testnet)
+  baseSepolia,     // Base Sepolia (testnet)
+];
 
-let chain = null;
+// Determine default chain from environment variable
+let defaultChain: Chain = base; // Default to Base
 
 try {
-  chain = getChainSpecs(import.meta.env.VITE_CHAIN_NAME);
-} catch {
-  // In case of wrong chain name in env, we set chain variable to whatever.
-  // Thanks to this, the app does not crash here, but later with a proper error handling.
-  console.error("Wrong chain name in env: ", import.meta.env.VITE_CHAIN_NAME);
-  chain = {
-    id: "wrongChain",
-    name: "Wrong chain",
-    nativeCurrency: {},
-    rpcUrls: { default: { http: [] } },
-  } as unknown as Chain;
+  const envChainName = import.meta.env.VITE_CHAIN_NAME;
+  if (envChainName) {
+    const envChain = getChainSpecs(envChainName);
+    // Check if the env chain is in our supported chains
+    const foundChain = chains.find(c => c.id === envChain.id);
+    if (foundChain) {
+      defaultChain = foundChain;
+      console.log(`Using default chain from env: ${envChainName} (ID: ${defaultChain.id})`);
+    } else {
+      console.warn(`Chain ${envChainName} from env not in supported chains, using Base as default`);
+    }
+  }
+} catch (error) {
+  console.error("Error getting chain from env:", error);
+  console.log("Using Base as default chain");
 }
-const chains: [Chain, ...Chain[]] = [chain];
+
 const networks = chains;
 
 // Create connectors array following Wagmi guide
@@ -60,7 +73,7 @@ if (appKitProjectId && appKitProjectId !== '88cd40e876a44270a55cd4e034d55478') {
     adapters: [wagmiAdapter],
     projectId: appKitProjectId,
     networks,
-    defaultNetwork: chain,
+    defaultNetwork: defaultChain,
     metadata: {
       name: "verinlayer",
       description: "Claim your DeFi Activity Proof",

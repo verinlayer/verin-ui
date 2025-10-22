@@ -132,16 +132,22 @@ export const WalletInfo: React.FC = () => {
       return chain.name;
     }
     
-    // Fallback to chain ID mapping
-    const chainIdToName: Record<number, string> = {
-      1: "Ethereum Mainnet",
-      10: "Optimism",
-      11155420: "Optimism Sepolia",
-      8453: "Base",
-      84532: "Base Sepolia",
-      42161: "Arbitrum One",
-      421614: "Arbitrum Sepolia",
-    };
+    // If we have chain ID, use mapping
+    if (chain?.id) {
+      const chainIdToName: Record<number, string> = {
+        1: "Ethereum",
+        10: "Optimism",
+        11155420: "OP Sepolia",
+        8453: "Base",
+        84532: "Base Sepolia",
+        42161: "Arbitrum",
+        421614: "Arbitrum Sepolia",
+        31337: "Anvil",
+        31338: "Anvil",
+      };
+      
+      return chainIdToName[chain.id] || `Chain ${chain.id}`;
+    }
     
     return chainIdToName[chain?.id || 0] || `Chain ${chain?.id || 'Unknown'}`;
   };

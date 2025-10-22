@@ -12,6 +12,22 @@ interface SupplyBorrowDisplayProps {
 
 // Token decimal handling is now centralized in ../utils/tokenDecimals.ts
 
+// Get block explorer URL for a given chain ID
+const getBlockExplorerUrl = (chainId: string): string => {
+  const chainIdNum = parseInt(chainId);
+  const explorerUrls: Record<number, string> = {
+    1: 'https://etherscan.io',           // Ethereum Mainnet
+    10: 'https://optimistic.etherscan.io', // Optimism Mainnet
+    8453: 'https://basescan.org',          // Base Mainnet
+    11155420: 'https://sepolia-optimism.etherscan.io', // Optimism Sepolia
+    84532: 'https://sepolia.basescan.org', // Base Sepolia
+    31337: 'http://localhost:8545',        // Anvil
+    31338: 'http://localhost:8545',        // Anvil
+  };
+  
+  return explorerUrls[chainIdNum] || 'https://etherscan.io'; // Default to Ethereum
+};
+
 const formatTokenAmount = (value: string, asset: string) => {
   try {
     const decimals = getTokenDecimals(asset);
@@ -362,7 +378,7 @@ export const SupplyBorrowDisplay: React.FC<SupplyBorrowDisplayProps> = ({
                             <span>Tx Hash:</span>
                             <span className="font-mono text-xs">
                               <a 
-                                href={`https://optimistic.etherscan.io/tx/${tx.txHash}`}
+                                href={`${getBlockExplorerUrl(item.chainId)}/tx/${tx.txHash}`}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="text-blue-600 hover:text-blue-800 underline"

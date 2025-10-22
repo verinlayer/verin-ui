@@ -63,13 +63,45 @@ export const TOKEN_DECIMALS: Record<string, TokenDecimalInfo> = {
     name: 'USD Coin',
     chainId: 10, // Optimism (Circle's native USDC)
   },
-  '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913': {
-    address: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
+  '0x833589fcd6edb6e08f4c7c32d4f71b54bda02913': {
+    address: '0x833589fcd6edb6e08f4c7c32d4f71b54bda02913',
     decimals: 6,
     symbol: 'USDC',
     name: 'USD Coin',
     chainId: 8453, // Base Mainnet
   },
+  
+  // Base Mainnet tokens
+  // Note: WETH uses same address as Optimism (0x4200...0006), using chain-agnostic approach
+  '0x50c5725949a6f0c72e6c4a641f24049a917db0cb': {
+    address: '0x50c5725949a6f0c72e6c4a641f24049a917db0cb',
+    decimals: 18,
+    symbol: 'DAI',
+    name: 'Dai Stablecoin',
+    chainId: 8453, // Base Mainnet
+  },
+  '0xd9aaec86b65d86f6a7b5b1b0c42ffa531710b6ca': {
+    address: '0xd9aaec86b65d86f6a7b5b1b0c42ffa531710b6ca',
+    decimals: 6,
+    symbol: 'USDbC',
+    name: 'USD Base Coin',
+    chainId: 8453, // Base Mainnet (bridged USDC)
+  },
+  '0x2ae3f1ec7f1f5012cfeab0185bfc7aa3cf0dec22': {
+    address: '0x2ae3f1ec7f1f5012cfeab0185bfc7aa3cf0dec22',
+    decimals: 8,
+    symbol: 'cbETH',
+    name: 'Coinbase Wrapped Staked ETH',
+    chainId: 8453, // Base Mainnet
+  },
+  '0xc1cba3fcea344f92d9239c08c0568f6f2f0ee452': {
+    address: '0xc1cba3fcea344f92d9239c08c0568f6f2f0ee452',
+    decimals: 8,
+    symbol: 'wstETH',
+    name: 'Wrapped liquid staked Ether 2.0',
+    chainId: 8453, // Base Mainnet
+  },
+  
   // 18-decimal tokens
   '0x4200000000000000000000000000000000000042': {
     address: '0x4200000000000000000000000000000000000042',
@@ -141,11 +173,19 @@ export function getTokenInfo(tokenAddress?: string): TokenDecimalInfo | null {
 /**
  * Get token symbol for a given token address
  * @param tokenAddress The token contract address
- * @returns Token symbol or 'UNKNOWN' if not found
+ * @returns Token symbol or shortened address if not found
  */
 export function getTokenSymbol(tokenAddress?: string): string {
+  if (!tokenAddress) return 'UNKNOWN';
+  
   const tokenInfo = getTokenInfo(tokenAddress);
-  return tokenInfo?.symbol || 'UNKNOWN';
+  if (tokenInfo?.symbol) {
+    return tokenInfo.symbol;
+  }
+  
+  // If token not found, log it for debugging and return shortened address
+  console.warn('Unknown token address:', tokenAddress);
+  return `${tokenAddress.slice(0, 6)}...${tokenAddress.slice(-4)}`;
 }
 
 /**

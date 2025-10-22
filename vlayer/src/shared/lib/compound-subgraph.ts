@@ -4,9 +4,6 @@ import { getCwethAddressForChain, getWethAddressForChain, getCompoundSubgraphUrl
 import { rpcClients } from '../config/compound';
 import { getUserInfoFromContract, getBlockTimestamp } from './client';
 
-// Compound Subgraph configuration
-const COMPOUND_APIURL = getCompoundSubgraphUrl();
-
 // Types for Compound data structures
 export interface CompoundInteraction {
   amount: string;
@@ -227,7 +224,8 @@ export const queryCompoundUserTransactions = async (
   chainId?: number
 ): Promise<CompoundSubgraphTransaction[]> => {
   try {
-    console.log('🔍 Querying Compound subgraph for user:', user);
+    const COMPOUND_APIURL = getCompoundSubgraphUrl(chainId);
+    console.log('🔍 Querying Compound subgraph for user:', user, 'on chain:', chainId);
     console.log('📡 Compound API URL:', COMPOUND_APIURL);
     
     if (timestampFilter) {
@@ -509,7 +507,7 @@ export const getCompoundSupplyBorrowData = async (userAddress: string, currentCh
       });
       
       // Use chainId from currentChainId or default to mainnet
-      const chainId = currentChainId || mainnet.id;
+      const chainId = currentChainId || base.id;
       
       console.log(`\n=== Final calculations for Compound ${asset} ===`);
       console.log(`Supply Amount: ${supplyAmount} ($${totalSupplyUSD.toFixed(2)})`);
@@ -672,7 +670,7 @@ export const getUnclaimedCompoundData = async (
       });
       
       // Use chainId from currentChainId or default to mainnet
-      const chainId = currentChainId || mainnet.id;
+      const chainId = currentChainId || base.id;
       
       console.log(`\n=== Final calculations for unclaimed Compound ${asset} ===`);
       console.log(`Supply Amount: ${supplyAmount} ($${totalSupplyUSD.toFixed(2)})`);

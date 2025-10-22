@@ -7,8 +7,7 @@ import { type ProtocolType, getProtocolEnum } from './utils';
 import verifierAbi from "../../contracts/SimpleTeleportVerifier.json";
 // const VERIFIER_ABI = verifierAbi.abi;
 
-// Subgraph configuration - read from config
-const APIURL = getAaveSubgraphUrl();
+// Note: Subgraph URL is now determined dynamically per-chain
 
 // Types for our data structures
 export interface TokenConfig {
@@ -326,9 +325,10 @@ export const getBlockNumberFromTxHash = async (txHash: string, chainId: number):
 };
 
 // Query subgraph for user's DeFi transactions
-export const queryUserTransactions = async (user: string, timestampFilter?: number): Promise<SubgraphTransaction[]> => {
+export const queryUserTransactions = async (user: string, timestampFilter?: number, chainId?: number): Promise<SubgraphTransaction[]> => {
   try {
-    console.log('🔍 Querying subgraph for user:', user);
+    const APIURL = getAaveSubgraphUrl(chainId);
+    console.log('🔍 Querying subgraph for user:', user, 'on chain:', chainId);
     console.log('📡 API URL:', APIURL);
     
     // const query = createQuery('0x05e14e44e3b296f12b21790cde834bce5be5b8e0', timestampFilter);
@@ -405,7 +405,7 @@ export const getUnclaimedSupplyBorrowDataWithProtocol = async (
     }
     
     // Handle AAVE protocol
-    const transactions = await queryUserTransactions(userAddress, timestampFilter);
+    const transactions = await queryUserTransactions(userAddress, timestampFilter, currentChainId);
     
     if (transactions.length === 0) {
       console.log(`No unclaimed ${protocol} transactions found for user`);
@@ -663,7 +663,7 @@ export const getSupplyBorrowDataForUser = async (userAddress: string, currentCha
     console.log(`Fetching supply/borrow data for user: ${userAddress}`);
     
     // Query subgraph for user transactions
-    const transactions = await queryUserTransactions(userAddress);
+    const transactions = await queryUserTransactions(userAddress, undefined, currentChainId);
     
     if (transactions.length === 0) {
       console.log('No transactions found for user');
@@ -750,7 +750,7 @@ export const getTokenConfigsForUserNew = async (userAddress: string, currentChai
     console.log(`Fetching TokenConfig structures for user: ${userAddress}`);
     
     // Query subgraph for user transactions
-    const transactions = await queryUserTransactions(userAddress);
+    const transactions = await queryUserTransactions(userAddress, undefined, currentChainId);
     
     if (transactions.length === 0) {
       console.log('No transactions found for user');
@@ -1042,7 +1042,7 @@ export const getTokenConfigsForUnclaimedData = async (userAddress: string, curre
     }
     
     // Query subgraph for user transactions with timestamp filter (only unclaimed data)
-    const transactions = await queryUserTransactions(userAddress, timestampFilter);
+    const transactions = await queryUserTransactions(userAddress, timestampFilter, currentChainId);
     
     if (transactions.length === 0) {
       console.log('No unclaimed transactions found for user');
