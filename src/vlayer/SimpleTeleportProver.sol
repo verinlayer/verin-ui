@@ -9,32 +9,21 @@ import {Erc20Token, CToken, Protocol, TokenType, CTokenType} from "./types/Telep
 import {ICToken} from "./interfaces/ICToken.sol";
 
 contract SimpleTeleportProver is Prover, IProver {
-    function crossChainBalanceOf(address _owner, Erc20Token[] memory tokens)
-        external
-        returns (Proof memory, address, Erc20Token[] memory)
-    {
-        for (uint256 i = 0; i < tokens.length; i++) {
-            setChain(tokens[i].chainId, tokens[i].blockNumber);
-            tokens[i].balance = IERC20(tokens[i].aTokenAddress).balanceOf(_owner);
-        }
-
-        return (proof(), _owner, tokens);
-    }
-
     function proveAaveData(address _owner, Erc20Token[] memory tokens)
         external
-        returns (Proof memory, address, Erc20Token[] memory)
+        returns (Proof memory, address, bytes4, bytes memory)
     {
         for (uint256 i = 0; i < tokens.length; i++) {
             setChain(tokens[i].chainId, tokens[i].blockNumber);
             tokens[i].balance = IERC20(tokens[i].aTokenAddress).balanceOf(_owner);
         }
-        return (proof(), _owner, tokens);
+        bytes memory encodedData = abi.encode(tokens);
+        return (proof(), _owner, SimpleTeleportProver.proveAaveData.selector, encodedData);
     }
 
     function proveCompoundData(address _owner, CToken[] memory tokens)
         external
-        returns (Proof memory, address, CToken[] memory)
+        returns (Proof memory, address, bytes4, bytes memory)
     {
         for (uint256 i = 0; i < tokens.length; i++) {
             setChain(tokens[i].chainId, tokens[i].blockNumber);
@@ -44,8 +33,8 @@ contract SimpleTeleportProver is Prover, IProver {
                 tokens[i].balance = ICToken(tokens[i].cTokenAddress).userCollateral(_owner, tokens[i].collateralAddress).balance;
             }
         }
-        return (proof(), _owner, tokens);
-
+        bytes memory encodedData = abi.encode(tokens);
+        return (proof(), _owner, SimpleTeleportProver.proveCompoundData.selector, encodedData);
     }
 
     function proveMorphoData(address _owner, Erc20Token[] memory tokens)

@@ -7,7 +7,7 @@ import proverSpec from "../../contracts/SimpleTeleportProver.json";
 import { useEffect } from "react";
 import { useLocalStorage } from "usehooks-ts";
 import { UseChainError, CallProverError } from "../errors/appErrors";
-import { getAaveContractAddresses } from "../../../config-aave";
+import { getContractAddresses } from "../../../config-global";
 import { useAccount } from "wagmi";
 
 export const useProver = () => {
@@ -52,7 +52,7 @@ export const useProver = () => {
       }
       
       // Get contract addresses (same for both protocols)
-      const addresses = getAaveContractAddresses(chainName);
+      const addresses = getContractAddresses(chainName);
       proverAddress = addresses.prover;
       console.log(`Using prover address from config: ${proverAddress} for chain: ${wagmiChain.name}, protocol: ${selectedProtocol}`);
     }

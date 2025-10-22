@@ -122,24 +122,20 @@ contract DeployTeleportAdvanced is Script {
         address uniswapV2Factory = address(0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f); // Mainnet factory
         UniswapV2PriceOracle priceOracle = new UniswapV2PriceOracle(uniswapV2Factory, address(registry));
         
-        verifier = new SimpleTeleportVerifier(
-            address(prover),
-            registry,
-            address(creditModel),
-            address(priceOracle),
-            config.admin  // initialOwner
-        );
-        console.log("   [OK] SimpleTeleportVerifier deployed at:", address(verifier));
+        // NOTE: This script is deprecated. Use DeployTeleportWithController.s.sol instead
+        console.log("ERROR: This deployment script is deprecated.");
+        console.log("Please use DeployTeleportWithController.s.sol instead.");
+        revert("Use DeployTeleportWithController.s.sol instead");
     }
 
     function _postDeploymentSetup(DeploymentConfig memory config) internal view {
         console.log("\n=== Post-Deployment Verification ===");
 
-        // Verify contract addresses
-        require(verifier.prover() == address(prover), "Prover address mismatch");
-        require(address(verifier.registry()) == address(registry), "Registry address mismatch");
+        // NOTE: Verification code commented out because deployment is deprecated
+        // require(verifier.prover() == address(prover), "Prover address mismatch");
+        // require(address(verifier.registry()) == address(registry), "Registry address mismatch");
 
-        console.log("[OK] All contract addresses verified");
+        console.log("[SKIPPED] Verification skipped - deployment is deprecated");
 
         // Log deployment summary
         console.log("\n=== Deployment Summary ===");
@@ -151,7 +147,7 @@ contract DeployTeleportAdvanced is Script {
         // Log contract interactions
         console.log("\n=== Contract Interactions ===");
         console.log("Verifier -> Prover:", verifier.prover());
-        console.log("Verifier -> Registry:", address(verifier.registry()));
+        // console.log("Verifier -> Registry:", address(verifier.registry())); // Removed: registry is now in Controller
 
         // Log registry configuration
         console.log("\n=== Registry Configuration ===");
@@ -198,14 +194,10 @@ contract DeployTeleportAdvanced is Script {
         address uniswapV2Factory = address(0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f); // Mainnet factory
         UniswapV2PriceOracle priceOracle = new UniswapV2PriceOracle(uniswapV2Factory, address(registry));
         
-        // Deploy SimpleTeleportVerifier
-        verifier = new SimpleTeleportVerifier(
-            address(prover),
-            registry,
-            address(creditModel),
-            address(priceOracle),
-            admin  // initialOwner
-        );
+        // NOTE: This script is deprecated. Use DeployTeleportWithController.s.sol instead
+        console.log("ERROR: This deployment function is deprecated.");
+        console.log("Please use DeployTeleportWithController.s.sol instead.");
+        revert("Use DeployTeleportWithController.s.sol instead");
 
         vm.stopBroadcast();
 

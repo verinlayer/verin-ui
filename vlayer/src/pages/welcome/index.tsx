@@ -11,15 +11,35 @@ import { type SupplyBorrowData } from "../../shared/lib/aave-subgraph";
 import { loadTokensToProve, getTokensToProve, getFallbackTokensToProve, type ProtocolTokenConfig, type ProtocolType, getProtocolMetadata } from "../../shared/lib/utils";
 import { getSupplyBorrowDataForUser, getUnclaimedSupplyBorrowDataWithProtocol, getTokenConfigsForUnclaimedData } from "../../shared/lib/aave-subgraph";
 import { useAccount } from "wagmi";
-import { getAaveContractAddresses } from "../../../config-aave";
+import { getContractAddresses } from "../../../config-global";
 
 export const WelcomePage = () => {
   const { address, chain, isConnected, isConnecting } = useAccount();
   console.log("Wallet state:", { address, isConnected, isConnecting, chain: chain?.name });
   
-  // Check if connected to Optimism (required chain)
-  const isOptimismChain = chain?.id === 10; // Optimism chain ID is 10
-  const isWrongChain = isConnected && !isOptimismChain;
+  // Check if connected to a supported chain
+  const supportedChainIds = [
+    10, // Optimism Mainnet
+    8453, // Base Mainnet
+    1, // Ethereum Mainnet
+    11155420, // Optimism Sepolia
+    84532, // Base Sepolia
+    31337, 31338 // Anvil
+  ];
+  
+  // Only check for wrong chain if we have a valid chain ID
+  // During network switches, chain.id can be temporarily undefined
+  const isSupportedChain = chain?.id ? supportedChainIds.includes(chain.id) : null;
+  const isWrongChain = isConnected && chain?.id && isSupportedChain === false;
+  
+  console.log("Chain validation:", {
+    chainId: chain?.id,
+    chainName: chain?.name,
+    isSupportedChain,
+    isWrongChain,
+    isConnected,
+    supportedChainIds
+  });
   const navigate = useNavigate();
   const [selectedProtocol, setSelectedProtocol] = useState<ProtocolType | null>(null);
   
@@ -51,7 +71,26 @@ export const WelcomePage = () => {
     .VITE_DEFAULT_TOKEN_HOLDER as `0x${string}`;
   const { callProver, result } = useProver();
 
+  // Restore selected protocol from localStorage on mount
+  useEffect(() => {
+    const savedProtocol = localStorage.getItem('selectedProtocol') as ProtocolType | null;
+    if (savedProtocol && availableProtocols.includes(savedProtocol)) {
+      setSelectedProtocol(savedProtocol);
+    }
+  }, []); // Run only on mount
 
+  // Update localStorage when selectedProtocol changes
+  useEffect(() => {
+    console.log('selectedProtocol changed to:', selectedProtocol);
+    if (selectedProtocol) {
+      localStorage.setItem('selectedProtocol', selectedProtocol);
+      console.log('Updated localStorage with:', selectedProtocol);
+    } else {
+      // Clear localStorage when protocol is unselected
+      localStorage.removeItem('selectedProtocol');
+      console.log('Removed selectedProtocol from localStorage');
+    }
+  }, [selectedProtocol]);
 
   // Load token configs and supply/borrow data when protocol is selected or address/chain changes
   useEffect(() => {
@@ -64,6 +103,9 @@ export const WelcomePage = () => {
         return;
       }
       
+      // Clear previous tokens when protocol changes
+      setTokensToProve([]);
+      
       setIsLoadingTokens(true);
       setIsLoadingSupplyBorrow(true);
       setIsLoadingUnclaimed(true);
@@ -75,6 +117,7 @@ export const WelcomePage = () => {
         
         // Get contract addresses for the current chain based on protocol
         let verifierAddress: string | undefined;
+        let controllerAddress: string | undefined;
         try {
           // Map chain names to our config keys
           let chainName = 'optimism'; // default
@@ -98,8 +141,9 @@ export const WelcomePage = () => {
           console.log(`Using chain config: ${chainName} for chain: ${chain?.name}`);
           
           // Get addresses (same for both protocols)
-          const addresses = getAaveContractAddresses(chainName);
+          const addresses = getContractAddresses(chainName);
           verifierAddress = addresses.verifier;
+          controllerAddress = addresses.controller;
         } catch (err) {
           console.warn("Could not get contract addresses:", err);
         }
@@ -107,10 +151,10 @@ export const WelcomePage = () => {
         // Load token configs, claimed data, and unclaimed data in parallel
         // const [tokens, supplyBorrow, unclaimedData] = await Promise.all([
         const [tokens, unclaimedData] = await Promise.all([
-          loadTokensToProve(address, chain?.id, verifierAddress, selectedProtocol),
-          // getTokenConfigsForUnclaimedData(address, chain?.id, verifierAddress),
+          loadTokensToProve(address, chain?.id, controllerAddress, selectedProtocol),
+          // getTokenConfigsForUnclaimedData(address, chain?.id, controllerAddress),
           // getSupplyBorrowDataForUser(address, chain?.id),
-          getUnclaimedSupplyBorrowDataWithProtocol(address, chain?.id, verifierAddress, selectedProtocol)
+          getUnclaimedSupplyBorrowDataWithProtocol(address, chain?.id, controllerAddress, selectedProtocol)
         ]);
         
         setTokensToProve(tokens);
@@ -163,12 +207,15 @@ export const WelcomePage = () => {
         return;
       }
       
-      // Store selected protocol in localStorage for later use
-      if (selectedProtocol) {
-        localStorage.setItem('selectedProtocol', selectedProtocol);
-      }
+      // Note: selectedProtocol is already stored in localStorage via useEffect
       
-      console.log("Calling prover with tokens:", currentTokens, "protocol:", selectedProtocol);
+      console.log("=== PROVER CALL DEBUG ===");
+      console.log("Selected Protocol:", selectedProtocol);
+      console.log("Number of tokens:", currentTokens.length);
+      console.log("Token type:", currentTokens[0] && ('aTokenAddress' in currentTokens[0] ? 'AAVE' : 'COMPOUND'));
+      console.log("All tokens:", currentTokens);
+      console.log("=========================");
+      
       await callProver([holderAddress, currentTokens]);
     } catch (err) {
       console.error("Error calling prover:", err);
@@ -179,7 +226,7 @@ export const WelcomePage = () => {
 
   useEffect(() => {
     if (result) {
-      void navigate(getStepPath(StepKind.showBalance));
+      void navigate(`/${getStepPath(StepKind.showBalance)}`);
       setIsLoading(false);
     }
   }, [result]);
@@ -270,11 +317,16 @@ export const WelcomePage = () => {
                 <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
               </svg>
               <div className="flex-1">
-                <h3 className="text-lg font-bold mb-2">⚠️ Wrong Network Detected</h3>
+                <h3 className="text-lg font-bold mb-2">⚠️ Unsupported Network</h3>
+                <p className="text-sm mb-2">
+                  Current network: <strong>{chain?.name || 'Unknown'} (ID: {chain?.id})</strong>
+                </p>
                 <div className="bg-white border border-red-300 rounded p-3 mb-3">
-                  <ol className="text-sm space-y-1 list-decimal list-inside">
-                    Switch to Optimism network and Refresh this page
-                  </ol>
+                  <p className="text-sm font-semibold mb-2">Please switch to a supported network:</p>
+                  <ul className="text-sm space-y-1 list-disc list-inside">
+                    <li>Base Mainnet (ID: 8453)</li>
+                    <li>Optimism Mainnet (ID: 10)</li>
+                  </ul>
                 </div>
                 <div className="flex space-x-3">
                   <button
@@ -301,7 +353,12 @@ export const WelcomePage = () => {
               return (
                 <div 
                   key={protocol}
-                  onClick={() => !isWrongChain && setSelectedProtocol(protocol)}
+                  onClick={() => {
+                    if (!isWrongChain) {
+                      console.log('Selecting protocol:', protocol);
+                      setSelectedProtocol(protocol);
+                    }
+                  }}
                   className={`bg-white border-2 rounded-lg p-6 w-full max-w-md flex items-center shadow-md transition-all cursor-pointer ${
                     isWrongChain 
                       ? 'opacity-50 cursor-not-allowed border-gray-200' 
@@ -342,11 +399,16 @@ export const WelcomePage = () => {
               <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
             </svg>
             <div className="flex-1">
-              <h3 className="text-lg font-bold mb-2">⚠️ Wrong Network Detected</h3>
+              <h3 className="text-lg font-bold mb-2">⚠️ Unsupported Network</h3>
+              <p className="text-sm mb-2">
+                Current network: <strong>{chain?.name || 'Unknown'} (ID: {chain?.id})</strong>
+              </p>
               <div className="bg-white border border-red-300 rounded p-3 mb-3">
-                <ol className="text-sm space-y-1 list-decimal list-inside">
-                  Switch to Optimism network and Refresh this page
-                </ol>
+                <p className="text-sm font-semibold mb-2">Please switch to a supported network:</p>
+                <ul className="text-sm space-y-1 list-disc list-inside">
+                  <li>Base Mainnet (ID: 8453)</li>
+                  <li>Optimism Mainnet (ID: 10)</li>
+                </ul>
               </div>
               <div className="flex space-x-3">
                 <button

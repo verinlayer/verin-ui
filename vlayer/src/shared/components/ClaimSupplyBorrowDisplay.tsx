@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useAccount } from 'wagmi';
 import { createPublicClient, http, formatUnits } from 'viem';
 import { optimismSepolia, mainnet, base, baseSepolia, optimism } from 'viem/chains';
-import { getAaveContractAddresses } from '../../../config-aave';
+import { getContractAddresses } from '../../../config-global';
 import { getTokenDecimals } from '../utils/tokenDecimals';
 import { type ProtocolType, getProtocolEnum, getProtocolMetadata } from '../lib/utils';
 
@@ -76,6 +76,63 @@ const VERIFIER_ABI = [
   }
 ] as const;
 
+// ABI for Controller contract
+const CONTROLLER_ABI = [
+  {
+    "inputs": [
+      {"name": "user", "type": "address"},
+      {"name": "protocol", "type": "uint8"}
+    ],
+    "name": "usersInfo",
+    "outputs": [
+      {"name": "borrowedAmount", "type": "uint256"},
+      {"name": "suppliedAmount", "type": "uint256"},
+      {"name": "repaidAmount", "type": "uint256"},
+      {"name": "latestBlock", "type": "uint256"},
+      {"name": "latestBalance", "type": "uint256"},
+      {"name": "borrowTimes", "type": "uint256"},
+      {"name": "supplyTimes", "type": "uint256"},
+      {"name": "repayTimes", "type": "uint256"},
+      {"name": "firstActivityBlock", "type": "uint256"},
+      {"name": "liquidations", "type": "uint256"}
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {"name": "user", "type": "address"}
+    ],
+    "name": "calculateCreditScore",
+    "outputs": [
+      {"name": "score", "type": "uint256"},
+      {"name": "tier", "type": "uint8"}
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {"name": "user", "type": "address"}
+    ],
+    "name": "totals",
+    "outputs": [
+      {"name": "borrowedAmount", "type": "uint256"},
+      {"name": "suppliedAmount", "type": "uint256"},
+      {"name": "repaidAmount", "type": "uint256"},
+      {"name": "latestBlock", "type": "uint256"},
+      {"name": "latestBalance", "type": "uint256"},
+      {"name": "borrowTimes", "type": "uint256"},
+      {"name": "supplyTimes", "type": "uint256"},
+      {"name": "repayTimes", "type": "uint256"},
+      {"name": "firstActivityBlock", "type": "uint256"},
+      {"name": "liquidations", "type": "uint256"}
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  }
+] as const;
+
 // RPC client configuration for different chains
 const rpcClients = {
   [optimismSepolia.id]: createPublicClient({
@@ -88,7 +145,8 @@ const rpcClients = {
   }),
   [base.id]: createPublicClient({
     chain: base,
-    transport: http(base.rpcUrls.default.http[0])
+    // transport: http(base.rpcUrls.default.http[0])
+    transport: http('https://base-mainnet.g.alchemy.com/v2/FhJ11JHyRkXs33DwmEYN-fCazeWVm73C')
   }),
   [baseSepolia.id]: createPublicClient({
     chain: baseSepolia,
@@ -148,8 +206,8 @@ const formatTokenAmount = (value: bigint, asset?: string) => {
 // Smart formatting that tries to determine the most appropriate decimals based on context
 const formatTokenAmountSmart = (value: bigint, chainId: number, amountType: 'supply' | 'borrow' | 'repay' = 'supply') => {
   try {
-    // For Optimism, try to determine the most likely token based on typical usage
-    if (chainId === 10) { // Optimism
+    // For Optimism and Base, try to determine the most likely token based on typical usage
+    if (chainId === 10 || chainId === 8453) { // Optimism or Base
       // Check if the value looks like it could be USDT/USDC (6 decimals)
       // USDT/USDC typically have smaller raw values compared to 18-decimal tokens
       const valueStr = value.toString();
@@ -205,10 +263,11 @@ export const ClaimSupplyBorrowDisplay: React.FC<ClaimSupplyBorrowDisplayProps> =
     const fetchUserInfo = async () => {
       if (!address || !chain || !protocol) return;
 
-      // Only fetch data if connected to Optimism (chain ID 10)
-      if (chain.id !== 10) {
-        console.log('Skipping claimed data fetch - not connected to Optimism:', chain.name);
-        setError('Please connect to Optimism network to view claimed data');
+      // Check if connected to a supported chain
+      const supportedChainIds = [10, 8453, 1, 11155420, 84532, 31337, 31338];
+      if (!supportedChainIds.includes(chain.id)) {
+        console.log('Skipping claimed data fetch - not connected to a supported chain:', chain.name);
+        setError('Please connect to a supported network (Optimism, Base, or Ethereum Mainnet)');
         return;
       }
 
@@ -216,9 +275,25 @@ export const ClaimSupplyBorrowDisplay: React.FC<ClaimSupplyBorrowDisplayProps> =
       setError(null);
 
       try {
-        // Map chain names to our config keys
+        // Map chain ID to config keys (more reliable than chain name)
         let chainName = 'optimism'; // default
-        if (chain.name) {
+        
+        // First try by chain ID (most reliable)
+        const chainIdToName: Record<number, string> = {
+          1: 'mainnet',
+          10: 'optimism',
+          8453: 'base',
+          11155420: 'optimismSepolia',
+          84532: 'baseSepolia',
+          31337: 'anvil',
+          31338: 'anvil',
+        };
+        
+        if (chain.id && chainIdToName[chain.id]) {
+          chainName = chainIdToName[chain.id];
+          console.log(`Mapped chain ID ${chain.id} to chainName: ${chainName}`);
+        } else if (chain.name) {
+          // Fallback to name-based detection
           const chainNameLower = chain.name.toLowerCase();
           if (chainNameLower.includes('optimism') && !chainNameLower.includes('sepolia')) {
             chainName = 'optimism';
@@ -238,10 +313,14 @@ export const ClaimSupplyBorrowDisplay: React.FC<ClaimSupplyBorrowDisplayProps> =
         console.log(`Using chain config: ${chainName} for chain: ${chain.name}, protocol: ${protocol}`);
         
         // Get contract addresses (same for both protocols)
-        const addresses = getAaveContractAddresses(chainName);
+        const addresses = getContractAddresses(chainName);
         
         if (!addresses.verifier || addresses.verifier === "0x0000000000000000000000000000000000000000") {
           throw new Error(`Verifier contract not deployed on ${chain.name}`);
+        }
+        
+        if (!addresses.controller || addresses.controller === "0x0000000000000000000000000000000000000000") {
+          throw new Error(`Controller contract not deployed on ${chain.name}`);
         }
 
         // Get RPC client for the current chain
@@ -253,13 +332,17 @@ export const ClaimSupplyBorrowDisplay: React.FC<ClaimSupplyBorrowDisplayProps> =
         // Map protocol to enum value
         const protocolEnum = getProtocolEnum(protocol);
 
-        // Read user info from the contract
+        // Read user info from the Controller contract
+        console.log(`Reading from Controller: ${addresses.controller} for user: ${address}, protocol: ${protocol} (enum: ${protocolEnum})`);
+        
         const result = await client.readContract({
-          address: addresses.verifier as `0x${string}`,
-          abi: VERIFIER_ABI,
+          address: addresses.controller as `0x${string}`,
+          abi: CONTROLLER_ABI,
           functionName: 'usersInfo',
           args: [address as `0x${string}`, protocolEnum]
         });
+
+        console.log('Raw contract result:', result);
 
         // Convert the result to UserInfo interface
         const userInfoData: UserInfo = {
@@ -274,6 +357,8 @@ export const ClaimSupplyBorrowDisplay: React.FC<ClaimSupplyBorrowDisplayProps> =
           firstActivityBlock: result[8],
           liquidations: result[9]
         };
+        
+        console.log('Parsed UserInfo:', userInfoData);
 
         setUserInfo(userInfoData);
 
@@ -286,8 +371,8 @@ export const ClaimSupplyBorrowDisplay: React.FC<ClaimSupplyBorrowDisplayProps> =
         // Fetch totals across all protocols
         try {
           const totalsResult = await client.readContract({
-            address: addresses.verifier as `0x${string}`,
-            abi: VERIFIER_ABI,
+            address: addresses.controller as `0x${string}`,
+            abi: CONTROLLER_ABI,
             functionName: 'totals',
             args: [address as `0x${string}`]
           });
@@ -314,8 +399,8 @@ export const ClaimSupplyBorrowDisplay: React.FC<ClaimSupplyBorrowDisplayProps> =
         // Fetch credit score (uses totals internally)
         try {
           const creditScoreResult = await client.readContract({
-            address: addresses.verifier as `0x${string}`,
-            abi: VERIFIER_ABI,
+            address: addresses.controller as `0x${string}`,
+            abi: CONTROLLER_ABI,
             functionName: 'calculateCreditScore',
             args: [address as `0x${string}`]
           });
@@ -370,8 +455,12 @@ export const ClaimSupplyBorrowDisplay: React.FC<ClaimSupplyBorrowDisplayProps> =
   // Check if user has activity in the specific protocol
   const hasProtocolActivity = userInfo && (userInfo.borrowedAmount > 0n || userInfo.suppliedAmount > 0n || userInfo.repaidAmount > 0n);
   
-  console.log('userInfo', userInfo);
-  console.log('totalsInfo', totalsInfo);
+  console.log('=== Claimed Data Status ===');
+  console.log('userInfo (protocol-specific):', userInfo);
+  console.log('totalsInfo (all protocols):', totalsInfo);
+  console.log('hasProtocolActivity:', hasProtocolActivity);
+  console.log('hasTotalActivity:', hasTotalActivity);
+  console.log('========================');
 
   // If no activity at all, show a simple message
   if (!hasTotalActivity) {

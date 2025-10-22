@@ -1,5 +1,5 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { getAaveContractAddresses } from "../../../config-aave";
+import { getContractAddresses } from "../../../config-global";
 // Import actual ABI from compiled contract
 import verifierAbi from "../../contracts/SimpleTeleportVerifier.json";
 
@@ -13,7 +13,7 @@ import { parseProverResult, getTokensToProve, type ProtocolType } from "../../sh
 import { AlreadyMintedError } from "../../shared/errors/appErrors";
 import { Chain, optimismSepolia } from "viem/chains";
 import { match } from "ts-pattern";
-export const ConfirmMintPage = () => {
+export const ConfirmClaimPage = () => {
   const { address, chain } = useAccount();
   const { data: balance } = useBalance({ address: address as `0x${string}` });
   const navigate = useNavigate();
@@ -38,8 +38,8 @@ export const ConfirmMintPage = () => {
 
   useEffect(() => {
     if (proverResult) {
-      const [, owner] = parseProverResult(proverResult);
-      setHolderAddress(owner);
+      const { claimer } = parseProverResult(proverResult);
+      setHolderAddress(claimer);
     }
   }, [proverResult]);
 
@@ -64,28 +64,12 @@ export const ConfirmMintPage = () => {
 
   const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    const [proof, owner, tokens] = parseProverResult(proverResult);
+    const { proof, claimer, selector, encodedData } = parseProverResult(proverResult);
     setIsLoading(true);
     setUserCancelled(false);
     
     // Get selected protocol from localStorage (default to AAVE for backward compatibility)
     const selectedProtocol = (localStorage.getItem('selectedProtocol') || 'AAVE') as ProtocolType;
-    
-    // Determine which claim function to call based on protocol
-    let claimFunctionName: string;
-    switch (selectedProtocol) {
-      case 'COMPOUND':
-        claimFunctionName = 'claimCompoundData';
-        break;
-      case 'AAVE':
-      default:
-        claimFunctionName = 'claim';
-        break;
-      // Add more protocols here as they are implemented:
-      // case 'FLUID':
-      //   claimFunctionName = 'claimFluidData';
-      //   break;
-    }
     
     // Get verifier address from config based on current chain and protocol
     let verifierAddress: `0x${string}` = import.meta.env.VITE_VERIFIER_ADDRESS as `0x${string}`; // fallback to env
@@ -109,20 +93,21 @@ export const ConfirmMintPage = () => {
         }
         
         // Get contract addresses (same for both protocols)
-        const addresses = getAaveContractAddresses(chainName);
+        const addresses = getContractAddresses(chainName);
         verifierAddress = addresses.verifier;
         console.log(`Using verifier address from config: ${verifierAddress} for chain: ${chain.name}, protocol: ${selectedProtocol}`);
-        console.log(`Calling claim function: ${claimFunctionName}`);
+        console.log(`Calling unified claim function with selector: ${selector}`);
       }
     } catch (err) {
       console.warn("Could not get verifier address from config, using env variable:", err);
     }
     
+    // Now all protocols use the same unified claim function
     writeContract({
       address: verifierAddress,
       abi: verifierSpec.abi,
-      functionName: claimFunctionName,
-      args: [proof, owner, tokens],
+      functionName: 'claim',
+      args: [proof, claimer, selector, encodedData],
     });
   };
 
@@ -225,3 +210,4 @@ const FaucetInfo = ({ chain }: { chain: Chain }) => {
     </p>
   );
 };
+

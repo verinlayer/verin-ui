@@ -101,7 +101,7 @@ export let tokensToProve: ProtocolTokenConfig[] = [];
 export const loadTokensToProve = async (
   userAddress: string, 
   currentChainId?: number, 
-  verifierAddress?: string,
+  controllerAddress?: string,
   protocol: ProtocolType = 'AAVE'
 ): Promise<ProtocolTokenConfig[]> => {
   try {
@@ -109,12 +109,12 @@ export const loadTokensToProve = async (
     
     if (protocol === 'COMPOUND') {
       // Load Compound token configs (keep as CompoundTokenConfig)
-      const compoundConfigs = await getCompoundTokenConfigs(userAddress, currentChainId);
+      const compoundConfigs = await getCompoundTokenConfigs(userAddress, currentChainId, controllerAddress);
       tokensToProve = compoundConfigs;
       console.log(`Loaded ${tokensToProve.length} Compound token configs:`, tokensToProve);
     } else {
       // Load Aave token configs (keep as TokenConfig)
-      const aaveConfigs = await getTokenConfigsForUnclaimedData(userAddress, currentChainId, verifierAddress);
+      const aaveConfigs = await getTokenConfigsForUnclaimedData(userAddress, currentChainId, controllerAddress);
       tokensToProve = aaveConfigs;
       console.log(`Loaded ${tokensToProve.length} Aave token configs:`, tokensToProve);
     }
@@ -144,9 +144,18 @@ export const getFallbackTokensToProve = (): TokenConfig[] => {
   }
 };
 
-export const parseProverResult = (proverResult: string) =>
-  JSON.parse(proverResult) as [
+export const parseProverResult = (proverResult: string) => {
+  const parsed = JSON.parse(proverResult) as [
     unknown,
     `0x${string}`,
-    ProtocolTokenConfig[],
+    `0x${string}`, // bytes4 selector
+    `0x${string}`, // bytes encodedData
   ];
+  
+  return {
+    proof: parsed[0],
+    claimer: parsed[1],
+    selector: parsed[2],
+    encodedData: parsed[3],
+  };
+};

@@ -32,11 +32,29 @@ export const getWethAddressForChain = (chainId?: number): `0x${string}` => {
   return (match?.address as `0x${string}`) || WETH_MAINNET;
 };
 
-// Compound subgraph configuration
-export const COMPOUND_SUBGRAPH_ID = 'FhHNkfh5z6Z2WCEBxB6V3s8RPxnJfWZ9zAfM5bVvbvbb';
+// Compound subgraph configuration by chain ID
+export const COMPOUND_SUBGRAPH_IDS: Record<number, string> = {
+  10: 'FhHNkfh5z6Z2WCEBxB6V3s8RPxnJfWZ9zAfM5bVvbvbb', // OP mainnet
+  8453: '2hcXhs36pTBDVUmk5K2Zkr6N4UYGwaHuco2a6jyTsijo', // Base mainnet
+  1: '', // Ethereum mainnet (add if available)
+  11155420: '', // OP Sepolia (add if available)
+  84532: '', // Base Sepolia (add if available)
+};
 
-export const getCompoundSubgraphUrl = (): string => {
+// Legacy: default to Base for backwards compatibility
+export const COMPOUND_SUBGRAPH_ID = COMPOUND_SUBGRAPH_IDS[8453];
+
+export const getCompoundSubgraphUrl = (chainId?: number): string => {
   const apiKey = import.meta.env.VITE_SUBGRAPH_API_KEY ?? '';
+  
+  // If chainId provided, use the specific subgraph for that chain
+  if (chainId && COMPOUND_SUBGRAPH_IDS[chainId]) {
+    console.log(`Using Compound subgraph for chain ${chainId}`);
+    return `https://gateway.thegraph.com/api/${apiKey}/subgraphs/id/${COMPOUND_SUBGRAPH_IDS[chainId]}`;
+  }
+  
+  // Fallback to Base mainnet
+  console.warn(`No Compound subgraph configured for chain ${chainId}, falling back to Base`);
   return `https://gateway.thegraph.com/api/${apiKey}/subgraphs/id/${COMPOUND_SUBGRAPH_ID}`;
 };
 

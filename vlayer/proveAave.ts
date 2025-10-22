@@ -29,7 +29,7 @@ import {
   type SubgraphTransaction,
   type TokenConfig
 } from "./src/shared/lib/aave-subgraph";
-import { getAaveContractAddresses, validateContractAddresses } from "./config-aave";
+import { getContractAddresses, validateContractAddresses } from "./config-global";
 import debug from "debug";
 
 const createLogger = (namespace: string) => {
@@ -75,12 +75,12 @@ const vlayer = createVlayerClient({
 log.info("⏳ Using pre-deployed contracts...");
 
 // Get pre-deployed contract addresses from configuration
-const contractAddresses = getAaveContractAddresses(config.chainName);
+const contractAddresses = getContractAddresses(config.chainName);
 
 // Validate that all addresses are set
 if (!validateContractAddresses(contractAddresses)) {
   throw new Error(
-    "Pre-deployed contract addresses not properly configured. Please update config-aave.ts with the actual contract addresses."
+    "Pre-deployed contract addresses not properly configured. Please update config-global.ts with the actual contract addresses."
   );
 }
 

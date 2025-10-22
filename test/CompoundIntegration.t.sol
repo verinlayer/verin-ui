@@ -4,6 +4,7 @@ pragma solidity ^0.8.21;
 import {Test, console} from "forge-std/Test.sol";
 import {SimpleTeleportVerifier} from "../src/vlayer/SimpleTeleportVerifier.sol";
 import {SimpleTeleportProver} from "../src/vlayer/SimpleTeleportProver.sol";
+import {Controller} from "../src/vlayer/Controller.sol";
 import {Registry} from "../src/vlayer/constants/Registry.sol";
 import {CreditModel} from "../src/vlayer/CreditModel.sol";
 import {UniswapV2PriceOracle} from "../src/vlayer/UniswapV2PriceOracle.sol";
@@ -15,6 +16,7 @@ import {ERC1967Proxy} from "openzeppelin-contracts/proxy/ERC1967/ERC1967Proxy.so
 contract CompoundIntegrationTest is Test {
     SimpleTeleportVerifier public verifier;
     SimpleTeleportProver public prover;
+    Controller public controller;
     Registry public registry;
     CreditModel public creditModel;
     UniswapV2PriceOracle public priceOracle;
@@ -70,14 +72,24 @@ contract CompoundIntegrationTest is Test {
         // Deploy Prover
         prover = new SimpleTeleportProver();
         
-        // Deploy Verifier
-        verifier = new SimpleTeleportVerifier(
-            address(prover),
+        // Deploy Controller
+        controller = new Controller(
+            address(0), // verifier address will be set after verifier deployment
             registry,
             address(creditModel),
             address(priceOracle),
             admin
         );
+        
+        // Deploy Verifier
+        verifier = new SimpleTeleportVerifier(
+            address(prover),
+            address(controller),
+            admin
+        );
+        
+        // Link Controller to Verifier
+        controller.setVerifier(address(verifier));
         
         vm.stopPrank();
     }
@@ -100,11 +112,15 @@ contract CompoundIntegrationTest is Test {
         // Mock proof
         Proof memory mockProof;
         
+        // Encode tokens for the new unified claim function
+        bytes memory encodedData = abi.encode(tokens);
+        bytes4 selector = SimpleTeleportProver.proveCompoundData.selector;
+        
         // This will fail in actual test because we don't have real proof verification
         // In production, you'd use vlayer's test framework
         // For now, this tests the logic flow
         vm.expectRevert(); // Expected to revert due to proof verification
-        verifier.claimCompoundData(mockProof, user1, tokens);
+        verifier.claim(mockProof, user1, selector, encodedData);
         
         vm.stopPrank();
     }
@@ -125,9 +141,11 @@ contract CompoundIntegrationTest is Test {
         });
         
         Proof memory mockProof;
+        bytes memory encodedData = abi.encode(tokens);
+        bytes4 selector = SimpleTeleportProver.proveCompoundData.selector;
         
         vm.expectRevert(); // Expected to revert due to proof verification
-        verifier.claimCompoundData(mockProof, user1, tokens);
+        verifier.claim(mockProof, user1, selector, encodedData);
         
         vm.stopPrank();
     }
@@ -226,9 +244,11 @@ contract CompoundIntegrationTest is Test {
         });
         
         Proof memory mockProof;
+        bytes memory encodedData = abi.encode(tokens);
+        bytes4 selector = SimpleTeleportProver.proveCompoundData.selector;
         
         vm.expectRevert(); // Expected to revert due to proof verification
-        verifier.claimCompoundData(mockProof, user1, tokens);
+        verifier.claim(mockProof, user1, selector, encodedData);
         
         vm.stopPrank();
     }

@@ -7,8 +7,7 @@ import { type ProtocolType, getProtocolEnum } from './utils';
 import verifierAbi from "../../contracts/SimpleTeleportVerifier.json";
 // const VERIFIER_ABI = verifierAbi.abi;
 
-// Subgraph configuration - read from config
-const APIURL = getAaveSubgraphUrl();
+// Note: Subgraph URL is now determined dynamically per-chain
 
 // Types for our data structures
 export interface TokenConfig {
@@ -77,7 +76,7 @@ const createQuery = (user: string, timestampFilter?: number) => {
     
     return `query {
   userTransactions(
-    first: 100
+    first: 10
     orderBy: timestamp
     orderDirection: asc
     where: {and: 
@@ -326,9 +325,10 @@ export const getBlockNumberFromTxHash = async (txHash: string, chainId: number):
 };
 
 // Query subgraph for user's DeFi transactions
-export const queryUserTransactions = async (user: string, timestampFilter?: number): Promise<SubgraphTransaction[]> => {
+export const queryUserTransactions = async (user: string, timestampFilter?: number, chainId?: number): Promise<SubgraphTransaction[]> => {
   try {
-    console.log('🔍 Querying subgraph for user:', user);
+    const APIURL = getAaveSubgraphUrl(chainId);
+    console.log('🔍 Querying subgraph for user:', user, 'on chain:', chainId);
     console.log('📡 API URL:', APIURL);
     
     // const query = createQuery('0x05e14e44e3b296f12b21790cde834bce5be5b8e0', timestampFilter);
@@ -374,7 +374,7 @@ export const queryUserTransactions = async (user: string, timestampFilter?: numb
 export const getUnclaimedSupplyBorrowDataWithProtocol = async (
   userAddress: string,
   currentChainId?: number,
-  verifierAddress?: string,
+  controllerAddress?: string,
   protocol: ProtocolType = 'AAVE'
 ): Promise<SupplyBorrowData[]> => {
   try {
@@ -383,9 +383,9 @@ export const getUnclaimedSupplyBorrowDataWithProtocol = async (
     let timestampFilter: number | undefined;
     
     // Get latest claimed block from contract and convert to timestamp
-    if (verifierAddress && currentChainId) {
+    if (controllerAddress && currentChainId) {
       try {
-        const userInfo = await getUserInfoFromContract(userAddress, currentChainId, verifierAddress, protocol);
+        const userInfo = await getUserInfoFromContract(userAddress, currentChainId, controllerAddress, protocol);
         if (userInfo && userInfo.latestBlock > 0n) {
           const blockTimestamp = await getBlockTimestamp(userInfo.latestBlock, currentChainId);
           if (blockTimestamp > 0) {
@@ -405,7 +405,7 @@ export const getUnclaimedSupplyBorrowDataWithProtocol = async (
     }
     
     // Handle AAVE protocol
-    const transactions = await queryUserTransactions(userAddress, timestampFilter);
+    const transactions = await queryUserTransactions(userAddress, timestampFilter, currentChainId);
     
     if (transactions.length === 0) {
       console.log(`No unclaimed ${protocol} transactions found for user`);
@@ -663,7 +663,7 @@ export const getSupplyBorrowDataForUser = async (userAddress: string, currentCha
     console.log(`Fetching supply/borrow data for user: ${userAddress}`);
     
     // Query subgraph for user transactions
-    const transactions = await queryUserTransactions(userAddress);
+    const transactions = await queryUserTransactions(userAddress, undefined, currentChainId);
     
     if (transactions.length === 0) {
       console.log('No transactions found for user');
@@ -750,7 +750,7 @@ export const getTokenConfigsForUserNew = async (userAddress: string, currentChai
     console.log(`Fetching TokenConfig structures for user: ${userAddress}`);
     
     // Query subgraph for user transactions
-    const transactions = await queryUserTransactions(userAddress);
+    const transactions = await queryUserTransactions(userAddress, undefined, currentChainId);
     
     if (transactions.length === 0) {
       console.log('No transactions found for user');
@@ -849,6 +849,73 @@ export const getTokenConfigsForUserNew = async (userAddress: string, currentChai
   }
 };
 
+// ABI for Controller contract
+const CONTROLLER_ABI = [
+  {
+    "inputs": [
+      { "internalType": "address", "name": "user", "type": "address" },
+      { "internalType": "enum Protocol", "name": "protocol", "type": "uint8" }
+    ],
+    "name": "usersInfo",
+    "outputs": [
+      {
+        "components": [
+          { "internalType": "uint256", "name": "borrowedAmount", "type": "uint256" },
+          { "internalType": "uint256", "name": "suppliedAmount", "type": "uint256" },
+          { "internalType": "uint256", "name": "repaidAmount", "type": "uint256" },
+          { "internalType": "uint256", "name": "latestBlock", "type": "uint256" },
+          { "internalType": "uint256", "name": "latestBalance", "type": "uint256" },
+          { "internalType": "uint256", "name": "borrowTimes", "type": "uint256" },
+          { "internalType": "uint256", "name": "supplyTimes", "type": "uint256" },
+          { "internalType": "uint256", "name": "repayTimes", "type": "uint256" },
+          { "internalType": "uint256", "name": "firstActivityBlock", "type": "uint256" },
+          { "internalType": "uint256", "name": "liquidations", "type": "uint256" }
+        ],
+        "internalType": "struct IVerifier.UserInfo",
+        "name": "userInfo",
+        "type": "tuple"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [{ "internalType": "address", "name": "user", "type": "address" }],
+    "name": "totals",
+    "outputs": [
+      {
+        "components": [
+          { "internalType": "uint256", "name": "borrowedAmount", "type": "uint256" },
+          { "internalType": "uint256", "name": "suppliedAmount", "type": "uint256" },
+          { "internalType": "uint256", "name": "repaidAmount", "type": "uint256" },
+          { "internalType": "uint256", "name": "latestBlock", "type": "uint256" },
+          { "internalType": "uint256", "name": "latestBalance", "type": "uint256" },
+          { "internalType": "uint256", "name": "borrowTimes", "type": "uint256" },
+          { "internalType": "uint256", "name": "supplyTimes", "type": "uint256" },
+          { "internalType": "uint256", "name": "repayTimes", "type": "uint256" },
+          { "internalType": "uint256", "name": "firstActivityBlock", "type": "uint256" },
+          { "internalType": "uint256", "name": "liquidations", "type": "uint256" }
+        ],
+        "internalType": "struct IVerifier.UserInfo",
+        "name": "userInfo",
+        "type": "tuple"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [{ "internalType": "address", "name": "user", "type": "address" }],
+    "name": "calculateCreditScore",
+    "outputs": [
+      { "internalType": "uint256", "name": "score", "type": "uint256" },
+      { "internalType": "uint8", "name": "tier", "type": "uint8" }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  }
+] as const;
+
 // ABI for SimpleTeleportVerifier contract
 const VERIFIER_ABI = [
   {
@@ -888,11 +955,11 @@ export interface ContractUserInfo {
   liquidations: bigint;
 }
 
-// Get UserInfo from SimpleTeleportVerifier contract
+// Get UserInfo from Controller contract
 export const getUserInfoFromContract = async (
   userAddress: string, 
   chainId: number, 
-  verifierAddress: string,
+  controllerAddress: string,
   protocol: ProtocolType = 'AAVE'
 ): Promise<ContractUserInfo | null> => {
   try {
@@ -904,28 +971,28 @@ export const getUserInfoFromContract = async (
     // Map protocol to enum value
     const protocolEnum = getProtocolEnum(protocol);
 
-    console.log(`Reading UserInfo for ${userAddress} from contract ${verifierAddress} on chain ${chainId} for protocol ${protocol} (enum: ${protocolEnum})`);
+    console.log(`Reading UserInfo for ${userAddress} from Controller contract ${controllerAddress} on chain ${chainId} for protocol ${protocol} (enum: ${protocolEnum})`);
 
-    // Read user info from the contract with the specified protocol
+    // Read user info from the Controller contract with the specified protocol
     const result = await client.readContract({
-      address: verifierAddress as `0x${string}`,
-      abi: VERIFIER_ABI,
+      address: controllerAddress as `0x${string}`,
+      abi: CONTROLLER_ABI, // Changed from VERIFIER_ABI to CONTROLLER_ABI
       functionName: 'usersInfo',
       args: [userAddress as `0x${string}`, protocolEnum]
-    });
+    }) as any;
 
     // Convert the result to ContractUserInfo interface
     const userInfo: ContractUserInfo = {
-      borrowedAmount: result[0],
-      suppliedAmount: result[1],
-      repaidAmount: result[2],
-      latestBlock: result[3],
-      latestBalance: result[4],
-      borrowTimes: result[5],
-      supplyTimes: result[6],
-      repayTimes: result[7],
-      firstActivityBlock: result[8],
-      liquidations: result[9]
+      borrowedAmount: result.borrowedAmount || result[0],
+      suppliedAmount: result.suppliedAmount || result[1],
+      repaidAmount: result.repaidAmount || result[2],
+      latestBlock: result.latestBlock || result[3],
+      latestBalance: result.latestBalance || result[4],
+      borrowTimes: result.borrowTimes || result[5],
+      supplyTimes: result.supplyTimes || result[6],
+      repayTimes: result.repayTimes || result[7],
+      firstActivityBlock: result.firstActivityBlock || result[8],
+      liquidations: result.liquidations || result[9]
     };
 
     console.log('UserInfo from contract:', userInfo);
@@ -952,16 +1019,16 @@ export const getBlockTimestamp = async (blockNumber: bigint, chainId: number): P
   }
 };
 
-export const getTokenConfigsForUnclaimedData = async (userAddress: string, currentChainId?: number, verifierAddress?: string): Promise<TokenConfig[]> => {
+export const getTokenConfigsForUnclaimedData = async (userAddress: string, currentChainId?: number, controllerAddress?: string): Promise<TokenConfig[]> => {
   try {
     console.log(`Fetching TokenConfig structures for unclaimed supply/borrow data for user: ${userAddress}`);
     
     let timestampFilter: number | undefined;
     
-    // If we have a verifier address and chain ID, get the latest claimed block timestamp
-    if (verifierAddress && currentChainId) {
+    // If we have a controller address and chain ID, get the latest claimed block timestamp
+    if (controllerAddress && currentChainId) {
       try {
-        const userInfo = await getUserInfoFromContract(userAddress, currentChainId, verifierAddress, 'AAVE');
+        const userInfo = await getUserInfoFromContract(userAddress, currentChainId, controllerAddress, 'AAVE');
         if (userInfo && userInfo.latestBlock > 0n) {
           const blockTimestamp = await getBlockTimestamp(userInfo.latestBlock, currentChainId);
           if (blockTimestamp > 0) {
@@ -975,7 +1042,7 @@ export const getTokenConfigsForUnclaimedData = async (userAddress: string, curre
     }
     
     // Query subgraph for user transactions with timestamp filter (only unclaimed data)
-    const transactions = await queryUserTransactions(userAddress, timestampFilter);
+    const transactions = await queryUserTransactions(userAddress, timestampFilter, currentChainId);
     
     if (transactions.length === 0) {
       console.log('No unclaimed transactions found for user');

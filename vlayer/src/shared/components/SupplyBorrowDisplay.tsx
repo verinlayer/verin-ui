@@ -1,6 +1,6 @@
 import React from 'react';
 import { formatUnits } from 'viem';
-import { getChainName } from '../lib/utils';
+import { getChainName, type CompoundTokenConfig } from '../lib/utils';
 import { TokenConfig, TokenType, getTokenTypeName, getTokenTypeColor, getTokenTypeIcon } from '../types/TeleportTypes';
 import { type SupplyBorrowData, type SubgraphTransaction } from '../lib/aave-subgraph';
 import { getTokenDecimals, getTokenSymbol } from '../utils/tokenDecimals';
@@ -11,6 +11,22 @@ interface SupplyBorrowDisplayProps {
 }
 
 // Token decimal handling is now centralized in ../utils/tokenDecimals.ts
+
+// Get block explorer URL for a given chain ID
+const getBlockExplorerUrl = (chainId: string): string => {
+  const chainIdNum = parseInt(chainId);
+  const explorerUrls: Record<number, string> = {
+    1: 'https://etherscan.io',           // Ethereum Mainnet
+    10: 'https://optimistic.etherscan.io', // Optimism Mainnet
+    8453: 'https://basescan.org',          // Base Mainnet
+    11155420: 'https://sepolia-optimism.etherscan.io', // Optimism Sepolia
+    84532: 'https://sepolia.basescan.org', // Base Sepolia
+    31337: 'http://localhost:8545',        // Anvil
+    31338: 'http://localhost:8545',        // Anvil
+  };
+  
+  return explorerUrls[chainIdNum] || 'https://etherscan.io'; // Default to Ethereum
+};
 
 const formatTokenAmount = (value: string, asset: string) => {
   try {
@@ -63,7 +79,7 @@ const formatUSD = (value: string, asset: string, priceUSD?: string) => {
 
 // New component for displaying TokenConfig structures
 interface TokenConfigDisplayProps {
-  tokens: TokenConfig[];
+  tokens: (TokenConfig | CompoundTokenConfig)[];
   isLoading?: boolean;
 }
 
@@ -96,12 +112,20 @@ export const TokenConfigDisplay: React.FC<TokenConfigDisplayProps> = ({
       
       <div className="space-y-4">
         {tokens.map((token, index) => {
-          const tokenTypeName = getTokenTypeName(token.tokenType, token.underlingTokenAddress);
+          // Handle both TokenConfig and CompoundTokenConfig
+          const underlyingAddress = 'underlingTokenAddress' in token 
+            ? token.underlingTokenAddress 
+            : token.collateralAddress;
+          const tokenAddress = 'aTokenAddress' in token 
+            ? token.aTokenAddress 
+            : token.cTokenAddress;
+            
+          const tokenTypeName = getTokenTypeName(token.tokenType, underlyingAddress);
           const tokenTypeColor = getTokenTypeColor(token.tokenType);
           const tokenTypeIcon = getTokenTypeIcon(token.tokenType);
           
           return (
-            <div key={`${token.underlingTokenAddress}-${index}`} className={`bg-white border rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow ${tokenTypeColor}`}>
+            <div key={`${underlyingAddress}-${index}`} className={`bg-white border rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow ${tokenTypeColor}`}>
               {/* Token Header */}
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center space-x-3">
@@ -114,7 +138,7 @@ export const TokenConfigDisplay: React.FC<TokenConfigDisplayProps> = ({
                   </div>
                 </div>
                 {/* <div className="text-xs text-slate-400 bg-slate-50 px-2 py-1 rounded">
-                  {token.underlingTokenAddress.slice(0, 6)}...{token.underlingTokenAddress.slice(-4)}
+                  {underlyingAddress.slice(0, 6)}...{underlyingAddress.slice(-4)}
                 </div> */}
               </div>
               
@@ -123,11 +147,11 @@ export const TokenConfigDisplay: React.FC<TokenConfigDisplayProps> = ({
                 <div className="grid grid-cols-2 gap-4 text-sm">
                   {/* <div>
                     <span className="text-slate-600">Underlying Token:</span>
-                    <div className="font-mono text-xs break-all">{token.underlingTokenAddress}</div>
+                    <div className="font-mono text-xs break-all">{underlyingAddress}</div>
                   </div> */}
                   <div>
                     <span className="text-slate-600">Token Address:</span>
-                    <div className="font-mono text-xs break-all">{token.aTokenAddress}</div>
+                    <div className="font-mono text-xs break-all">{tokenAddress}</div>
                   </div>
                 </div>
                 
@@ -292,26 +316,26 @@ export const SupplyBorrowDisplay: React.FC<SupplyBorrowDisplayProps> = ({
                 <div className="bg-green-100 rounded-lg p-3">
                   <div className="text-sm font-medium text-green-800">Total Supplied</div>
                   <div className="text-lg font-bold text-green-900">{supplyFormatted} {tokenSymbol}</div>
-                  {supplyUSD && <div className="text-sm text-green-600 mt-1">{supplyUSD}</div>}
+                  {/* {supplyUSD && <div className="text-sm text-green-600 mt-1">{supplyUSD}</div>} */}
                 </div>
                 
                 {/* Total Borrowed */}
                 <div className="bg-orange-100 rounded-lg p-3">
                   <div className="text-sm font-medium text-orange-800">Total Borrowed</div>
                   <div className="text-lg font-bold text-orange-900">{totalBorrowFormatted} {tokenSymbol}</div>
-                  {totalBorrowUSD && <div className="text-sm text-orange-600 mt-1">{totalBorrowUSD}</div>}
+                  {/* {totalBorrowUSD && <div className="text-sm text-orange-600 mt-1">{totalBorrowUSD}</div>} */}
                 </div>
                 
                 {/* Total Repaid */}
                 <div className="bg-blue-100 rounded-lg p-3">
                   <div className="text-sm font-medium text-blue-800">Total Repaid</div>
                   <div className="text-lg font-bold text-blue-900">{repayFormatted} {tokenSymbol}</div>
-                  {repayUSD && <div className="text-sm text-blue-600 mt-1">{repayUSD}</div>}
+                  {/* {repayUSD && <div className="text-sm text-blue-600 mt-1">{repayUSD}</div>} */}
                 </div>
               </div>
               
               {/* Health Factor (if available) */}
-              {item.stableTokenDebt && item.variableTokenDebt && (
+              {/* {item.stableTokenDebt && item.variableTokenDebt && (
                 <div className="bg-slate-50 rounded-lg p-4 mb-4">
                   <div className="text-sm font-medium text-slate-700 mb-2">Debt Details</div>
                   <div className="space-y-1 ml-4">
@@ -325,11 +349,11 @@ export const SupplyBorrowDisplay: React.FC<SupplyBorrowDisplayProps> = ({
                     </div>
                   </div>
                 </div>
-              )}
+              )} */}
               
               {/* Transaction Details */}
               {item.transactions && item.transactions.length > 0 && (
-                <div className="bg-slate-50 rounded-lg p-4">
+                <div className="bg-slate-50 rounded-lg p-4 max-w-3xl mx-auto">
                   <div className="text-sm font-medium text-slate-700 mb-3">Transaction Details ({item.transactions.length} transactions)</div>
                   <div className="space-y-2 max-h-48 overflow-y-auto">
                     {item.transactions.map((tx, txIndex) => (
@@ -354,7 +378,7 @@ export const SupplyBorrowDisplay: React.FC<SupplyBorrowDisplayProps> = ({
                             <span>Tx Hash:</span>
                             <span className="font-mono text-xs">
                               <a 
-                                href={`https://optimistic.etherscan.io/tx/${tx.txHash}`}
+                                href={`${getBlockExplorerUrl(item.chainId)}/tx/${tx.txHash}`}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="text-blue-600 hover:text-blue-800 underline"
@@ -363,12 +387,12 @@ export const SupplyBorrowDisplay: React.FC<SupplyBorrowDisplayProps> = ({
                               </a>
                             </span>
                           </div>
-                          {tx.assetPriceUSD && (
+                          {/* {tx.assetPriceUSD && (
                             <div className="flex justify-between">
                               <span>Price:</span>
                               <span className="text-xs">${parseFloat(tx.assetPriceUSD).toFixed(4)}</span>
                             </div>
-                          )}
+                          )} */}
                         </div>
                       </div>
                     ))}

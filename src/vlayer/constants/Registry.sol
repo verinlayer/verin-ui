@@ -23,7 +23,8 @@ contract Registry is Initializable, AccessControl, UUPSUpgradeable, IRegistry {
     bytes32 public constant UPDATER_ROLE = keccak256("UPDATER_ROLE");
 
     // Aave Protocol Addresses
-    address public constant AAVE_POOL_ADDRESS = 0x794a61358D6845594F94dc1DB02A252b5b4814aD;
+    // address public constant AAVE_POOL_ADDRESS = 0x794a61358D6845594F94dc1DB02A252b5b4814aD; // OP mainnet
+    address public constant AAVE_POOL_ADDRESS = 0xA238Dd80C259a72e81d7e4664a9801593F98d1c5; // Base mainnet
 
     // Morpho Protocol Addresses (to be updated with actual addresses)
     address public constant MORPHO_LENS_ADDRESS = address(0);
