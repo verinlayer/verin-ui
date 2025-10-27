@@ -9,8 +9,8 @@ import {CreditModel} from "./CreditModel.sol";
 import {IVerifier} from "./interfaces/IVerifier.sol";
 import {IController} from "./interfaces/IController.sol";
 import {IUniswapV2PriceOracle} from "./interfaces/IUniswapV2PriceOracle.sol";
-import {Ownable2Step} from "openzeppelin-contracts/access/Ownable2Step.sol";
-import {Ownable} from "openzeppelin-contracts/access/Ownable.sol";
+import {Initializable} from "openzeppelin-contracts/proxy/utils/Initializable.sol";
+import {UUPSUpgradeable} from "openzeppelin-contracts/proxy/utils/UUPSUpgradeable.sol";
 
 import {IAToken} from "./interfaces/IAToken.sol";
 import {IAavePool} from "./interfaces/IAavePool.sol";
@@ -39,9 +39,16 @@ import {ICToken} from "./interfaces/ICToken.sol";
  *      - Price oracle for token price conversions
  *      - Event system for external monitoring
  */
-contract Controller is IController, Ownable2Step {
+/// @title Controller
+/// @notice Upgradeable contract for handling DeFi data processing and credit scoring
+/// @dev Uses UUPS upgrade pattern for future contract upgrades
+/// @custom:oz-upgrades-from Controller
+contract Controller is Initializable, UUPSUpgradeable, IController {
 
     // ============ STATE VARIABLES ============
+
+    // Storage
+    address private _owner;
 
     /// @notice Address of the SimpleTeleportVerifier contract that calls this controller
     address public verifier;
@@ -64,7 +71,7 @@ contract Controller is IController, Ownable2Step {
     mapping(address => IVerifier.UserInfo) private _totals;
 
     // user address => protocol => aToken address => block number => amount: to track if a token at a block number has been proven or not
-    mapping(address => mapping(Protocol => mapping(address => mapping(uint256 => bool)))) public isExisted;
+    mapping(address => mapping(Protocol => mapping(address => mapping(uint256 => bool)))) public isClaimedAaveBlock;
 
     // user address => aToken address => latest balance
     mapping(address => mapping(address => uint256)) private _latestBalance;
@@ -81,28 +88,81 @@ contract Controller is IController, Ownable2Step {
 
     // ============ CONSTRUCTOR ============
 
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
+
+    // ============ INITIALIZER ============
+
     /**
      * @notice Initializes the Controller contract
-     * @dev Sets up the verifier, registry, credit scoring model, and price oracle
-     *
+     * @dev This replaces the constructor for upgradeable contracts
      * @param _verifier Address of the SimpleTeleportVerifier contract
      * @param _registry Registry contract containing protocol addresses and configurations
      * @param _creditScoreCalculator Address of the CreditModel contract for score calculations
      * @param _priceOracle Address of the UniswapV2PriceOracle contract for price conversions
      * @param initialOwner Address of the initial owner who can update the contracts
      */
-    constructor(
+    function initialize(
         address _verifier,
         Registry _registry,
         address _creditScoreCalculator,
         address _priceOracle,
         address initialOwner
-    ) Ownable(initialOwner) {
+    ) public initializer {
+        if (initialOwner == address(0)) {
+            revert OwnableInvalidOwner(address(0));
+        }
+        _transferOwnership(initialOwner);
+        
         verifier = _verifier;
         registry = _registry;
         creditScoreCalculator = CreditModel(_creditScoreCalculator);
         priceOracle = IUniswapV2PriceOracle(_priceOracle);
     }
+
+    // ============ OWNERSHIP FUNCTIONS ============
+
+    /// @notice Returns the address of the current owner
+    function owner() public view returns (address) {
+        return _owner;
+    }
+
+    /// @notice Throws if called by any account other than the owner
+    modifier onlyOwner() {
+        if (owner() != msg.sender) {
+            revert OwnableUnauthorizedAccount(msg.sender);
+        }
+        _;
+    }
+
+    /// @notice Transfers ownership of the contract to a new account
+    /// @param newOwner The address of the new owner
+    function transferOwnership(address newOwner) public onlyOwner {
+        if (newOwner == address(0)) {
+            revert OwnableInvalidOwner(address(0));
+        }
+        _transferOwnership(newOwner);
+    }
+
+    /// @notice Renounces ownership of the contract
+    /// @dev Leaves the contract without an owner, disabling upgrade functionality
+    function renounceOwnership() public onlyOwner {
+        _transferOwnership(address(0));
+    }
+
+    /// @dev Internal function to transfer ownership
+    function _transferOwnership(address newOwner) internal {
+        address oldOwner = _owner;
+        _owner = newOwner;
+        emit OwnershipTransferred(oldOwner, newOwner);
+    }
+
+    /// @notice Authorizes an upgrade to a new implementation
+    /// @dev Only the owner can authorize upgrades
+    /// @param newImplementation Address of the new implementation
+    function _authorizeUpgrade(address newImplementation) internal override onlyOwner {}
 
     // ============ MODIFIERS ============
 
@@ -240,7 +300,7 @@ contract Controller is IController, Ownable2Step {
                 }
 
                 // Mark this data as existed to prevent duplicate claims
-                isExisted[claimer][Protocol.AAVE][tokens[i].aTokenAddress][_blkNumber] = true;
+                isClaimedAaveBlock[claimer][Protocol.AAVE][tokens[i].aTokenAddress][_blkNumber] = true;
             }
 
         }
@@ -405,7 +465,7 @@ contract Controller is IController, Ownable2Step {
                 }
 
                 // Mark this data as existed to prevent duplicate claims
-                isExisted[claimer][Protocol.COMPOUND][tokens[i].cTokenAddress][_blkNumber] = true;
+                isClaimedAaveBlock[claimer][Protocol.COMPOUND][tokens[i].cTokenAddress][_blkNumber] = true;
             }
         }
     }
@@ -539,5 +599,11 @@ contract Controller is IController, Ownable2Step {
         return _totals[user];
     }
 
+    /**
+     * @dev This empty reserved space is put in place to allow future versions to add new
+     * variables without shifting down storage in the inheritance chain.
+     * See https://docs.openzeppelin.com/contracts/4.x/upgradeable#storage_gaps
+     */
+    uint256[49] private __gap;
 }
 

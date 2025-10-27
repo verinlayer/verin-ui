@@ -70,10 +70,18 @@ contract DeployTeleport is Script {
         console.log("  Registry proxy:", address(registry));
         console.log("  [OK] Registry deployed\n");
 
-        // STEP 2: Deploy SimpleTeleportProver
+        // STEP 2: Deploy SimpleTeleportProver (upgradeable with proxy pattern)
         console.log("[2/7] Deploying SimpleTeleportProver...");
-        prover = new SimpleTeleportProver();
-        console.log("  SimpleTeleportProver:", address(prover));
+        SimpleTeleportProver proverImpl = new SimpleTeleportProver();
+        console.log("  SimpleTeleportProver implementation:", address(proverImpl));
+        
+        ERC1967Proxy proverProxy = new ERC1967Proxy(
+            address(proverImpl),
+            abi.encodeWithSelector(SimpleTeleportProver.initialize.selector, deployer)
+        );
+        prover = SimpleTeleportProver(address(proverProxy));
+        console.log("  SimpleTeleportProver proxy:", address(prover));
+        console.log("  Prover owner:", prover.owner());
         console.log("  [OK] Prover deployed\n");
 
         // STEP 3: Deploy CreditModel (upgradeable with proxy pattern)
@@ -100,16 +108,24 @@ contract DeployTeleport is Script {
         console.log("  UniswapV2PriceOracle:", address(priceOracle));
         console.log("  [OK] Price Oracle deployed\n");
 
-        // STEP 5: Deploy Controller
+        // STEP 5: Deploy Controller (upgradeable with proxy pattern)
         console.log("[5/7] Deploying Controller...");
-        controller = new Controller(
-            address(0), // verifier address will be set in step 7
-            registry,
-            address(creditModel),
-            address(priceOracle),
-            deployer  // initialOwner
+        Controller controllerImpl = new Controller();
+        console.log("  Controller implementation:", address(controllerImpl));
+        
+        ERC1967Proxy controllerProxy = new ERC1967Proxy(
+            address(controllerImpl),
+            abi.encodeWithSelector(
+                Controller.initialize.selector,
+                address(0), // verifier address will be set in step 7
+                registry,
+                address(creditModel),
+                address(priceOracle),
+                deployer
+            )
         );
-        console.log("  Controller:", address(controller));
+        controller = Controller(address(controllerProxy));
+        console.log("  Controller proxy:", address(controller));
         console.log("  Controller owner:", controller.owner());
         console.log("  [OK] Controller deployed\n");
 
@@ -204,9 +220,16 @@ contract DeployTeleport is Script {
 
         vm.startBroadcast(deployerPrivateKey);
 
-        // Deploy Prover
-        prover = new SimpleTeleportProver();
-        console.log("SimpleTeleportProver:", address(prover));
+        // Deploy Prover (upgradeable with proxy pattern)
+        SimpleTeleportProver proverImpl = new SimpleTeleportProver();
+        console.log("SimpleTeleportProver implementation:", address(proverImpl));
+        
+        ERC1967Proxy proverProxy = new ERC1967Proxy(
+            address(proverImpl),
+            abi.encodeWithSelector(SimpleTeleportProver.initialize.selector, deployer)
+        );
+        prover = SimpleTeleportProver(address(proverProxy));
+        console.log("SimpleTeleportProver proxy:", address(prover));
 
         // Deploy CreditModel
         CreditModel creditModelImpl = new CreditModel();
@@ -222,15 +245,23 @@ contract DeployTeleport is Script {
         priceOracle = new UniswapV2PriceOracle(uniswapV2Factory, registryAddress);
         console.log("UniswapV2PriceOracle:", address(priceOracle));
 
-        // Deploy Controller
-        controller = new Controller(
-            address(0),
-            Registry(registryAddress),
-            address(creditModel),
-            address(priceOracle),
-            deployer
+        // Deploy Controller (upgradeable with proxy pattern)
+        Controller controllerImpl = new Controller();
+        console.log("Controller implementation:", address(controllerImpl));
+        
+        ERC1967Proxy controllerProxy = new ERC1967Proxy(
+            address(controllerImpl),
+            abi.encodeWithSelector(
+                Controller.initialize.selector,
+                address(0),
+                Registry(registryAddress),
+                address(creditModel),
+                address(priceOracle),
+                deployer
+            )
         );
-        console.log("Controller:", address(controller));
+        controller = Controller(address(controllerProxy));
+        console.log("Controller proxy:", address(controller));
 
         // Deploy SimpleTeleportVerifier
         verifier = new SimpleTeleportVerifier(
@@ -255,5 +286,34 @@ contract DeployTeleport is Script {
             address(controller),
             address(verifier)
         );
+    }
+
+    /**
+     * @notice Upgrade the Controller implementation
+     * @dev Only the owner of the proxy can call this
+     * @param controllerProxyAddress The address of the deployed controller proxy
+     * @return newImplementation The address of the new implementation
+     */
+    function upgradeController(address controllerProxyAddress) external returns (address newImplementation) {
+        uint256 deployerPrivateKey = vm.envUint("DEPLOYER_PRIVATE_KEY");
+        
+        console.log("Upgrading Controller at proxy:", controllerProxyAddress);
+        
+        vm.startBroadcast(deployerPrivateKey);
+        
+        // 1. Deploy the new implementation
+        Controller newImpl = new Controller();
+        newImplementation = address(newImpl);
+        console.log("New implementation deployed at:", newImplementation);
+        
+        // 2. Upgrade the proxy to point to the new implementation
+        Controller proxy = Controller(controllerProxyAddress);
+        proxy.upgradeToAndCall(newImplementation, "");
+        
+        console.log("Proxy upgraded successfully");
+        
+        vm.stopBroadcast();
+        
+        return newImplementation;
     }
 }
