@@ -1,5 +1,6 @@
 import { getTokenConfigsForUnclaimedData, type TokenConfig } from './client';
 import { getCompoundTokenConfigs, type CompoundTokenConfig } from './compound-subgraph';
+import { getMorphoTokenConfigs, type MorphoTokenConfig } from './morpho-subgraph';
 
 // Re-export TokenConfig and CompoundTokenConfig for use in other components
 export type { TokenConfig } from './client';
@@ -9,7 +10,7 @@ export type { CompoundTokenConfig } from './compound-subgraph';
 export type ProtocolType = 'AAVE' | 'COMPOUND' | 'FLUID' | 'MORPHO' | 'SPARK' | 'MAPPLE' | 'GEARBOX';
 
 // Union type for protocol-specific token configs
-export type ProtocolTokenConfig = TokenConfig | CompoundTokenConfig;
+export type ProtocolTokenConfig = TokenConfig | CompoundTokenConfig | MorphoTokenConfig;
 
 // Map protocol name to enum value (matches Solidity Protocol enum)
 export const getProtocolEnum = (protocol: ProtocolType): number => {
@@ -112,6 +113,10 @@ export const loadTokensToProve = async (
       const compoundConfigs = await getCompoundTokenConfigs(userAddress, currentChainId, controllerAddress);
       tokensToProve = compoundConfigs;
       console.log(`Loaded ${tokensToProve.length} Compound token configs:`, tokensToProve);
+    } else if (protocol === 'MORPHO') {
+      const morphoConfigs = await getMorphoTokenConfigs(userAddress, currentChainId, controllerAddress);
+      tokensToProve = morphoConfigs;
+      console.log(`Loaded ${tokensToProve.length} Morpho token configs:`, tokensToProve);
     } else {
       // Load Aave token configs (keep as TokenConfig)
       const aaveConfigs = await getTokenConfigsForUnclaimedData(userAddress, currentChainId, controllerAddress);

@@ -10,7 +10,7 @@ interface IRegistry {
     // Struct for chain-specific addresses
     struct ChainAddresses {
         address aavePool;
-        address morphoLens;
+        address morpho;
         address compoundComptroller;
         address usdc;
         address usdt;
@@ -35,7 +35,7 @@ interface IRegistry {
     // View functions
     function getAddressesForChain(uint256 chainId) external view returns (ChainAddresses memory addresses);
     function getAavePoolAddress(uint256 chainId) external view returns (address);
-    function getMorphoLensAddress(uint256 chainId) external view returns (address);
+    function getMorphoAddress(uint256 chainId) external view returns (address);
     function getCompoundComptrollerAddress(uint256 chainId) external view returns (address);
     function getCompoundAddresses(uint256 chainId) external view returns (CompoundAddresses memory);
 

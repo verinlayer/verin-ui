@@ -7,6 +7,7 @@ import { ConnectWalletButton } from "../../shared/components/ConnectWalletButton
 import { TokenConfigDisplay } from "../../shared/components/SupplyBorrowDisplay";
 import { getChainName, parseProverResult, getTokensToProve, type ProtocolTokenConfig, type TokenConfig, type CompoundTokenConfig } from "../../shared/lib/utils";
 import { TokenType, getTokenTypeName, getTokenTypeColor, getTokenTypeIcon } from "../../shared/types/TeleportTypes";
+import { type MorphoTokenConfig } from "../../shared/lib/morpho-subgraph";
 import { getStepPath } from "../../app/router/steps";
 import { StepKind } from "../../app/router/types";
 import proverSpec from "../../contracts/SimpleTeleportProver.json";
@@ -43,6 +44,7 @@ export const ShowBalancePage = () => {
         // Determine which function was called based on selector comparison
         const isAave = selector.toLowerCase().startsWith('0x7b450eea'); // proveAaveData selector
         const isCompound = selector.toLowerCase().startsWith('0x10dcfe73'); // proveCompoundData selector
+        const isMorpho = selector.toLowerCase().startsWith('0x89642ede'); // proveMorphoData selector
         
         let tokenConfigs: ProtocolTokenConfig[];
         
@@ -96,6 +98,41 @@ export const ShowBalancePage = () => {
             balance: token.balance.toString(),
             tokenType: token.tokenType,
           }));
+        } else if (isMorpho) {
+          // Decode as MToken[]
+          const [decodedTokens] = decodeAbiParameters(
+            [{ name: 'tokens', type: 'tuple[]', components: [
+              { name: 'marketId', type: 'bytes32' },
+              { name: 'morphoAddress', type: 'address' },
+              { name: 'chainId', type: 'uint256' },
+              { name: 'blockNumber', type: 'uint256' },
+              { name: 'supplyShares', type: 'uint256' },
+              { name: 'borrowShares', type: 'uint128' },
+              { name: 'collateral', type: 'uint128' },
+              { name: 'totalSupplyAssets', type: 'uint128' },
+              { name: 'totalSupplyShares', type: 'uint128' },
+              { name: 'totalBorrowAssets', type: 'uint128' },
+              { name: 'totalBorrowShares', type: 'uint128' }
+            ]}],
+            encodedData as `0x${string}`
+          );
+
+          console.log('Decoded Morpho tokens:', decodedTokens);
+
+          // Map to MorphoTokenConfig shape
+          tokenConfigs = (decodedTokens as any[]).map((token: any): MorphoTokenConfig => ({
+            marketId: token.marketId as `0x${string}`,
+            morphoAddress: token.morphoAddress as `0x${string}`,
+            chainId: Number(token.chainId),
+            blockNumber: token.blockNumber.toString(),
+            supplyShares: token.supplyShares.toString(),
+            borrowShares: token.borrowShares.toString(),
+            collateral: token.collateral.toString(),
+            totalSupplyAssets: token.totalSupplyAssets.toString(),
+            totalSupplyShares: token.totalSupplyShares.toString(),
+            totalBorrowAssets: token.totalBorrowAssets.toString(),
+            totalBorrowShares: token.totalBorrowShares.toString(),
+          }));
         } else {
           throw new Error(`Unknown selector: ${selector}`);
         }
@@ -126,10 +163,15 @@ export const ShowBalancePage = () => {
   // Group tokens by type for better display
   const tokensByType = tokensToProve.reduce((groups, token) => {
     // Handle both TokenConfig and CompoundTokenConfig
-    const underlyingAddress = 'underlingTokenAddress' in token 
-      ? token.underlingTokenAddress 
-      : token.collateralAddress;
-    const tokenTypeName = getTokenTypeName(token.tokenType, underlyingAddress);
+    let tokenTypeName: string;
+    if ('marketId' in token) {
+      tokenTypeName = 'Morpho';
+    } else {
+      const underlyingAddress = 'underlingTokenAddress' in token 
+        ? token.underlingTokenAddress 
+        : (token as CompoundTokenConfig).collateralAddress;
+      tokenTypeName = getTokenTypeName((token as TokenConfig | CompoundTokenConfig).tokenType, underlyingAddress);
+    }
     if (!groups[tokenTypeName]) {
       groups[tokenTypeName] = [];
     }
@@ -146,14 +188,14 @@ export const ShowBalancePage = () => {
       <TokenConfigDisplay tokens={tokensToProve} isLoading={isLoading} />
 
       {/* Summary */}
-      <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded">
-        <div className="text-sm text-blue-800">
-          <strong>Summary:</strong> Found {tokensToProve.length} token(s) across {new Set(tokensToProve.map(t => t.chainId)).size} chain(s)
+      {/* <div className="mb-4 p-4 bg-slate-800/70 border border-slate-700 rounded-xl backdrop-blur-sm shadow-2xl shadow-slate-950/50">
+        <div className="text-sm text-cyan-400">
+          <strong className="text-slate-200">Summary:</strong> Found {tokensToProve.length} token(s) across {new Set(tokensToProve.map(t => t.chainId)).size} chain(s)
         </div>
-        <div className="text-xs text-blue-600 mt-1">
-          Token Types: {Object.keys(tokensByType).join(', ')}
+        <div className="text-xs text-slate-400 mt-2">
+          Token Types: <span className="text-cyan-400 font-semibold">{Object.keys(tokensByType).join(', ')}</span>
         </div>
-      </div>
+      </div> */}
 
       <div className="mt-5 flex justify-center">
         <button type="submit" id="nextButton" disabled={isLoading}>

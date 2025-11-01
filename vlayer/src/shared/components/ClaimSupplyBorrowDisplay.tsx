@@ -429,10 +429,10 @@ export const ClaimSupplyBorrowDisplay: React.FC<ClaimSupplyBorrowDisplayProps> =
 
   if (isLoading || isLoadingData) {
     return (
-      <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+      <div className="mb-4 p-4 bg-cyan-900/20 border border-cyan-500/50 text-cyan-400 rounded-lg backdrop-blur-sm">
         <div className="flex items-center space-x-2">
-          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
-          <span className="text-blue-700">Loading claimed DeFi data...</span>
+          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-cyan-400"></div>
+          <span className="text-cyan-400">Loading claimed DeFi data...</span>
         </div>
       </div>
     );
@@ -440,8 +440,8 @@ export const ClaimSupplyBorrowDisplay: React.FC<ClaimSupplyBorrowDisplayProps> =
 
   if (error) {
     return (
-      <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
-        <div className="text-red-700">
+      <div className="mb-4 p-4 bg-red-900/20 border border-red-500/50 text-red-400 rounded-lg backdrop-blur-sm">
+        <div>
           <p className="font-medium">Error loading claimed data:</p>
           <p className="text-sm mt-1">{error}</p>
         </div>
@@ -466,13 +466,13 @@ export const ClaimSupplyBorrowDisplay: React.FC<ClaimSupplyBorrowDisplayProps> =
   if (!hasTotalActivity) {
     return (
       <>
-        <div className="mb-4 p-4 bg-gray-50 border border-gray-200 rounded-lg">
-          <p className="text-gray-600 text-sm">No claimed DeFi data found for this address.</p>
+        <div className="mb-4 p-4 bg-slate-800/50 border border-slate-700 rounded-lg backdrop-blur-sm">
+          <p className="text-slate-400 text-sm">No claimed DeFi data found for this address.</p>
         </div>
         
         {/* Show protocol switch button even when there's no data */}
         {onChangeProtocol && (
-          <div className="mt-4 flex items-center justify-between bg-gradient-to-r from-blue-50 to-purple-50 p-4 rounded-lg border border-gray-200">
+          <div className="mt-4 flex items-center justify-between bg-slate-800/50 p-4 rounded-lg border border-slate-700 backdrop-blur-sm">
             <div className="flex items-center">
               <img 
                 src={getProtocolMetadata(protocol).image} 
@@ -480,12 +480,12 @@ export const ClaimSupplyBorrowDisplay: React.FC<ClaimSupplyBorrowDisplayProps> =
                 className="w-10 h-10 mr-3 object-contain" 
               />
               <div>
-                <div className="text-xl font-bold text-gray-900">{getProtocolMetadata(protocol).displayName}</div>
+                <div className="text-xl font-bold text-slate-100">{getProtocolMetadata(protocol).displayName}</div>
               </div>
             </div>
             <button
               onClick={onChangeProtocol}
-              className="px-4 py-2 bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 text-sm font-medium rounded-md transition-colors flex items-center"
+              className="px-4 py-2 bg-slate-700/50 border border-slate-600 hover:bg-slate-700 text-slate-200 text-sm font-medium rounded-md transition-colors flex items-center"
             >
               <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
@@ -525,30 +525,30 @@ const formatCreditTier = (tier: number): string => {
       {/* Total Summary Across All Protocols */}
       {totalsInfo && hasTotalActivity && (
         <>
-          <h3 className="text-xl font-bold text-slate-900">Total Claimed Data Across All Protocols</h3>
-          <div className="bg-gradient-to-r from-purple-50 to-indigo-50 border-2 border-purple-300 rounded-xl p-5 shadow-lg">
+          <h3 className="text-xl font-bold text-slate-100">Total Claimed Data Across All Protocols</h3>
+          <div className="bg-slate-800/70 border-2 border-slate-700 rounded-xl p-5 shadow-2xl shadow-slate-950/50 backdrop-blur-sm">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-              <div className="bg-green-100 rounded-lg p-3 border border-green-300">
-                <div className="text-sm font-medium text-green-800">Total Supplied (USD)</div>
-                <div className="text-xl font-bold text-green-900">{formatTokenAmountSmart(totalsInfo.suppliedAmount, chain?.id || 1, 'supply')}</div>
+              <div className="bg-emerald-900/30 rounded-lg p-3 border border-emerald-500/30">
+                <div className="text-sm font-medium text-emerald-400">Total Supplied (USD)</div>
+                <div className="text-xl font-bold text-emerald-300">{formatTokenAmountSmart(totalsInfo.suppliedAmount, chain?.id || 1, 'supply')}</div>
               </div>
-              <div className="bg-orange-100 rounded-lg p-3 border border-orange-300">
-                <div className="text-sm font-medium text-orange-800">Total Borrowed (USD)</div>
-                <div className="text-xl font-bold text-orange-900">{formatTokenAmountSmart(totalsInfo.borrowedAmount, chain?.id || 1, 'borrow')}</div>
+              <div className="bg-orange-900/30 rounded-lg p-3 border border-orange-500/30">
+                <div className="text-sm font-medium text-orange-400">Total Borrowed (USD)</div>
+                <div className="text-xl font-bold text-orange-300">{formatTokenAmountSmart(totalsInfo.borrowedAmount, chain?.id || 1, 'borrow')}</div>
               </div>
-              <div className="bg-blue-100 rounded-lg p-3 border border-blue-300">
-                <div className="text-sm font-medium text-blue-800">Total Repaid (USD)</div>
-                <div className="text-xl font-bold text-blue-900">{formatTokenAmountSmart(totalsInfo.repaidAmount, chain?.id || 1, 'repay')}</div>
+              <div className="bg-cyan-900/30 rounded-lg p-3 border border-cyan-500/30">
+                <div className="text-sm font-medium text-cyan-400">Total Repaid (USD)</div>
+                <div className="text-xl font-bold text-cyan-300">{formatTokenAmountSmart(totalsInfo.repaidAmount, chain?.id || 1, 'repay')}</div>
               </div>
-              <div className="bg-purple-100 rounded-lg p-3 border border-purple-300">
-                <div className="text-sm font-medium text-purple-800">Credit Score</div>
-                <div className="text-xl font-bold text-purple-900">
+              <div className="bg-purple-900/30 rounded-lg p-3 border border-purple-500/30">
+                <div className="text-sm font-medium text-purple-400">Credit Score</div>
+                <div className="text-xl font-bold text-purple-300">
                   {creditScore ? creditScore.score.toString() : 'N/A'}
                 </div>
               </div>
-              <div className="bg-indigo-100 rounded-lg p-3 border border-indigo-300">
-                <div className="text-sm font-medium text-indigo-800">Credit Tier</div>
-                <div className="text-xl font-bold text-indigo-900">
+              <div className="bg-indigo-900/30 rounded-lg p-3 border border-indigo-500/30">
+                <div className="text-sm font-medium text-indigo-400">Credit Tier</div>
+                <div className="text-xl font-bold text-indigo-300">
                   {creditScore ? formatCreditTier(creditScore.tier) : 'N/A'}
                 </div>
               </div>
@@ -557,7 +557,7 @@ const formatCreditTier = (tier: number): string => {
 
           {/* Protocol Header with Change Button */}
           {onChangeProtocol && (
-            <div className="mt-4 flex items-center justify-between bg-gradient-to-r from-blue-50 to-purple-50 p-4 rounded-lg border border-gray-200">
+            <div className="mt-4 flex items-center justify-between bg-slate-800/50 p-4 rounded-lg border border-slate-700 backdrop-blur-sm">
               <div className="flex items-center">
                 <img 
                   src={getProtocolMetadata(protocol).image} 
@@ -565,12 +565,12 @@ const formatCreditTier = (tier: number): string => {
                   className="w-10 h-10 mr-3 object-contain" 
                 />
                 <div>
-                  <div className="text-xl font-bold text-gray-900">{getProtocolMetadata(protocol).displayName}</div>
+                  <div className="text-xl font-bold text-slate-100">{getProtocolMetadata(protocol).displayName}</div>
                 </div>
               </div>
               <button
                 onClick={onChangeProtocol}
-                className="px-4 py-2 bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 text-sm font-medium rounded-md transition-colors flex items-center"
+                className="px-4 py-2 bg-slate-700/50 border border-slate-600 hover:bg-slate-700 text-slate-200 text-sm font-medium rounded-md transition-colors flex items-center"
               >
                 <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
@@ -583,35 +583,36 @@ const formatCreditTier = (tier: number): string => {
       )}
 
       {/* Protocol-Specific Data */}
-      <h3 className="text-lg font-semibold text-slate-900 mt-6">Summary of Claimed {getProtocolMetadata(protocol).displayName} Data</h3>
+      {/* <h3 className="text-lg font-semibold text-slate-100 mt-6">Summary of Claimed {getProtocolMetadata(protocol).displayName} Data</h3> */}
+      <h3 className="text-lg font-semibold text-slate-100 mt-6">Summary of Claimed Data</h3>
       
       {hasProtocolActivity ? (
-        <div className="bg-gradient-to-r from-green-50 to-blue-50 border border-green-200 rounded-xl p-4">
+        <div className="bg-slate-800/70 border border-slate-700 rounded-xl p-4 backdrop-blur-sm shadow-2xl shadow-slate-950/50">
           {/* Main Activity Stats */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-            <div className="bg-green-100 rounded-lg p-3">
-              <div className="text-sm font-medium text-green-800">Supplied (USD)</div>
-              <div className="text-lg font-bold text-green-900">{formatTokenAmountSmart(userInfo.suppliedAmount, chain?.id || 1, 'supply')}</div>
+            <div className="bg-emerald-900/30 rounded-lg p-3 border border-emerald-500/30">
+              <div className="text-sm font-medium text-emerald-400">Supplied (USD)</div>
+              <div className="text-lg font-bold text-emerald-300">{formatTokenAmountSmart(userInfo.suppliedAmount, chain?.id || 1, 'supply')}</div>
             </div>
-            <div className="bg-orange-100 rounded-lg p-3">
-              <div className="text-sm font-medium text-orange-800">Borrowed (USD)</div>
-              <div className="text-lg font-bold text-orange-900">{formatTokenAmountSmart(userInfo.borrowedAmount, chain?.id || 1, 'borrow')}</div>
+            <div className="bg-orange-900/30 rounded-lg p-3 border border-orange-500/30">
+              <div className="text-sm font-medium text-orange-400">Borrowed (USD)</div>
+              <div className="text-lg font-bold text-orange-300">{formatTokenAmountSmart(userInfo.borrowedAmount, chain?.id || 1, 'borrow')}</div>
             </div>
-            <div className="bg-blue-100 rounded-lg p-3">
-              <div className="text-sm font-medium text-blue-800">Repaid (USD)</div>
-              <div className="text-lg font-bold text-blue-900">{formatTokenAmountSmart(userInfo.repaidAmount, chain?.id || 1, 'repay')}</div>
+            <div className="bg-cyan-900/30 rounded-lg p-3 border border-cyan-500/30">
+              <div className="text-sm font-medium text-cyan-400">Repaid (USD)</div>
+              <div className="text-lg font-bold text-cyan-300">{formatTokenAmountSmart(userInfo.repaidAmount, chain?.id || 1, 'repay')}</div>
             </div>
-            <div className="bg-slate-100 rounded-lg p-3">
-              <div className="text-sm font-medium text-slate-800">Supply Txs</div>
-              <div className="text-lg font-bold text-slate-900">{userInfo.supplyTimes.toString()}</div>
+            <div className="bg-slate-700/50 rounded-lg p-3 border border-slate-600">
+              <div className="text-sm font-medium text-slate-300">Supply Txs</div>
+              <div className="text-lg font-bold text-slate-100">{userInfo.supplyTimes.toString()}</div>
             </div>
-            <div className="bg-slate-100 rounded-lg p-3">
-              <div className="text-sm font-medium text-slate-800">Borrow Txs</div>
-              <div className="text-lg font-bold text-slate-900">{userInfo.borrowTimes.toString()}</div>
+            <div className="bg-slate-700/50 rounded-lg p-3 border border-slate-600">
+              <div className="text-sm font-medium text-slate-300">Borrow Txs</div>
+              <div className="text-lg font-bold text-slate-100">{userInfo.borrowTimes.toString()}</div>
             </div>
-            <div className="bg-slate-100 rounded-lg p-3">
-              <div className="text-sm font-medium text-slate-800">Repay Txs</div>
-              <div className="text-lg font-bold text-slate-900">{userInfo.repayTimes.toString()}</div>
+            <div className="bg-slate-700/50 rounded-lg p-3 border border-slate-600">
+              <div className="text-sm font-medium text-slate-300">Repay Txs</div>
+              <div className="text-lg font-bold text-slate-100">{userInfo.repayTimes.toString()}</div>
             </div>
           </div>
 
@@ -619,15 +620,15 @@ const formatCreditTier = (tier: number): string => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-3">
               <div>
-                <div className="text-sm font-medium text-slate-600">Liquidations</div>
-                <div className="text-lg font-semibold text-red-600">{userInfo.liquidations.toString()}</div>
+                <div className="text-sm font-medium text-slate-400">Liquidations</div>
+                <div className="text-lg font-semibold text-red-400">{userInfo.liquidations.toString()}</div>
               </div>
             </div>
 
             <div className="space-y-3">
               <div>
-                <div className="text-sm font-medium text-slate-600">Latest Block</div>
-                <div className="text-lg font-semibold text-slate-900">{userInfo.latestBlock.toString()}</div>
+                <div className="text-sm font-medium text-slate-400">Latest Block</div>
+                <div className="text-lg font-semibold text-slate-200">{userInfo.latestBlock.toString()}</div>
                 {latestBlockTimestamp > 0 && (
                   <div className="text-xs text-slate-500">{formatDate(latestBlockTimestamp)}</div>
                 )}
@@ -636,8 +637,9 @@ const formatCreditTier = (tier: number): string => {
           </div>
         </div>
       ) : (
-        <div className="mb-4 p-4 bg-gray-50 border border-gray-200 rounded-lg">
-          <p className="text-gray-600 text-sm">No {protocol} activity found for this address. Check the totals above to see activity on other protocols.</p>
+        <div className="mb-4 p-4 bg-slate-800/50 border border-slate-700 rounded-lg backdrop-blur-sm">
+          {/* <p className="text-slate-400 text-sm">No {protocol} activity found for this address. Check the totals above to see activity on other protocols.</p> */}
+          <p className="text-slate-400 text-sm">No activity found for this address. Check the totals above to see activity on other protocols.</p>
         </div>
       )}
 

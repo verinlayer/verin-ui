@@ -16,12 +16,12 @@ export const SuccessPage = () => {
 
   return (
     <>
-      <div className="mt-5 flex justify-center text-slate-900">
+      <div className="mt-5 flex justify-center text-slate-200">
         <div>
           Check out the txHash:{" "}
           <a
             href={`${account.chain?.blockExplorers?.default.url}/tx/${txHash}`}
-            className="text-blue-700 text-center text-block font-bold"
+            className="text-cyan-400 text-center text-block font-bold hover:text-cyan-300 transition-colors"
           >
             {shortenAndFormatHash(txHash)}
           </a>
