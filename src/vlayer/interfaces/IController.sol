@@ -13,6 +13,13 @@ interface IController {
 
     // ============ EVENTS ============
 
+    // Ownership Events
+    event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
+
+    // Errors
+    error OwnableUnauthorizedAccount(address account);
+    error OwnableInvalidOwner(address owner);
+
     /// @notice Emitted when a user borrows assets from a DeFi protocol
     event UserBorrowed(address indexed user, Protocol indexed protocol, uint256 amount, uint256 newTotalBorrowed, uint256 borrowCount);
 

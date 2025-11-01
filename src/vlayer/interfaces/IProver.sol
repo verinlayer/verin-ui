@@ -10,6 +10,12 @@ import {Erc20Token, CToken, Protocol, TokenType, CTokenType} from "../types/Tele
  * @dev Defines the public methods that any prover implementation should provide
  */
 interface IProver {
+    // Events
+    event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
+
+    // Errors
+    error OwnableUnauthorizedAccount(address account);
+    error OwnableInvalidOwner(address owner);
     /**
      * @notice Proves Aave protocol data for a given owner
      * @param _owner The address of the token owner
