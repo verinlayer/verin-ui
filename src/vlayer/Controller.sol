@@ -515,10 +515,17 @@ contract Controller is Initializable, UUPSUpgradeable, IController {
         {
             uint _blkNumber;
             for(uint256 i = 0; i < tokens.length; i++) {
+                
                 _blkNumber = tokens[i].blockNumber;
               
                 // Get USDC and USDT addresses for current chain
                 IRegistry.ChainAddresses memory chainAddresses = registry.getAddressesForChain(block.chainid);
+
+                // check morpho address with chainAddresses.morphoAddress
+                if(tokens[i].morphoAddress != chainAddresses.morphoAddress) {
+                    continue;
+                }
+
                 // Fetch market params once and reuse across borrow/repay and collateral paths
                 MarketParams memory marketParams = IMorpho(tokens[i].morphoAddress).idToMarketParams(tokens[i].marketId);
 
