@@ -188,14 +188,14 @@ export const ShowBalancePage = () => {
       <TokenConfigDisplay tokens={tokensToProve} isLoading={isLoading} />
 
       {/* Summary */}
-      <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded">
-        <div className="text-sm text-blue-800">
-          <strong>Summary:</strong> Found {tokensToProve.length} token(s) across {new Set(tokensToProve.map(t => t.chainId)).size} chain(s)
+      {/* <div className="mb-4 p-4 bg-slate-800/70 border border-slate-700 rounded-xl backdrop-blur-sm shadow-2xl shadow-slate-950/50">
+        <div className="text-sm text-cyan-400">
+          <strong className="text-slate-200">Summary:</strong> Found {tokensToProve.length} token(s) across {new Set(tokensToProve.map(t => t.chainId)).size} chain(s)
         </div>
-        <div className="text-xs text-blue-600 mt-1">
-          Token Types: {Object.keys(tokensByType).join(', ')}
+        <div className="text-xs text-slate-400 mt-2">
+          Token Types: <span className="text-cyan-400 font-semibold">{Object.keys(tokensByType).join(', ')}</span>
         </div>
-      </div>
+      </div> */}
 
       <div className="mt-5 flex justify-center">
         <button type="submit" id="nextButton" disabled={isLoading}>

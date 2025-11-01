@@ -1,183 +1,174 @@
 import { FormEvent, useEffect, useState } from "react";
-import { useProver } from "../../shared/hooks/useProver";
+import { useAccount } from "wagmi";
 import { useNavigate } from "react-router";
 import { getStepPath } from "../../app/router/steps";
 import { StepKind } from "../../app/router/types";
-import { HodlerForm } from "../../shared/forms/HodlerForm";
-import { ConnectWalletButton } from "../../shared/components/ConnectWalletButton";
 import { SupplyBorrowDisplay } from "../../shared/components/SupplyBorrowDisplay";
 import { ClaimSupplyBorrowDisplay } from "../../shared/components/ClaimSupplyBorrowDisplay";
+import { HodlerForm } from "../../shared/forms/HodlerForm";
+import { useProver } from "../../shared/hooks/useProver";
 import { type SupplyBorrowData } from "../../shared/lib/aave-subgraph";
-import { loadTokensToProve, getTokensToProve, getFallbackTokensToProve, type ProtocolTokenConfig, type ProtocolType, getProtocolMetadata } from "../../shared/lib/utils";
-import { getSupplyBorrowDataForUser, getUnclaimedSupplyBorrowDataWithProtocol, getTokenConfigsForUnclaimedData } from "../../shared/lib/aave-subgraph";
-import { useAccount } from "wagmi";
+import { type ProtocolType, getProtocolMetadata, loadTokensToProve, getTokensToProve, getFallbackTokensToProve, type ProtocolTokenConfig } from "../../shared/lib/utils";
+import { getUnclaimedSupplyBorrowDataWithProtocol, getSupplyBorrowDataForUser } from "../../shared/lib/aave-subgraph";
 import { getContractAddresses } from "../../../config-global";
+
+// Network type and constants
+type NetworkType = {
+  id: number;
+  name: string;
+  icon: React.ReactNode;
+};
+
+const WalletIcon: React.FC<{ className?: string }> = ({ className }) => (
+  <svg
+    className={className}
+    fill="none"
+    stroke="currentColor"
+    viewBox="0 0 24 24"
+    xmlns="http://www.w3.org/2000/svg"
+  >
+    <path
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="2"
+      d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"
+    ></path>
+  </svg>
+);
+
+const NETWORKS: NetworkType[] = [
+  { id: 8453, name: 'Base Mainnet', icon: <img src="/img/base-logo.svg" alt="Base" className="h-6 w-6" /> },
+  { id: 10, name: 'OP Mainnet', icon: <img src="/img/OP-logo.svg" alt="Optimism" className="h-6 w-6" /> },
+];
+
+const SectionTitle: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+  <h3 className="text-sm font-semibold text-slate-400 mb-3 tracking-wider uppercase">{children}</h3>
+);
 
 export const WelcomePage = () => {
   const { address, chain, isConnected, isConnecting } = useAccount();
-  console.log("Wallet state:", { address, isConnected, isConnecting, chain: chain?.name });
-  
-  // Check if connected to a supported chain
-  const supportedChainIds = [
-    10, // Optimism Mainnet
-    8453, // Base Mainnet
-    1, // Ethereum Mainnet
-    11155420, // Optimism Sepolia
-    84532, // Base Sepolia
-    31337, 31338 // Anvil
-  ];
-  
-  // Only check for wrong chain if we have a valid chain ID
-  // During network switches, chain.id can be temporarily undefined
-  const isSupportedChain = chain?.id ? supportedChainIds.includes(chain.id) : null;
-  const isWrongChain = isConnected && chain?.id && isSupportedChain === false;
-  
-  console.log("Chain validation:", {
-    chainId: chain?.id,
-    chainName: chain?.name,
-    isSupportedChain,
-    isWrongChain,
-    isConnected,
-    supportedChainIds
-  });
   const navigate = useNavigate();
+  
+  // Manual fetch state (when wallet not connected)
   const [selectedProtocol, setSelectedProtocol] = useState<ProtocolType | null>(null);
+  const [selectedNetwork, setSelectedNetwork] = useState<number | null>(null);
+  const [walletAddress, setWalletAddress] = useState<string>("");
+  const [isFetchingData, setIsFetchingData] = useState(false);
+  const [manualFetchedUnclaimedData, setManualFetchedUnclaimedData] = useState<SupplyBorrowData[] | null>(null);
+  
+  // Wallet-connected state
+  const [walletSelectedProtocol, setWalletSelectedProtocol] = useState<ProtocolType | null>(null);
+  const [tokensToProve, setTokensToProve] = useState<ProtocolTokenConfig[]>([]);
+  const [supplyBorrowData, setSupplyBorrowData] = useState<SupplyBorrowData[]>([]);
+  const [unclaimedSupplyBorrowData, setUnclaimedSupplyBorrowData] = useState<SupplyBorrowData[]>([]);
+  const [isLoadingTokens, setIsLoadingTokens] = useState(false);
+  const [isLoadingSupplyBorrow, setIsLoadingSupplyBorrow] = useState(false);
+  const [isLoadingUnclaimed, setIsLoadingUnclaimed] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  
+  const [error, setError] = useState<string | null>(null);
+  const { callProver, result } = useProver();
   
   // Define available protocols
   const availableProtocols: ProtocolType[] = ['AAVE', 'COMPOUND', 'MORPHO'];
   
-  // Define coming soon protocols
-  const comingSoonProtocols: ProtocolType[] = ['FLUID'];
-  
-  // Define protocol border colors for UI
-  const protocolBorderColors: Record<ProtocolType, { default: string; hover: string }> = {
-    'AAVE': { default: 'border-blue-400', hover: 'hover:border-blue-600' },
-    'COMPOUND': { default: 'border-green-400', hover: 'hover:border-green-600' },
-    'FLUID': { default: 'border-purple-400', hover: 'hover:border-purple-600' },
-    'MORPHO': { default: 'border-indigo-400', hover: 'hover:border-indigo-600' },
-    'SPARK': { default: 'border-orange-400', hover: 'hover:border-orange-600' },
-    'MAPPLE': { default: 'border-pink-400', hover: 'hover:border-pink-600' },
-    'GEARBOX': { default: 'border-red-400', hover: 'hover:border-red-600' },
-  };
-  const [isLoading, setIsLoading] = useState(false);
-  const [isLoadingTokens, setIsLoadingTokens] = useState(false);
-  const [tokensToProve, setTokensToProve] = useState<ProtocolTokenConfig[]>([]);
-  const [supplyBorrowData, setSupplyBorrowData] = useState<SupplyBorrowData[]>([]);
-  const [unclaimedSupplyBorrowData, setUnclaimedSupplyBorrowData] = useState<SupplyBorrowData[]>([]);
-  const [isLoadingSupplyBorrow, setIsLoadingSupplyBorrow] = useState(false);
-  const [isLoadingUnclaimed, setIsLoadingUnclaimed] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const defaultTokenHolder = import.meta.env
-    .VITE_DEFAULT_TOKEN_HOLDER as `0x${string}`;
-  const { callProver, result } = useProver();
+  // Check if connected to a supported chain
+  const supportedChainIds = [10, 8453, 1, 11155420, 84532, 31337, 31338];
+  const isSupportedChain = chain?.id ? supportedChainIds.includes(chain.id) : null;
+  const isWrongChain = isConnected && chain?.id && isSupportedChain === false;
+
+  // When wallet connects while viewing manual fetch data, clear it and switch to wallet flow
+  useEffect(() => {
+    if (isConnected && address && manualFetchedUnclaimedData) {
+      // Clear manual fetch data and localStorage
+      setManualFetchedUnclaimedData(null);
+      localStorage.removeItem('fetchedUnclaimedData');
+      localStorage.removeItem('fetchedWalletAddress');
+      localStorage.removeItem('fetchedNetwork');
+    }
+  }, [isConnected, address]);
 
   // Restore selected protocol from localStorage on mount
   useEffect(() => {
     const savedProtocol = localStorage.getItem('selectedProtocol') as ProtocolType | null;
     if (savedProtocol && availableProtocols.includes(savedProtocol)) {
-      setSelectedProtocol(savedProtocol);
+      if (isConnected) {
+        setWalletSelectedProtocol(savedProtocol);
+      } else {
+        setSelectedProtocol(savedProtocol);
+      }
+    }
+
+    // Only restore manual fetch data if wallet is NOT connected
+    if (!isConnected) {
+      const savedUnclaimedData = localStorage.getItem('fetchedUnclaimedData');
+      if (savedUnclaimedData) {
+        try {
+          const parsed = JSON.parse(savedUnclaimedData);
+          setManualFetchedUnclaimedData(parsed);
+          const savedWalletAddress = localStorage.getItem('fetchedWalletAddress');
+          const savedNetwork = localStorage.getItem('fetchedNetwork');
+          if (savedWalletAddress) setWalletAddress(savedWalletAddress);
+          if (savedNetwork) setSelectedNetwork(parseInt(savedNetwork));
+        } catch (e) {
+          console.warn('Failed to restore saved data:', e);
+        }
+      }
     }
   }, []); // Run only on mount
 
-  // Update localStorage when selectedProtocol changes
+  // Load wallet data when wallet is connected
   useEffect(() => {
-    console.log('selectedProtocol changed to:', selectedProtocol);
-    if (selectedProtocol) {
-      localStorage.setItem('selectedProtocol', selectedProtocol);
-      console.log('Updated localStorage with:', selectedProtocol);
-    } else {
-      // Clear localStorage when protocol is unselected
-      localStorage.removeItem('selectedProtocol');
-      console.log('Removed selectedProtocol from localStorage');
-    }
-  }, [selectedProtocol]);
-
-  // Load token configs and supply/borrow data when protocol is selected or address/chain changes
-  useEffect(() => {
-    const loadData = async () => {
-      if (!address || !selectedProtocol) return;
+    const loadWalletData = async () => {
+      if (!address || !walletSelectedProtocol || !isConnected) return;
+      if (isWrongChain) return;
       
-      // Don't load data if connected to wrong chain
-      if (isWrongChain) {
-        console.log('Skipping data load - connected to wrong chain:', chain?.name);
-        return;
-      }
-      
-      // Clear previous tokens when protocol changes
       setTokensToProve([]);
-      
       setIsLoadingTokens(true);
       setIsLoadingSupplyBorrow(true);
       setIsLoadingUnclaimed(true);
       setError(null);
       
       try {
-        console.log(`🔄 Loading ${selectedProtocol} data for address:`, address);
-        console.log("🌐 Current chain:", chain?.name, "ID:", chain?.id);
-        
-        // Get contract addresses for the current chain based on protocol
-        let verifierAddress: string | undefined;
-        let controllerAddress: string | undefined;
-        try {
-          // Map chain names to our config keys
-          let chainName = 'optimism'; // default
-          if (chain?.name) {
-            const chainNameLower = chain.name.toLowerCase();
-            if (chainNameLower.includes('optimism') && !chainNameLower.includes('sepolia')) {
-              chainName = 'optimism';
-            } else if (chainNameLower.includes('optimism') && chainNameLower.includes('sepolia')) {
-              chainName = 'optimismSepolia';
-            } else if (chainNameLower.includes('ethereum') && !chainNameLower.includes('sepolia')) {
-              chainName = 'mainnet';
-            } else if (chainNameLower.includes('base') && !chainNameLower.includes('sepolia')) {
-              chainName = 'base';
-            } else if (chainNameLower.includes('base') && chainNameLower.includes('sepolia')) {
-              chainName = 'baseSepolia';
-            } else if (chainNameLower.includes('anvil') || chainNameLower.includes('localhost')) {
-              chainName = 'anvil';
-            }
+        let chainName = 'optimism';
+        if (chain?.name) {
+          const chainNameLower = chain.name.toLowerCase();
+          if (chainNameLower.includes('optimism') && !chainNameLower.includes('sepolia')) {
+            chainName = 'optimism';
+          } else if (chainNameLower.includes('base') && !chainNameLower.includes('sepolia')) {
+            chainName = 'base';
+          } else if (chainNameLower.includes('base') && chainNameLower.includes('sepolia')) {
+            chainName = 'baseSepolia';
+          } else if (chainNameLower.includes('optimism') && chainNameLower.includes('sepolia')) {
+            chainName = 'optimismSepolia';
+          } else if (chainNameLower.includes('ethereum') && !chainNameLower.includes('sepolia')) {
+            chainName = 'mainnet';
+          } else if (chainNameLower.includes('anvil') || chainNameLower.includes('localhost')) {
+            chainName = 'anvil';
           }
-          
-          console.log(`Using chain config: ${chainName} for chain: ${chain?.name}`);
-          
-          // Get addresses (same for both protocols)
-          const addresses = getContractAddresses(chainName);
-          verifierAddress = addresses.verifier;
-          controllerAddress = addresses.controller;
-        } catch (err) {
-          console.warn("Could not get contract addresses:", err);
         }
         
-        // Load token configs, claimed data, and unclaimed data in parallel
-        // const [tokens, supplyBorrow, unclaimedData] = await Promise.all([
+        const addresses = getContractAddresses(chainName);
+        const controllerAddress = addresses.controller;
+        
         const [tokens, unclaimedData] = await Promise.all([
-          loadTokensToProve(address, chain?.id, controllerAddress, selectedProtocol),
-          // getTokenConfigsForUnclaimedData(address, chain?.id, controllerAddress),
-          // getSupplyBorrowDataForUser(address, chain?.id),
-          getUnclaimedSupplyBorrowDataWithProtocol(address, chain?.id, controllerAddress, selectedProtocol)
+          loadTokensToProve(address, chain?.id, controllerAddress, walletSelectedProtocol),
+          getUnclaimedSupplyBorrowDataWithProtocol(address, chain?.id, controllerAddress, walletSelectedProtocol)
         ]);
         
         setTokensToProve(tokens);
-        // setSupplyBorrowData(supplyBorrow);
         setUnclaimedSupplyBorrowData(unclaimedData);
         
-        // If no tokens found from subgraph, try fallback
         if (tokens.length === 0) {
-          console.log("⚠️ No tokens found from subgraph, trying fallback...");
           const fallbackTokens = getFallbackTokensToProve();
           setTokensToProve(fallbackTokens);
-          // setError(`No ${selectedProtocol} activity found for this address.`);
-        } else {
-          setError(null); // Clear any previous errors
         }
       } catch (err) {
-        console.error("❌ Error loading data:", err);
+        console.error("Error loading wallet data:", err);
         const errorMessage = err instanceof Error ? err.message : 'Unknown error';
-        setError(`Failed to load token data: ${errorMessage}. Using fallback configuration.`);
-        // Use fallback tokens on error
+        setError(`Failed to load data: ${errorMessage}`);
         const fallbackTokens = getFallbackTokensToProve();
         setTokensToProve(fallbackTokens);
-        // setSupplyBorrowData([]);
         setUnclaimedSupplyBorrowData([]);
       } finally {
         setIsLoadingTokens(false);
@@ -186,9 +177,28 @@ export const WelcomePage = () => {
       }
     };
 
-    loadData();
-  }, [address, chain?.id, isWrongChain, selectedProtocol]);
+    loadWalletData();
+  }, [address, chain?.id, isWrongChain, walletSelectedProtocol, isConnected]);
 
+  // Update localStorage when protocol changes
+  useEffect(() => {
+    const protocolToSave = isConnected ? walletSelectedProtocol : selectedProtocol;
+    if (protocolToSave) {
+      localStorage.setItem('selectedProtocol', protocolToSave);
+    } else {
+      localStorage.removeItem('selectedProtocol');
+    }
+  }, [selectedProtocol, walletSelectedProtocol, isConnected]);
+
+  // Handle prover result
+  useEffect(() => {
+    if (result) {
+      void navigate(`/${getStepPath(StepKind.showBalance)}`);
+      setIsLoading(false);
+    }
+  }, [result, navigate]);
+
+  // Handle submit for wallet-connected flow
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setIsLoading(true);
@@ -198,7 +208,6 @@ export const WelcomePage = () => {
       const formData = new FormData(e.target as HTMLFormElement);
       const holderAddress = formData.get("holderAddress") as `0x${string}`;
       
-      // Get current token configs (either loaded or fallback)
       const currentTokens = getTokensToProve();
       
       if (currentTokens.length === 0) {
@@ -206,15 +215,6 @@ export const WelcomePage = () => {
         setIsLoading(false);
         return;
       }
-      
-      // Note: selectedProtocol is already stored in localStorage via useEffect
-      
-      console.log("=== PROVER CALL DEBUG ===");
-      console.log("Selected Protocol:", selectedProtocol);
-      console.log("Number of tokens:", currentTokens.length);
-      console.log("Token type:", currentTokens[0] && ('aTokenAddress' in currentTokens[0] ? 'AAVE' : 'COMPOUND'));
-      console.log("All tokens:", currentTokens);
-      console.log("=========================");
       
       await callProver([holderAddress, currentTokens]);
     } catch (err) {
@@ -224,96 +224,141 @@ export const WelcomePage = () => {
     }
   };
 
-  useEffect(() => {
-    if (result) {
-      void navigate(`/${getStepPath(StepKind.showBalance)}`);
-      setIsLoading(false);
+  const handleFetchData = async () => {
+    if (!walletAddress || !selectedProtocol || !selectedNetwork) {
+      setError('Please select protocol, network, and enter wallet address.');
+      return;
     }
-  }, [result]);
 
-  // Show loading state while checking wallet connection
+    // Validate wallet address format
+    if (!/^0x[a-fA-F0-9]{40}$/.test(walletAddress)) {
+      setError('Please enter a valid wallet address (0x...).');
+      return;
+    }
 
-  // Show connect wallet if not connected
-  if (!isConnected || !address) {
-    return (
-      <div>
-        {/* Project Cards Section */}
-        <div className="mb-4">
-          <div className="text-2xl font-bold mb-3 text-gray-900 text-center">
-            Supporting projects
-          </div>
-          <div className="flex flex-wrap gap-4 mb- justify-center">
-            {availableProtocols.map((protocol) => {
-              const metadata = getProtocolMetadata(protocol);
-              return (
-                <div 
-                  key={protocol}
-                  className="bg-white border border-gray-200 rounded-lg p-4 w-full max-w-md flex items-center shadow-sm hover:shadow-md transition-shadow cursor-pointer"
-                >
-                  <div>
-                    <img 
-                      src={metadata.image} 
-                      alt={metadata.displayName} 
-                      className="w-12 h-12 object-contain" 
-                    />
-                  </div>
-                  <div className="ml-4">
-                    <div className="text-xl font-bold text-gray-900">{metadata.displayName}</div>
-                    {metadata.description && (
-                      <div className="text-sm text-gray-600 mt-1">
-                        {metadata.description}
-                      </div>
-                    )}
+    setIsFetchingData(true);
+    setError(null);
+    setManualFetchedUnclaimedData(null);
+
+    try {
+      // Map network ID to chain name for contract addresses
+      let chainName = 'optimism'; // default
+      if (selectedNetwork === 10) {
+        chainName = 'optimism';
+      } else if (selectedNetwork === 8453) {
+        chainName = 'base';
+      }
+
+      const addresses = getContractAddresses(chainName);
+      const controllerAddress = addresses.controller;
+
+      console.log(`Fetching ${selectedProtocol} data for ${walletAddress} on chain ${selectedNetwork}`);
+
+      // Fetch only unclaimed data
+      const unclaimedData = await getUnclaimedSupplyBorrowDataWithProtocol(walletAddress, selectedNetwork, controllerAddress, selectedProtocol);
+
+      setManualFetchedUnclaimedData(unclaimedData);
+      
+      // Save to localStorage to persist across wallet connection/disconnection
+      localStorage.setItem('fetchedUnclaimedData', JSON.stringify(unclaimedData));
+      localStorage.setItem('fetchedWalletAddress', walletAddress);
+      localStorage.setItem('fetchedNetwork', selectedNetwork.toString());
+      
+      if (unclaimedData.length === 0) {
+        setError(`No ${selectedProtocol} unclaimed activity found for this address on the selected network.`);
+      }
+    } catch (err) {
+      console.error("Error fetching data:", err);
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+      setError(`Failed to fetch data: ${errorMessage}`);
+    } finally {
+      setIsFetchingData(false);
+    }
+  };
+
+  // WALLET CONNECTED FLOW - Show protocol selection and wallet data
+  if (isConnected && address) {
+    // If no protocol selected yet, show protocol selection
+    if (!walletSelectedProtocol) {
+      return (
+        <div>
+          {isWrongChain && (
+            <div className="mb-4 p-4 bg-red-900/20 border border-red-500/50 text-red-400 rounded-lg backdrop-blur-sm">
+              <div className="flex items-start">
+                <svg className="w-6 h-6 text-red-400 mr-3 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                </svg>
+                <div className="flex-1">
+                  <h3 className="text-lg font-bold mb-2">⚠️ Unsupported Network</h3>
+                  <p className="text-sm mb-2">
+                    Current network: <strong>{chain?.name || 'Unknown'} (ID: {chain?.id})</strong>
+                  </p>
+                  <div className="bg-slate-800/50 border border-red-500/30 rounded p-3 mb-3">
+                    <p className="text-sm font-semibold mb-2 text-slate-200">Please switch to a supported network:</p>
+                    <ul className="text-sm space-y-1 list-disc list-inside text-slate-300">
+                      <li>Base Mainnet (ID: 8453)</li>
+                      <li>Optimism Mainnet (ID: 10)</li>
+                    </ul>
                   </div>
                 </div>
-              );
-            })}
-          </div>
+              </div>
+            </div>
+          )}
 
-          <div className="text-2xl font-bold mb-4 mt-12 text-gray-900 text-center">Coming soon</div>
-          <div className="flex flex-wrap gap-4 justify-center">
-            {comingSoonProtocols.map((protocol) => {
-              const metadata = getProtocolMetadata(protocol);
-              return (
-                <div 
-                  key={protocol}
-                  className="bg-white border border-gray-200 rounded-lg p-4 w-full max-w-md flex items-center shadow-sm hover:shadow-md transition-shadow cursor-pointer"
-                >
-                  <div>
-                    <img 
-                      src={metadata.image} 
-                      alt={metadata.displayName} 
-                      className="w-12 h-12 object-contain" 
-                    />
+          <div className="mb-6">
+            <div className="text-2xl font-bold mb-4 text-slate-100 text-center">
+              Select a Protocol
+            </div>
+            <div className="flex flex-wrap gap-4 justify-center">
+              {availableProtocols.map((protocol) => {
+                const metadata = getProtocolMetadata(protocol);
+                return (
+                  <div 
+                    key={protocol}
+                    onClick={() => {
+                      if (!isWrongChain) {
+                        setWalletSelectedProtocol(protocol);
+                      }
+                    }}
+                    className={`bg-slate-800/50 backdrop-blur-sm border-2 rounded-2xl p-6 w-full max-w-md flex items-center shadow-2xl shadow-slate-950/50 transition-all duration-300 cursor-pointer transform hover:scale-105 ${
+                      isWrongChain 
+                        ? 'opacity-50 cursor-not-allowed border-slate-700' 
+                        : walletSelectedProtocol === protocol
+                        ? 'bg-cyan-500/10 border-cyan-400 shadow-lg shadow-cyan-500/10'
+                        : 'border-slate-600 hover:border-slate-500'
+                    }`}
+                  >
+                    <div>
+                      <img 
+                        src={metadata.image} 
+                        alt={metadata.displayName} 
+                        className="w-16 h-16 object-contain" 
+                      />
+                    </div>
+                    <div className="ml-4 flex-1">
+                      <div className="text-2xl font-bold text-slate-100">{metadata.displayName}</div>
+                      {metadata.description && (
+                        <div className="text-sm text-slate-400 mt-1">
+                          {metadata.description}
+                        </div>
+                      )}
+                    </div>
                   </div>
-                  <div className="ml-4">
-                    <div className="text-xl font-bold text-gray-900">{metadata.displayName}</div>
-                    {metadata.description && (
-                      <div className="text-sm text-gray-600 mt-1">
-                        {metadata.description}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
+                );
+              })}
+            </div>
           </div>
         </div>
-        
-        <ConnectWalletButton />
-      </div>
-    );
-  }
+      );
+    }
 
-  // If no protocol selected yet, show protocol selection
-  if (!selectedProtocol) {
+    // Protocol selected - show wallet data
     return (
       <div>
-        {/* Wrong Chain Warning */}
         {isWrongChain && (
-          <div className="mb-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded-lg">
+          <div className="mb-4 p-4 bg-red-900/20 border border-red-500/50 text-red-400 rounded-lg backdrop-blur-sm">
             <div className="flex items-start">
-              <svg className="w-6 h-6 text-red-500 mr-3 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+              <svg className="w-6 h-6 text-red-400 mr-3 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
                 <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
               </svg>
               <div className="flex-1">
@@ -321,165 +366,196 @@ export const WelcomePage = () => {
                 <p className="text-sm mb-2">
                   Current network: <strong>{chain?.name || 'Unknown'} (ID: {chain?.id})</strong>
                 </p>
-                <div className="bg-white border border-red-300 rounded p-3 mb-3">
-                  <p className="text-sm font-semibold mb-2">Please switch to a supported network:</p>
-                  <ul className="text-sm space-y-1 list-disc list-inside">
-                    <li>Base Mainnet (ID: 8453)</li>
-                    <li>Optimism Mainnet (ID: 10)</li>
-                  </ul>
-                </div>
-                <div className="flex space-x-3">
-                  <button
-                    onClick={() => window.location.reload()}
-                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-md transition-colors"
-                  >
-                    Refresh Page
-                  </button>
-                </div>
               </div>
             </div>
           </div>
         )}
-
-        {/* Protocol Selection */}
-        <div className="mb-6">
-          <div className="text-2xl font-bold mb-4 text-gray-900 text-center">
-            Select a Protocol
+        
+        {error && (
+          <div className={`mb-3 p-3 border rounded backdrop-blur-sm ${
+            error.includes('✅') 
+              ? 'bg-green-900/20 border-green-500/50 text-green-400' 
+              : error.includes('❌')
+              ? 'bg-red-900/20 border-red-500/50 text-red-400'
+              : 'bg-yellow-900/20 border-yellow-500/50 text-yellow-400'
+          }`}>
+            {error}
           </div>
-          <div className="flex flex-wrap gap-4 justify-center">
-            {availableProtocols.map((protocol) => {
-              const metadata = getProtocolMetadata(protocol);
-              const borderColors = protocolBorderColors[protocol];
-              return (
-                <div 
-                  key={protocol}
-                  onClick={() => {
-                    if (!isWrongChain) {
-                      console.log('Selecting protocol:', protocol);
-                      setSelectedProtocol(protocol);
-                    }
-                  }}
-                  className={`bg-white border-2 rounded-lg p-6 w-full max-w-md flex items-center shadow-md transition-all cursor-pointer ${
-                    isWrongChain 
-                      ? 'opacity-50 cursor-not-allowed border-gray-200' 
-                      : `${borderColors.default} ${borderColors.hover} hover:shadow-lg`
-                  }`}
-                >
-                  <div>
+        )}
+        
+        {isLoadingTokens && (
+          <div className="mb-3 p-3 bg-cyan-900/20 border border-cyan-500/50 text-cyan-400 rounded backdrop-blur-sm">
+            Loading {walletSelectedProtocol} token configurations from subgraph...
+          </div>
+        )}
+        
+        {/* Display claimed supply and borrow data */}
+        <div className="mb-3">
+          <ClaimSupplyBorrowDisplay 
+            isLoading={isLoadingSupplyBorrow}
+            protocol={walletSelectedProtocol}
+            onChangeProtocol={() => setWalletSelectedProtocol(null)}
+          />
+        </div>
+        
+        {/* Display unclaimed supply and borrow data */}
+        <div className="mb-3">
+          <SupplyBorrowDisplay 
+            data={unclaimedSupplyBorrowData} 
+            isLoading={isLoadingUnclaimed} 
+          />
+        </div>
+        
+        <HodlerForm
+          holderAddress={address}
+          onSubmit={handleSubmit}
+          isLoading={isLoading || isLoadingTokens}
+          loadingLabel={isLoadingTokens ? "Loading tokens..." : "Generating proof..."}
+          submitLabel="Get proof"
+          isEditable={true}
+          isDisabled={tokensToProve.length === 0}
+        />
+      </div>
+    );
+  }
+
+  // MANUAL FETCH FLOW - Show form when wallet not connected
+  // Show form if no data fetched yet or if user wants to search again
+  if (!manualFetchedUnclaimedData) {
+    return (
+      <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700 rounded-2xl p-6 sm:p-8 shadow-2xl shadow-slate-950/50 max-w-4xl mx-auto">
+        <div className="text-center mb-8">
+          <h1 className="text-3xl sm:text-1xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-emerald-400">
+          Fetch your lending and borrowing data from top protocols
+          </h1>
+          {/* <p className="text-slate-400 mt-2">
+            Fetch your lending and borrowing data from top protocols.
+          </p> */}
+        </div>
+
+        <div className="space-y-8">
+          <div>
+            <SectionTitle>1. Select Protocol</SectionTitle>
+            <div className="grid grid-cols-2 gap-4">
+              {availableProtocols.map((protocol) => {
+                const metadata = getProtocolMetadata(protocol);
+                return (
+                  <button
+                    key={protocol}
+                    onClick={() => setSelectedProtocol(protocol)}
+                    className={`flex flex-col items-center justify-center p-6 rounded-lg transition-all duration-300 transform hover:scale-105 ${
+                      selectedProtocol === protocol
+                        ? 'bg-cyan-500/10 border-2 border-cyan-400 shadow-lg shadow-cyan-500/10'
+                        : 'bg-slate-700/50 border-2 border-slate-600 hover:border-slate-500'
+                    }`}
+                  >
                     <img 
                       src={metadata.image} 
                       alt={metadata.displayName} 
-                      className="w-16 h-16 object-contain" 
+                      className="w-12 h-12 object-contain mb-3" 
                     />
-                  </div>
-                  <div className="ml-4 flex-1">
-                    <div className="text-2xl font-bold text-gray-900">{metadata.displayName}</div>
-                    {metadata.description && (
-                      <div className="text-sm text-gray-600 mt-1">
-                        {metadata.description}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
+                    <span className="font-semibold text-slate-100">{metadata.displayName}</span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
+
+          <div>
+            <SectionTitle>2. Select Network</SectionTitle>
+            <div className="flex flex-wrap gap-3">
+              {NETWORKS.map((network) => (
+                <button
+                  key={network.id}
+                  onClick={() => setSelectedNetwork(network.id)}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-colors duration-300 ${
+                    selectedNetwork === network.id
+                      ? 'bg-cyan-500 text-slate-900'
+                      : 'bg-slate-700/50 hover:bg-slate-700 text-slate-200'
+                  }`}
+                >
+                  {network.icon}
+                  <span>{network.name}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <SectionTitle>3. Enter Wallet Address</SectionTitle>
+            <div className="relative">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <WalletIcon className="h-5 w-5 text-slate-400" />
+              </div>
+              <input
+                type="text"
+                value={walletAddress}
+                onChange={(e) => setWalletAddress(e.target.value)}
+                placeholder="0x..."
+                className="w-full bg-slate-700/50 border-2 border-slate-600 rounded-lg py-3 pl-10 pr-4 focus:ring-2 focus:ring-cyan-400 focus:border-cyan-400 outline-none transition-colors text-slate-100"
+              />
+            </div>
+          </div>
+
+          {error && <div className="text-red-400 text-center text-sm">{error}</div>}
+
+          <button
+            onClick={handleFetchData}
+            disabled={isFetchingData || !selectedProtocol || !selectedNetwork || !walletAddress}
+            className="w-full flex items-center justify-center bg-emerald-500 hover:bg-emerald-600 disabled:bg-slate-600 disabled:cursor-not-allowed text-white font-bold py-3 px-4 rounded-lg text-lg transition-all duration-300 transform hover:scale-105 disabled:scale-100"
+          >
+            {isFetchingData ? (
+              <>
+                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
+                Fetching Data...
+              </>
+            ) : (
+              'Fetch On-Chain Data'
+            )}
+          </button>
         </div>
       </div>
     );
   }
 
+  // Show data if fetched
   return (
     <div>
-      {/* Wrong Chain Error */}
-      {isWrongChain && (
-        <div className="mb-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded-lg">
-          <div className="flex items-start">
-            <svg className="w-6 h-6 text-red-500 mr-3 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-            </svg>
-            <div className="flex-1">
-              <h3 className="text-lg font-bold mb-2">⚠️ Unsupported Network</h3>
-              <p className="text-sm mb-2">
-                Current network: <strong>{chain?.name || 'Unknown'} (ID: {chain?.id})</strong>
-              </p>
-              <div className="bg-white border border-red-300 rounded p-3 mb-3">
-                <p className="text-sm font-semibold mb-2">Please switch to a supported network:</p>
-                <ul className="text-sm space-y-1 list-disc list-inside">
-                  <li>Base Mainnet (ID: 8453)</li>
-                  <li>Optimism Mainnet (ID: 10)</li>
-                </ul>
-              </div>
-              <div className="flex space-x-3">
-                <button
-                  onClick={() => window.location.reload()}
-                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-md transition-colors"
-                >
-                  Refresh Page
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-      
+      {/* Back button to fetch new data */}
+      <div className="mb-4">
+        <button
+          onClick={() => {
+            setManualFetchedUnclaimedData(null);
+            setError(null);
+            // Clear saved data from localStorage
+            localStorage.removeItem('fetchedUnclaimedData');
+            localStorage.removeItem('fetchedWalletAddress');
+            localStorage.removeItem('fetchedNetwork');
+          }}
+          className="flex items-center gap-2 text-slate-400 hover:text-slate-200 transition-colors"
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+          </svg>
+          <span>Fetch Another Address</span>
+        </button>
+      </div>
+
       {error && (
-        <div className={`mb-3 p-3 border rounded ${
-          error.includes('✅') 
-            ? 'bg-green-100 border-green-400 text-green-700' 
-            : error.includes('❌')
-            ? 'bg-red-100 border-red-400 text-red-700'
-            : 'bg-yellow-100 border-yellow-400 text-yellow-700'
-        }`}>
+        <div className="mb-3 p-3 bg-red-900/20 border border-red-500/50 text-red-400 rounded backdrop-blur-sm">
           {error}
         </div>
       )}
-      
-      {isLoadingTokens && (
-        <div className="mb-3 p-3 bg-blue-100 border border-blue-400 text-blue-700 rounded">
-          Loading {selectedProtocol} token configurations from subgraph...
+
+      {/* Display only unclaimed data from manual fetch */}
+      {manualFetchedUnclaimedData && manualFetchedUnclaimedData.length > 0 && (
+        <div className="mb-6">
+          <SupplyBorrowDisplay 
+            data={manualFetchedUnclaimedData} 
+            isLoading={false} 
+          />
         </div>
       )}
-      
-      {/* Display claimed supply and borrow data */}
-      <div className="mb-3">
-        <ClaimSupplyBorrowDisplay 
-          isLoading={isLoadingSupplyBorrow}
-          protocol={selectedProtocol}
-          onChangeProtocol={() => setSelectedProtocol(null)}
-        />
-      </div>
-      
-      {/* Display unclaimed supply and borrow data */}
-      <div className="mb-3">
-        <SupplyBorrowDisplay 
-          data={unclaimedSupplyBorrowData} 
-          isLoading={isLoadingUnclaimed} 
-        />
-      </div>
-      
-      <HodlerForm
-        holderAddress={address}
-        onSubmit={handleSubmit}
-        isLoading={isLoading || isLoadingTokens}
-        loadingLabel={isLoadingTokens ? "Loading tokens..." : "Generating proof..."}
-        submitLabel="Get proof"
-        isEditable={true}
-        isDisabled={tokensToProve.length === 0}
-      />
-      
-      {/* {tokensToProve.length > 0 && (
-        <div className="mt-4 p-3 bg-gray-100 rounded text-sm">
-          <p>Found {tokensToProve.length} token(s) to prove:</p>
-          <ul className="mt-2 space-y-1">
-            {tokensToProve.map((token, index) => (
-              <li key={index} className="text-xs">
-                {token.underlingTokenAddress.slice(0, 6)}...{token.underlingTokenAddress.slice(-4)} on Chain {token.chainId}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )} */}
     </div>
   );
 };

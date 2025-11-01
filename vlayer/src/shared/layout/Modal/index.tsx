@@ -49,13 +49,15 @@ export const Modal = ({ children }: { children: React.ReactNode }) => {
 
   return (
     <dialog className="modal" ref={modalRef}>
-      <div className="modal-box bg-white rounded-2xl max-w-none w-[95vw] h-[95vh]">
+      <div className="modal-box max-w-none w-[95vw] h-[95vh]">
         <motion.div
           className="flex flex-col items-center justify-between"
           {...motionConfig}
         >
-          <Navigation />
-          <div className={`${isConnected ? 'pt-10' : 'pt-4'} w-full`}>
+          <div className="w-full">
+            <Navigation />
+          </div>
+          <div className={`${isConnected ? 'pt-10' : 'pt-4'} w-full flex flex-col items-center`}>
             <ErrorBoundary FallbackComponent={StepErrorBoundaryComponent}>
             <AnimatePresence>
               {currentStep?.headerIcon && (

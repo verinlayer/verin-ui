@@ -9,6 +9,8 @@ import { getTokenDecimals, getTokenSymbol } from '../utils/tokenDecimals';
 interface SupplyBorrowDisplayProps {
   data: SupplyBorrowData[];
   isLoading?: boolean;
+  showTitle?: boolean;
+  title?: string;
 }
 
 // Token decimal handling is now centralized in ../utils/tokenDecimals.ts
@@ -90,10 +92,10 @@ export const TokenConfigDisplay: React.FC<TokenConfigDisplayProps> = ({
 }) => {
   if (isLoading) {
     return (
-      <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+      <div className="mb-4 p-4 bg-slate-800/50 border border-slate-700 rounded-lg backdrop-blur-sm">
         <div className="flex items-center space-x-2">
-          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
-          <span className="text-blue-700">Loading token data...</span>
+          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-cyan-400"></div>
+          <span className="text-cyan-400">Loading token data...</span>
         </div>
       </div>
     );
@@ -101,32 +103,31 @@ export const TokenConfigDisplay: React.FC<TokenConfigDisplayProps> = ({
 
   if (tokens.length === 0) {
     return (
-      <div className="mb-4 p-4 bg-gray-50 border border-gray-200 rounded-lg">
-        <p className="text-gray-600 text-sm">No token data found for this address.</p>
+      <div className="mb-4 p-4 bg-slate-800/50 border border-slate-700 rounded-lg backdrop-blur-sm">
+        <p className="text-slate-400 text-sm">No token data found for this address.</p>
       </div>
     );
   }
 
   return (
     <div className="mb-6 space-y-4">
-      <h3 className="text-lg font-semibold text-slate-900">Token Activity Summary</h3>
+      <h3 className="text-lg font-semibold text-slate-100">Summary</h3>
       
       <div className="space-y-4">
         {tokens.map((token, index) => {
           // Morpho branch
           if ('marketId' in token) {
             const morpho = token as MorphoTokenConfig;
-            const headerColor = 'border-indigo-200';
             return (
-              <div key={`${morpho.marketId}-${index}`} className={`bg-white border rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow ${headerColor}`}>
+              <div key={`${morpho.marketId}-${index}`} className="bg-slate-800/70 border border-slate-700 rounded-xl p-5 shadow-2xl shadow-slate-950/50 hover:shadow-lg transition-all duration-300 backdrop-blur-sm">
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center space-x-3">
-                    <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center border-2 border-indigo-200">
-                      <span className="text-lg text-indigo-600">M</span>
+                    <div className="w-10 h-10 bg-cyan-500/20 rounded-full flex items-center justify-center border-2 border-cyan-500/30">
+                      <span className="text-lg text-cyan-400 font-bold">M</span>
                     </div>
                     <div>
-                      <div className="font-semibold text-slate-900">Morpho</div>
-                      <div className="text-xs text-slate-500">{getChainName(morpho.chainId.toString())}</div>
+                      <div className="font-semibold text-slate-100">Morpho</div>
+                      <div className="text-xs text-slate-400">{getChainName(morpho.chainId.toString())}</div>
                     </div>
                   </div>
                 </div>
@@ -134,57 +135,57 @@ export const TokenConfigDisplay: React.FC<TokenConfigDisplayProps> = ({
                 <div className="space-y-3">
                   <div className="grid grid-cols-2 gap-4 text-sm">
                     <div>
-                      <span className="text-slate-600">Morpho Address:</span>
-                      <div className="font-mono text-xs break-all text-slate-800">{morpho.morphoAddress}</div>
+                      <span className="text-slate-400">Morpho Address:</span>
+                      <div className="font-mono text-xs break-all text-slate-300">{morpho.morphoAddress}</div>
                     </div>
                     <div>
-                      <span className="text-slate-600">Market ID:</span>
-                      <div className="font-mono text-xs break-all text-slate-800">{morpho.marketId}</div>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4 text-sm">
-                    <div>
-                      <span className="text-slate-600">Chain ID:</span>
-                      <div className="font-semibold text-slate-900">{morpho.chainId}</div>
-                    </div>
-                    <div>
-                      <span className="text-slate-600">Block Number:</span>
-                      <div className="font-semibold text-slate-900">{morpho.blockNumber}</div>
+                      <span className="text-slate-400">Market ID:</span>
+                      <div className="font-mono text-xs break-all text-slate-300">{morpho.marketId}</div>
                     </div>
                   </div>
 
                   <div className="grid grid-cols-2 gap-4 text-sm">
                     <div>
-                      <span className="text-slate-600">Supply Shares:</span>
-                      <div className="font-semibold text-slate-900">{morpho.supplyShares}</div>
+                      <span className="text-slate-400">Chain ID:</span>
+                      <div className="font-semibold text-slate-200">{morpho.chainId}</div>
                     </div>
                     <div>
-                      <span className="text-slate-600">Borrow Shares:</span>
-                      <div className="font-semibold text-slate-900">{morpho.borrowShares}</div>
-                    </div>
-                    <div>
-                      <span className="text-slate-600">Collateral:</span>
-                      <div className="font-semibold text-slate-900">{morpho.collateral}</div>
+                      <span className="text-slate-400">Block Number:</span>
+                      <div className="font-semibold text-slate-200">{morpho.blockNumber}</div>
                     </div>
                   </div>
 
                   <div className="grid grid-cols-2 gap-4 text-sm">
                     <div>
-                      <span className="text-slate-600">Total Borrow Assets:</span>
-                      <div className="font-semibold text-slate-900">{morpho.totalBorrowAssets}</div>
+                      <span className="text-slate-400">Supply Shares:</span>
+                      <div className="font-semibold text-emerald-400">{morpho.supplyShares}</div>
                     </div>
                     <div>
-                      <span className="text-slate-600">Total Borrow Shares:</span>
-                      <div className="font-semibold text-slate-900">{morpho.totalBorrowShares}</div>
+                      <span className="text-slate-400">Borrow Shares:</span>
+                      <div className="font-semibold text-orange-400">{morpho.borrowShares}</div>
                     </div>
                     <div>
-                      <span className="text-slate-600">Total Supply Assets:</span>
-                      <div className="font-semibold text-slate-900">{morpho.totalSupplyAssets}</div>
+                      <span className="text-slate-400">Collateral:</span>
+                      <div className="font-semibold text-cyan-400">{morpho.collateral}</div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <span className="text-slate-400">Total Borrow Assets:</span>
+                      <div className="font-semibold text-slate-200">{morpho.totalBorrowAssets}</div>
                     </div>
                     <div>
-                      <span className="text-slate-600">Total Supply Shares:</span>
-                      <div className="font-semibold text-slate-900">{morpho.totalSupplyShares}</div>
+                      <span className="text-slate-400">Total Borrow Shares:</span>
+                      <div className="font-semibold text-slate-200">{morpho.totalBorrowShares}</div>
+                    </div>
+                    <div>
+                      <span className="text-slate-400">Total Supply Assets:</span>
+                      <div className="font-semibold text-slate-200">{morpho.totalSupplyAssets}</div>
+                    </div>
+                    <div>
+                      <span className="text-slate-400">Total Supply Shares:</span>
+                      <div className="font-semibold text-slate-200">{morpho.totalSupplyShares}</div>
                     </div>
                   </div>
                 </div>
@@ -205,50 +206,43 @@ export const TokenConfigDisplay: React.FC<TokenConfigDisplayProps> = ({
           const tokenTypeIcon = getTokenTypeIcon((token as TokenConfig | CompoundTokenConfig).tokenType);
           
           return (
-            <div key={`${underlyingAddress}-${index}`} className={`bg-white border rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow ${tokenTypeColor}`}>
+            <div key={`${underlyingAddress}-${index}`} className="bg-slate-800/70 border border-slate-700 rounded-xl p-5 shadow-2xl shadow-slate-950/50 hover:shadow-lg transition-all duration-300 backdrop-blur-sm">
               {/* Token Header */}
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center space-x-3">
-                  <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center border-2">
-                    <span className="text-lg">{tokenTypeIcon}</span>
+                  <div className="w-10 h-10 bg-cyan-500/20 rounded-full flex items-center justify-center border-2 border-cyan-500/30">
+                    <span className="text-lg text-cyan-400">{tokenTypeIcon}</span>
                   </div>
                   <div>
-                    <div className="font-semibold text-slate-900">{tokenTypeName}</div>
-                    <div className="text-xs text-slate-500">{getChainName(token.chainId)}</div>
+                    <div className="font-semibold text-slate-100">{tokenTypeName}</div>
+                    <div className="text-xs text-slate-400">{getChainName(token.chainId)}</div>
                   </div>
                 </div>
-                {/* <div className="text-xs text-slate-400 bg-slate-50 px-2 py-1 rounded">
-                  {underlyingAddress.slice(0, 6)}...{underlyingAddress.slice(-4)}
-                </div> */}
               </div>
               
               {/* Token Details */}
               <div className="space-y-3">
                 <div className="grid grid-cols-2 gap-4 text-sm">
-                  {/* <div>
-                    <span className="text-slate-600">Underlying Token:</span>
-                    <div className="font-mono text-xs break-all">{underlyingAddress}</div>
-                  </div> */}
                   <div>
-                    <span className="text-slate-600">Token Address:</span>
-                    <div className="font-mono text-xs break-all">{tokenAddress}</div>
+                    <span className="text-slate-400">Token Address:</span>
+                    <div className="font-mono text-xs break-all text-slate-300">{tokenAddress}</div>
                   </div>
                 </div>
                 
                 <div className="grid grid-cols-2 gap-4 text-sm">
                   <div>
-                    <span className="text-slate-600">Chain ID:</span>
-                    <div className="font-semibold">{token.chainId}</div>
+                    <span className="text-slate-400">Chain ID:</span>
+                    <div className="font-semibold text-slate-200">{token.chainId}</div>
                   </div>
                   <div>
-                    <span className="text-slate-600">Block Number:</span>
-                    <div className="font-semibold">{token.blockNumber}</div>
+                    <span className="text-slate-400">Block Number:</span>
+                    <div className="font-semibold text-slate-200">{token.blockNumber}</div>
                   </div>
                 </div>
                 
                 <div className="text-sm">
-                  <span className="text-slate-600">Balance:</span>
-                  <div className="font-semibold text-lg">{token.balance}</div>
+                  <span className="text-slate-400">Balance:</span>
+                  <div className="font-semibold text-lg text-emerald-400">{token.balance}</div>
                 </div>
               </div>
             </div>
@@ -270,14 +264,16 @@ export const TokenConfigDisplay: React.FC<TokenConfigDisplayProps> = ({
 
 export const SupplyBorrowDisplay: React.FC<SupplyBorrowDisplayProps> = ({ 
   data, 
-  isLoading = false 
+  isLoading = false,
+  showTitle = true,
+  title = "Summary of Unclaimed Data"
 }) => {
   if (isLoading) {
     return (
-      <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+      <div className="mb-4 p-4 bg-slate-800/50 border border-slate-700 rounded-lg backdrop-blur-sm">
         <div className="flex items-center space-x-2">
-          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
-          <span className="text-blue-700">Loading supply and borrow data...</span>
+          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-cyan-400"></div>
+          <span className="text-cyan-400">Loading supply and borrow data...</span>
         </div>
       </div>
     );
@@ -285,8 +281,8 @@ export const SupplyBorrowDisplay: React.FC<SupplyBorrowDisplayProps> = ({
 
   if (data.length === 0) {
     return (
-      <div className="mb-4 p-4 bg-gray-50 border border-gray-200 rounded-lg">
-        <p className="text-gray-600 text-sm">No supply or borrow activity found for this address.</p>
+      <div className="mb-4 p-4 bg-slate-800/50 border border-slate-700 rounded-lg backdrop-blur-sm">
+        <p className="text-slate-400 text-sm">No unclaimed supply or borrow activity found for this address.</p>
       </div>
     );
   }
@@ -330,23 +326,24 @@ export const SupplyBorrowDisplay: React.FC<SupplyBorrowDisplayProps> = ({
 
   return (
     <div className="mb-6 space-y-4">
-      <h3 className="text-lg font-semibold text-slate-900">Summary of Unclaimed DeFi Data</h3>
+      {showTitle && (
+        <h3 className="text-lg font-semibold text-slate-100">{title}</h3>
+      )}
       
       {/* Overall Totals */}
-      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-4">
-        {/* <h4 className="text-md font-semibold text-slate-800 mb-3">Total Activity Across All Assets</h4> */}
+      <div className="bg-slate-800/70 border border-slate-700 rounded-xl p-4 backdrop-blur-sm">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="bg-green-100 rounded-lg p-3">
-            <div className="text-sm font-medium text-green-800">Total Supplied (USD)</div>
-            <div className="text-lg font-bold text-green-900">${totalSupplyUSD.toFixed(2)}</div>
+          <div className="bg-emerald-900/30 border border-emerald-500/30 rounded-lg p-3">
+            <div className="text-sm font-medium text-emerald-400">Total Supplied (USD)</div>
+            <div className="text-lg font-bold text-emerald-300">${totalSupplyUSD.toFixed(2)}</div>
           </div>
-          <div className="bg-orange-100 rounded-lg p-3">
-            <div className="text-sm font-medium text-orange-800">Total Borrowed (USD)</div>
-            <div className="text-lg font-bold text-orange-900">${totalBorrowUSD.toFixed(2)}</div>
+          <div className="bg-orange-900/30 border border-orange-500/30 rounded-lg p-3">
+            <div className="text-sm font-medium text-orange-400">Total Borrowed (USD)</div>
+            <div className="text-lg font-bold text-orange-300">${totalBorrowUSD.toFixed(2)}</div>
           </div>
-          <div className="bg-blue-100 rounded-lg p-3">
-            <div className="text-sm font-medium text-blue-800">Total Repaid (USD)</div>
-            <div className="text-lg font-bold text-blue-900">${totalRepayUSD.toFixed(2)}</div>
+          <div className="bg-cyan-900/30 border border-cyan-500/30 rounded-lg p-3">
+            <div className="text-sm font-medium text-cyan-400">Total Repaid (USD)</div>
+            <div className="text-lg font-bold text-cyan-300">${totalRepayUSD.toFixed(2)}</div>
           </div>
         </div>
         {/* <div className="mt-3 text-xs text-slate-600 bg-slate-50 p-2 rounded">
@@ -373,19 +370,19 @@ export const SupplyBorrowDisplay: React.FC<SupplyBorrowDisplayProps> = ({
             : formatUSD(item.repayAmount, item.asset, item.assetPriceUSD);
           
           return (
-            <div key={`${item.asset}-${index}`} className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow">
+            <div key={`${item.asset}-${index}`} className="bg-slate-800/70 border border-slate-700 rounded-xl p-5 shadow-2xl shadow-slate-950/50 hover:shadow-lg transition-all duration-300 backdrop-blur-sm">
               {/* Token Header */}
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center space-x-3">
-                  <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                    <span className="text-blue-600 font-semibold text-sm">{tokenSymbol}</span>
+                  <div className="w-10 h-10 bg-cyan-500/20 rounded-full flex items-center justify-center border border-cyan-500/30">
+                    <span className="text-cyan-400 font-semibold text-sm">{tokenSymbol}</span>
                   </div>
                   <div>
-                    <div className="font-semibold text-slate-900">{tokenSymbol}</div>
-                    <div className="text-xs text-slate-500">{getChainName(item.chainId)}</div>
+                    <div className="font-semibold text-slate-100">{tokenSymbol}</div>
+                    <div className="text-xs text-slate-400">{getChainName(item.chainId)}</div>
                   </div>
                 </div>
-                <div className="text-xs text-slate-400 bg-slate-50 px-2 py-1 rounded">
+                <div className="text-xs text-slate-400 bg-slate-700/50 px-2 py-1 rounded font-mono">
                   {item.asset.slice(0, 6)}...{item.asset.slice(-4)}
                 </div>
               </div>
@@ -393,24 +390,24 @@ export const SupplyBorrowDisplay: React.FC<SupplyBorrowDisplayProps> = ({
               {/* Horizontal Activity Summary - Same format as Total Activity */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                 {/* Supplied */}
-                <div className="bg-green-100 rounded-lg p-3">
-                  <div className="text-sm font-medium text-green-800">Total Supplied</div>
-                  <div className="text-lg font-bold text-green-900">{supplyFormatted} {tokenSymbol}</div>
-                  {/* {supplyUSD && <div className="text-sm text-green-600 mt-1">{supplyUSD}</div>} */}
+                <div className="bg-emerald-900/30 border border-emerald-500/30 rounded-lg p-3">
+                  <div className="text-sm font-medium text-emerald-400">Total Supplied</div>
+                  <div className="text-lg font-bold text-emerald-300">{supplyFormatted} {tokenSymbol}</div>
+                  {supplyUSD && <div className="text-sm text-emerald-400 mt-1">{supplyUSD}</div>}
                 </div>
                 
                 {/* Total Borrowed */}
-                <div className="bg-orange-100 rounded-lg p-3">
-                  <div className="text-sm font-medium text-orange-800">Total Borrowed</div>
-                  <div className="text-lg font-bold text-orange-900">{totalBorrowFormatted} {tokenSymbol}</div>
-                  {/* {totalBorrowUSD && <div className="text-sm text-orange-600 mt-1">{totalBorrowUSD}</div>} */}
+                <div className="bg-orange-900/30 border border-orange-500/30 rounded-lg p-3">
+                  <div className="text-sm font-medium text-orange-400">Total Borrowed</div>
+                  <div className="text-lg font-bold text-orange-300">{totalBorrowFormatted} {tokenSymbol}</div>
+                  {totalBorrowUSD && <div className="text-sm text-orange-400 mt-1">{totalBorrowUSD}</div>}
                 </div>
                 
                 {/* Total Repaid */}
-                <div className="bg-blue-100 rounded-lg p-3">
-                  <div className="text-sm font-medium text-blue-800">Total Repaid</div>
-                  <div className="text-lg font-bold text-blue-900">{repayFormatted} {tokenSymbol}</div>
-                  {/* {repayUSD && <div className="text-sm text-blue-600 mt-1">{repayUSD}</div>} */}
+                <div className="bg-cyan-900/30 border border-cyan-500/30 rounded-lg p-3">
+                  <div className="text-sm font-medium text-cyan-400">Total Repaid</div>
+                  <div className="text-lg font-bold text-cyan-300">{repayFormatted} {tokenSymbol}</div>
+                  {repayUSD && <div className="text-sm text-cyan-400 mt-1">{repayUSD}</div>}
                 </div>
               </div>
               
@@ -433,27 +430,27 @@ export const SupplyBorrowDisplay: React.FC<SupplyBorrowDisplayProps> = ({
               
               {/* Transaction Details */}
               {item.transactions && item.transactions.length > 0 && (
-                <div className="bg-slate-50 rounded-lg p-4 max-w-3xl mx-auto">
-                  <div className="text-sm font-medium text-slate-700 mb-3">Transaction Details ({item.transactions.length} transactions)</div>
+                <div className="bg-slate-800/50 rounded-lg p-4 max-w-3xl mx-auto border border-slate-700 backdrop-blur-sm">
+                  <div className="text-sm font-medium text-slate-300 mb-3">Transaction Details ({item.transactions.length} transactions)</div>
                   <div className="space-y-2 max-h-48 overflow-y-auto">
                     {item.transactions.map((tx, txIndex) => (
-                      <div key={txIndex} className="bg-white rounded border p-3 text-xs">
+                      <div key={txIndex} className="bg-slate-700/50 rounded border border-slate-600 p-3 text-xs">
                         <div className="flex justify-between items-start mb-2">
                           <div className="flex items-center space-x-2">
                             <span className={`px-2 py-1 rounded text-xs font-medium ${
-                              tx.action === 'Supply' ? 'bg-green-100 text-green-800' :
-                              tx.action === 'Borrow' ? 'bg-orange-100 text-orange-800' :
-                              tx.action === 'Repay' ? 'bg-blue-100 text-blue-800' :
-                              'bg-gray-100 text-gray-800'
+                              tx.action === 'Supply' ? 'bg-emerald-900/30 text-emerald-400 border border-emerald-500/30' :
+                              tx.action === 'Borrow' ? 'bg-orange-900/30 text-orange-400 border border-orange-500/30' :
+                              tx.action === 'Repay' ? 'bg-cyan-900/30 text-cyan-400 border border-cyan-500/30' :
+                              'bg-slate-700 text-slate-300'
                             }`}>
                               {tx.action}
                             </span>
-                            <span className="font-mono text-slate-600">
+                            <span className="font-mono text-slate-300">
                               {formatTokenAmount(tx.amount, item.asset)} {tokenSymbol}
                             </span>
                           </div>
                         </div>
-                        <div className="space-y-1 text-slate-600">
+                        <div className="space-y-1 text-slate-400">
                           <div className="flex justify-between">
                             <span>Tx Hash:</span>
                             <span className="font-mono text-xs">
@@ -461,18 +458,12 @@ export const SupplyBorrowDisplay: React.FC<SupplyBorrowDisplayProps> = ({
                                 href={`${getBlockExplorerUrl(item.chainId)}/tx/${tx.txHash}`}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="text-blue-600 hover:text-blue-800 underline"
+                                className="text-cyan-400 hover:text-cyan-300 underline"
                               >
                                 {tx.txHash.slice(0, 8)}...{tx.txHash.slice(-6)}
                               </a>
                             </span>
                           </div>
-                          {/* {tx.assetPriceUSD && (
-                            <div className="flex justify-between">
-                              <span>Price:</span>
-                              <span className="text-xs">${parseFloat(tx.assetPriceUSD).toFixed(4)}</span>
-                            </div>
-                          )} */}
                         </div>
                       </div>
                     ))}
