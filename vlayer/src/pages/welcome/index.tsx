@@ -43,11 +43,11 @@ export const WelcomePage = () => {
   const navigate = useNavigate();
   const [selectedProtocol, setSelectedProtocol] = useState<ProtocolType | null>(null);
   
-  // Define available protocols (only AAVE and COMPOUND are currently supported)
-  const availableProtocols: ProtocolType[] = ['AAVE', 'COMPOUND'];
+  // Define available protocols
+  const availableProtocols: ProtocolType[] = ['AAVE', 'COMPOUND', 'MORPHO'];
   
   // Define coming soon protocols
-  const comingSoonProtocols: ProtocolType[] = ['FLUID', 'MORPHO'];
+  const comingSoonProtocols: ProtocolType[] = ['FLUID'];
   
   // Define protocol border colors for UI
   const protocolBorderColors: Record<ProtocolType, { default: string; hover: string }> = {

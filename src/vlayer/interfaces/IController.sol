@@ -115,6 +115,17 @@ interface IController {
         view
         returns (IVerifier.UserInfo memory userInfo);
 
+    /**
+     * @notice Get latest debt and collateral block numbers for a protocol
+     * @param protocol The protocol to query
+     * @return latestDebtBlock The latest processed debt block number for the protocol
+     * @return latestCollateralBlock The latest processed collateral block number for the protocol
+     */
+    function latestProtocolBlockNumbers(Protocol protocol)
+        external
+        view
+        returns (uint256 latestDebtBlock, uint256 latestCollateralBlock);
+
     // ============ ADMIN FUNCTIONS ============
 
     /**

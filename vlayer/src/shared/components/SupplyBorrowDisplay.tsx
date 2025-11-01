@@ -1,6 +1,7 @@
 import React from 'react';
 import { formatUnits } from 'viem';
 import { getChainName, type CompoundTokenConfig } from '../lib/utils';
+import { type MorphoTokenConfig } from '../lib/morpho-subgraph';
 import { TokenConfig, TokenType, getTokenTypeName, getTokenTypeColor, getTokenTypeIcon } from '../types/TeleportTypes';
 import { type SupplyBorrowData, type SubgraphTransaction } from '../lib/aave-subgraph';
 import { getTokenDecimals, getTokenSymbol } from '../utils/tokenDecimals';
@@ -79,7 +80,7 @@ const formatUSD = (value: string, asset: string, priceUSD?: string) => {
 
 // New component for displaying TokenConfig structures
 interface TokenConfigDisplayProps {
-  tokens: (TokenConfig | CompoundTokenConfig)[];
+  tokens: (TokenConfig | CompoundTokenConfig | MorphoTokenConfig)[];
   isLoading?: boolean;
 }
 
@@ -112,17 +113,96 @@ export const TokenConfigDisplay: React.FC<TokenConfigDisplayProps> = ({
       
       <div className="space-y-4">
         {tokens.map((token, index) => {
-          // Handle both TokenConfig and CompoundTokenConfig
+          // Morpho branch
+          if ('marketId' in token) {
+            const morpho = token as MorphoTokenConfig;
+            const headerColor = 'border-indigo-200';
+            return (
+              <div key={`${morpho.marketId}-${index}`} className={`bg-white border rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow ${headerColor}`}>
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center border-2 border-indigo-200">
+                      <span className="text-lg text-indigo-600">M</span>
+                    </div>
+                    <div>
+                      <div className="font-semibold text-slate-900">Morpho</div>
+                      <div className="text-xs text-slate-500">{getChainName(morpho.chainId.toString())}</div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <span className="text-slate-600">Morpho Address:</span>
+                      <div className="font-mono text-xs break-all text-slate-800">{morpho.morphoAddress}</div>
+                    </div>
+                    <div>
+                      <span className="text-slate-600">Market ID:</span>
+                      <div className="font-mono text-xs break-all text-slate-800">{morpho.marketId}</div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <span className="text-slate-600">Chain ID:</span>
+                      <div className="font-semibold text-slate-900">{morpho.chainId}</div>
+                    </div>
+                    <div>
+                      <span className="text-slate-600">Block Number:</span>
+                      <div className="font-semibold text-slate-900">{morpho.blockNumber}</div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <span className="text-slate-600">Supply Shares:</span>
+                      <div className="font-semibold text-slate-900">{morpho.supplyShares}</div>
+                    </div>
+                    <div>
+                      <span className="text-slate-600">Borrow Shares:</span>
+                      <div className="font-semibold text-slate-900">{morpho.borrowShares}</div>
+                    </div>
+                    <div>
+                      <span className="text-slate-600">Collateral:</span>
+                      <div className="font-semibold text-slate-900">{morpho.collateral}</div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <span className="text-slate-600">Total Borrow Assets:</span>
+                      <div className="font-semibold text-slate-900">{morpho.totalBorrowAssets}</div>
+                    </div>
+                    <div>
+                      <span className="text-slate-600">Total Borrow Shares:</span>
+                      <div className="font-semibold text-slate-900">{morpho.totalBorrowShares}</div>
+                    </div>
+                    <div>
+                      <span className="text-slate-600">Total Supply Assets:</span>
+                      <div className="font-semibold text-slate-900">{morpho.totalSupplyAssets}</div>
+                    </div>
+                    <div>
+                      <span className="text-slate-600">Total Supply Shares:</span>
+                      <div className="font-semibold text-slate-900">{morpho.totalSupplyShares}</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          }
+
+          // Aave/Compound branch
           const underlyingAddress = 'underlingTokenAddress' in token 
             ? token.underlingTokenAddress 
-            : token.collateralAddress;
+            : (token as CompoundTokenConfig).collateralAddress;
           const tokenAddress = 'aTokenAddress' in token 
-            ? token.aTokenAddress 
-            : token.cTokenAddress;
-            
-          const tokenTypeName = getTokenTypeName(token.tokenType, underlyingAddress);
-          const tokenTypeColor = getTokenTypeColor(token.tokenType);
-          const tokenTypeIcon = getTokenTypeIcon(token.tokenType);
+            ? (token as TokenConfig).aTokenAddress 
+            : (token as CompoundTokenConfig).cTokenAddress;
+
+          const tokenTypeName = getTokenTypeName((token as TokenConfig | CompoundTokenConfig).tokenType, underlyingAddress);
+          const tokenTypeColor = getTokenTypeColor((token as TokenConfig | CompoundTokenConfig).tokenType);
+          const tokenTypeIcon = getTokenTypeIcon((token as TokenConfig | CompoundTokenConfig).tokenType);
           
           return (
             <div key={`${underlyingAddress}-${index}`} className={`bg-white border rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow ${tokenTypeColor}`}>

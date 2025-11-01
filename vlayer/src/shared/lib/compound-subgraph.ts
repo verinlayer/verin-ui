@@ -1,6 +1,7 @@
 import { createPublicClient, http } from 'viem';
 import { optimismSepolia, mainnet, base, baseSepolia, optimism } from 'viem/chains';
 import { getCwethAddressForChain, getWethAddressForChain, getCompoundSubgraphUrl } from '../config/compound';
+// Morpho-related functions are defined in morpho-subgraph.ts
 import { rpcClients } from '../config/compound';
 import { getUserInfoFromContract, getBlockTimestamp } from './client';
 
@@ -704,4 +705,3 @@ export const getUnclaimedCompoundData = async (
     throw error;
   }
 };
-
