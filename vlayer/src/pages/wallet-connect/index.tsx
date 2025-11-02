@@ -81,12 +81,19 @@ function Account() {
   const { data: ensName } = useEnsName({ address })
   const { data: ensAvatar } = useEnsAvatar({ name: ensName! })
 
-  // Auto-redirect to main app after connection
+  // Auto-redirect after connection
   React.useEffect(() => {
     if (address) {
-      console.log('Wallet connected successfully, redirecting to main app...')
-      // Immediate redirect to avoid double reload
-      window.location.href = '/'
+      console.log('Wallet connected successfully, redirecting...')
+      // Check if manual fetch data exists - if so, go to dashboard
+      const manualFetchData = localStorage.getItem('fetchedUnclaimedData')
+      if (manualFetchData) {
+        // Redirect to dashboard if user had manually fetched data
+        window.location.href = '/dashboard'
+      } else {
+        // Otherwise redirect to home
+        window.location.href = '/'
+      }
     }
   }, [address])
 

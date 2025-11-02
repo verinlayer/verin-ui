@@ -10,6 +10,7 @@ import { ErrorBoundary } from "react-error-boundary";
 import { StepErrorBoundaryComponent } from "../../errors/ErrorBoundary";
 import { useCurrentStep } from "../../hooks/useCurrentStep";
 import { Navigation } from "../Navigation";
+import { Footer } from "../Footer";
 import { motionConfig } from "./Modal.animations";
 import { useAccount } from "wagmi";
 
@@ -57,7 +58,7 @@ export const Modal = ({ children }: { children: React.ReactNode }) => {
           <div className="w-full">
             <Navigation />
           </div>
-          <div className={`${isConnected ? 'pt-10' : 'pt-4'} w-full flex flex-col items-center`}>
+          <div className={`${isConnected ? 'pt-10' : 'pt-4'} w-full flex flex-col items-center flex-1`}>
             <ErrorBoundary FallbackComponent={StepErrorBoundaryComponent}>
             <AnimatePresence>
               {currentStep?.headerIcon && (
@@ -69,7 +70,7 @@ export const Modal = ({ children }: { children: React.ReactNode }) => {
                 />
               )}
             </AnimatePresence>
-            <div className="flex-col flex gap-4 justify-between mb-2">
+            <div className="flex-col flex gap-4 justify-between mb-2 w-full">
               {currentStep?.title && (
                 <h3 className={`header ${descClass}`}>{currentStep?.title}</h3>
               )}
@@ -82,6 +83,7 @@ export const Modal = ({ children }: { children: React.ReactNode }) => {
             </div>
             </ErrorBoundary>
           </div>
+          <Footer />
         </motion.div>
       </div>
     </dialog>

@@ -19,10 +19,10 @@ export type StepMeta = {
 
 export const stepsMeta: Record<StepKind, StepMeta> = {
   [StepKind.welcome]: {
-    path: "",
+    path: "app",
     kind: StepKind.welcome,
-    title: "Turn Your Blockchain History into Value powered by Zero Knowledge Proof",
-    description: "Prove that you interact with DeFi applications across multiple chains.",
+    title: "",
+    description: "",
     // headerIcon: "/img/teleport-icon.svg",
     index: 0,
   },

@@ -1,7 +1,7 @@
 import * as React from "react";
 import { ChevronLeftIcon } from "@heroicons/react/24/outline";
 import { useCurrentStep } from "../../hooks/useCurrentStep";
-import { useNavigate } from "react-router";
+import { useNavigate, useLocation } from "react-router";
 import { useAccount, useDisconnect } from "wagmi";
 import { useState } from "react";
 import { StepKind } from "../../../app/router/types";
@@ -27,7 +27,12 @@ export const Navigation: React.FC = () => {
   const { currentStep } = useCurrentStep();
   const { isConnected, address } = useAccount();
   const navigate = useNavigate();
+  const location = useLocation();
   const prevIsConnectedRef = React.useRef(isConnected);
+  
+  // Determine active navigation button based on current path
+  const isHomeActive = location.pathname === '/';
+  const isDashboardActive = location.pathname === '/dashboard';
 
   // Redirect to root page when wallet disconnects
   React.useEffect(() => {
@@ -46,6 +51,24 @@ export const Navigation: React.FC = () => {
     navigate('/wallet-connect');
   };
 
+  const handleHome = () => {
+    // Clear manual fetch data when navigating to home if wallet is not connected
+    if (!isConnected) {
+      localStorage.removeItem('fetchedUnclaimedData');
+      localStorage.removeItem('fetchedWalletAddress');
+      localStorage.removeItem('fetchedNetwork');
+    }
+    navigate('/');
+  };
+
+  const handleDashboard = () => {
+    navigate('/dashboard');
+  };
+
+  const handleCLending = () => {
+    window.open('https://c-lending-ui.vercel.app/#/', '_blank', 'noopener,noreferrer');
+  };
+
   return (
     <Navbar>
       <div className="flex items-center gap-4">
@@ -53,6 +76,34 @@ export const Navigation: React.FC = () => {
         <h1 className="text-xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-slate-200 to-slate-400">
           VerinLayer
         </h1>
+      </div>
+      <div className="absolute left-1/2 transform -translate-x-1/2 flex items-center gap-4">
+        <button
+          onClick={handleHome}
+          className={`px-6 py-3 text-lg font-semibold rounded-lg transition-colors duration-300 ${
+            isHomeActive
+              ? 'text-white bg-cyan-500 border-2 border-cyan-400 shadow-lg shadow-cyan-500/20'
+              : 'text-slate-200 bg-slate-700/50 border border-slate-600 hover:bg-slate-700'
+          }`}
+        >
+          Home
+        </button>
+        <button
+          onClick={handleDashboard}
+          className={`px-6 py-3 text-lg font-semibold rounded-lg transition-colors duration-300 ${
+            isDashboardActive
+              ? 'text-white bg-cyan-500 border-2 border-cyan-400 shadow-lg shadow-cyan-500/20'
+              : 'text-slate-200 bg-slate-700/50 border border-slate-600 hover:bg-slate-700'
+          }`}
+        >
+          Dashboard
+        </button>
+        <button
+          onClick={handleCLending}
+          className="px-6 py-3 text-lg font-semibold text-slate-200 bg-slate-700/50 border border-slate-600 hover:bg-slate-700 rounded-lg transition-colors duration-300"
+        >
+          CLending
+        </button>
       </div>
       <div className="flex items-center">
         {isConnected && address ? (
@@ -82,7 +133,7 @@ export const Navbar: React.FC<{ children: React.ReactNode }> = ({
 
   return (
     <header 
-      className="flex justify-between items-center w-full"
+      className="relative flex justify-between items-center w-full"
       style={{ opacity: shouldShow ? 1 : 0 }}
     >
       {children}

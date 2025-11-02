@@ -77,16 +77,13 @@ export const WelcomePage = () => {
   const isSupportedChain = chain?.id ? supportedChainIds.includes(chain.id) : null;
   const isWrongChain = isConnected && chain?.id && isSupportedChain === false;
 
-  // When wallet connects while viewing manual fetch data, clear it and switch to wallet flow
+  // When wallet connects while viewing manual fetch data, redirect to Dashboard
   useEffect(() => {
     if (isConnected && address && manualFetchedUnclaimedData) {
-      // Clear manual fetch data and localStorage
-      setManualFetchedUnclaimedData(null);
-      localStorage.removeItem('fetchedUnclaimedData');
-      localStorage.removeItem('fetchedWalletAddress');
-      localStorage.removeItem('fetchedNetwork');
+      // Redirect to dashboard when wallet connects after manual fetch
+      navigate('/dashboard');
     }
-  }, [isConnected, address]);
+  }, [isConnected, address, manualFetchedUnclaimedData, navigate]);
 
   // Restore selected protocol from localStorage on mount
   useEffect(() => {
@@ -275,6 +272,94 @@ export const WelcomePage = () => {
       setIsFetchingData(false);
     }
   };
+
+  // If manual fetch data exists, show it even when wallet is connected
+  // User can see their manually fetched data and optionally switch to wallet flow
+  if (manualFetchedUnclaimedData && manualFetchedUnclaimedData.length > 0) {
+    return (
+      <div>
+        {/* Show option to view wallet data if connected */}
+        {isConnected && address && (
+          <div className="mb-4 p-4 bg-cyan-900/20 border border-cyan-500/50 rounded-lg backdrop-blur-sm">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-semibold text-cyan-300 mb-1">Wallet Connected</h3>
+                <p className="text-sm text-cyan-200/80">
+                  You can view your connected wallet data by selecting a protocol below, or continue viewing manually fetched data.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Back button to fetch new data */}
+        <div className="mb-4">
+          <button
+            onClick={() => {
+              setManualFetchedUnclaimedData(null);
+              setError(null);
+              // Clear saved data from localStorage
+              localStorage.removeItem('fetchedUnclaimedData');
+              localStorage.removeItem('fetchedWalletAddress');
+              localStorage.removeItem('fetchedNetwork');
+            }}
+            className="flex items-center gap-2 text-slate-400 hover:text-slate-200 transition-colors"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+            </svg>
+            <span>Fetch Another Address</span>
+          </button>
+        </div>
+
+        {error && (
+          <div className="mb-3 p-3 bg-red-900/20 border border-red-500/50 text-red-400 rounded backdrop-blur-sm">
+            {error}
+          </div>
+        )}
+
+        {/* Display only unclaimed data from manual fetch */}
+        <div className="mb-6">
+          <SupplyBorrowDisplay 
+            data={manualFetchedUnclaimedData} 
+            isLoading={false} 
+          />
+        </div>
+
+        {/* Show wallet protocol selection if wallet is connected */}
+        {isConnected && address && !walletSelectedProtocol && (
+          <div className="mt-8 p-6 bg-slate-800/50 border border-slate-700 rounded-xl">
+            <h3 className="text-xl font-semibold text-slate-100 mb-4 text-center">
+              Or view your connected wallet data
+            </h3>
+            <div className="flex flex-wrap gap-4 justify-center">
+              {availableProtocols.map((protocol) => {
+                const metadata = getProtocolMetadata(protocol);
+                return (
+                  <button
+                    key={protocol}
+                    onClick={() => {
+                      if (!isWrongChain) {
+                        setWalletSelectedProtocol(protocol);
+                      }
+                    }}
+                    className="bg-slate-700/50 border-2 border-slate-600 hover:border-cyan-400 rounded-xl p-4 transition-all duration-300 hover:scale-105"
+                  >
+                    <img 
+                      src={metadata.image} 
+                      alt={metadata.displayName} 
+                      className="w-12 h-12 mx-auto mb-2 object-contain" 
+                    />
+                    <span className="text-sm font-semibold text-slate-100">{metadata.displayName}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
 
   // WALLET CONNECTED FLOW - Show protocol selection and wallet data
   if (isConnected && address) {
@@ -518,44 +603,6 @@ export const WelcomePage = () => {
     );
   }
 
-  // Show data if fetched
-  return (
-    <div>
-      {/* Back button to fetch new data */}
-      <div className="mb-4">
-        <button
-          onClick={() => {
-            setManualFetchedUnclaimedData(null);
-            setError(null);
-            // Clear saved data from localStorage
-            localStorage.removeItem('fetchedUnclaimedData');
-            localStorage.removeItem('fetchedWalletAddress');
-            localStorage.removeItem('fetchedNetwork');
-          }}
-          className="flex items-center gap-2 text-slate-400 hover:text-slate-200 transition-colors"
-        >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-          </svg>
-          <span>Fetch Another Address</span>
-        </button>
-      </div>
-
-      {error && (
-        <div className="mb-3 p-3 bg-red-900/20 border border-red-500/50 text-red-400 rounded backdrop-blur-sm">
-          {error}
-        </div>
-      )}
-
-      {/* Display only unclaimed data from manual fetch */}
-      {manualFetchedUnclaimedData && manualFetchedUnclaimedData.length > 0 && (
-        <div className="mb-6">
-          <SupplyBorrowDisplay 
-            data={manualFetchedUnclaimedData} 
-            isLoading={false} 
-          />
-        </div>
-      )}
-    </div>
-  );
+  // This should never be reached, but return null as fallback
+  return null;
 };
