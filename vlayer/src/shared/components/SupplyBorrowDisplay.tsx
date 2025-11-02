@@ -11,6 +11,7 @@ interface SupplyBorrowDisplayProps {
   isLoading?: boolean;
   showTitle?: boolean;
   title?: string;
+  hideNoDataMessage?: boolean;
 }
 
 // Token decimal handling is now centralized in ../utils/tokenDecimals.ts
@@ -133,15 +134,13 @@ export const TokenConfigDisplay: React.FC<TokenConfigDisplayProps> = ({
                 </div>
 
                 <div className="space-y-3">
-                  <div className="grid grid-cols-2 gap-4 text-sm">
-                    <div>
-                      <span className="text-slate-400">Morpho Address:</span>
-                      <div className="font-mono text-xs break-all text-slate-300">{morpho.morphoAddress}</div>
-                    </div>
-                    <div>
-                      <span className="text-slate-400">Market ID:</span>
-                      <div className="font-mono text-xs break-all text-slate-300">{morpho.marketId}</div>
-                    </div>
+                  <div className="text-sm">
+                    <span className="text-slate-400">Morpho Address:</span>
+                    <div className="font-mono text-xs text-slate-300 mt-1 break-all overflow-wrap-anywhere max-w-full">{morpho.morphoAddress}</div>
+                  </div>
+                  <div className="text-sm">
+                    <span className="text-slate-400">Market ID:</span>
+                    <div className="font-mono text-xs text-slate-300 mt-1 break-all overflow-wrap-anywhere max-w-full">{morpho.marketId}</div>
                   </div>
 
                   <div className="grid grid-cols-2 gap-4 text-sm">
@@ -171,21 +170,21 @@ export const TokenConfigDisplay: React.FC<TokenConfigDisplayProps> = ({
                   </div>
 
                   <div className="grid grid-cols-2 gap-4 text-sm">
-                    <div>
+                    <div className="min-w-0">
                       <span className="text-slate-400">Total Borrow Assets:</span>
-                      <div className="font-semibold text-slate-200">{morpho.totalBorrowAssets}</div>
+                      <div className="font-semibold text-slate-200 break-all overflow-wrap-anywhere">{morpho.totalBorrowAssets}</div>
                     </div>
-                    <div>
+                    <div className="min-w-0">
                       <span className="text-slate-400">Total Borrow Shares:</span>
-                      <div className="font-semibold text-slate-200">{morpho.totalBorrowShares}</div>
+                      <div className="font-semibold text-slate-200 break-all overflow-wrap-anywhere">{morpho.totalBorrowShares}</div>
                     </div>
-                    <div>
+                    <div className="min-w-0">
                       <span className="text-slate-400">Total Supply Assets:</span>
-                      <div className="font-semibold text-slate-200">{morpho.totalSupplyAssets}</div>
+                      <div className="font-semibold text-slate-200 break-all overflow-wrap-anywhere">{morpho.totalSupplyAssets}</div>
                     </div>
-                    <div>
+                    <div className="min-w-0">
                       <span className="text-slate-400">Total Supply Shares:</span>
-                      <div className="font-semibold text-slate-200">{morpho.totalSupplyShares}</div>
+                      <div className="font-semibold text-slate-200 break-all overflow-wrap-anywhere">{morpho.totalSupplyShares}</div>
                     </div>
                   </div>
                 </div>
@@ -222,12 +221,22 @@ export const TokenConfigDisplay: React.FC<TokenConfigDisplayProps> = ({
               
               {/* Token Details */}
               <div className="space-y-3">
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div>
-                    <span className="text-slate-400">Token Address:</span>
-                    <div className="font-mono text-xs break-all text-slate-300">{tokenAddress}</div>
-                  </div>
+                <div className="text-sm">
+                  <span className="text-slate-400">Token Address:</span>
+                  <div className="font-mono text-xs text-slate-300 mt-1 break-all overflow-wrap-anywhere max-w-full">{tokenAddress}</div>
                 </div>
+                {'underlingTokenAddress' in token && (
+                  <div className="text-sm">
+                    <span className="text-slate-400">Underlying Address:</span>
+                    <div className="font-mono text-xs text-slate-300 mt-1 break-all overflow-wrap-anywhere max-w-full">{underlyingAddress}</div>
+                  </div>
+                )}
+                {'collateralAddress' in token && (
+                  <div className="text-sm">
+                    <span className="text-slate-400">Collateral Address:</span>
+                    <div className="font-mono text-xs text-slate-300 mt-1 break-all overflow-wrap-anywhere max-w-full">{underlyingAddress}</div>
+                  </div>
+                )}
                 
                 <div className="grid grid-cols-2 gap-4 text-sm">
                   <div>
@@ -266,7 +275,8 @@ export const SupplyBorrowDisplay: React.FC<SupplyBorrowDisplayProps> = ({
   data, 
   isLoading = false,
   showTitle = true,
-  title = "Summary of Unclaimed Data"
+  title = "Summary of Unclaimed Data",
+  hideNoDataMessage = false
 }) => {
   if (isLoading) {
     return (
@@ -280,6 +290,9 @@ export const SupplyBorrowDisplay: React.FC<SupplyBorrowDisplayProps> = ({
   }
 
   if (data.length === 0) {
+    if (hideNoDataMessage) {
+      return null;
+    }
     return (
       <div className="mb-4 p-4 bg-slate-800/50 border border-slate-700 rounded-lg backdrop-blur-sm">
         <p className="text-slate-400 text-sm">No unclaimed supply or borrow activity found for this address.</p>
@@ -327,7 +340,7 @@ export const SupplyBorrowDisplay: React.FC<SupplyBorrowDisplayProps> = ({
   return (
     <div className="mb-6 space-y-4">
       {showTitle && (
-        <h3 className="text-lg font-semibold text-slate-100">{title}</h3>
+        <h3 className="text-lg font-semibold text-slate-100 text-center md:text-left">{title}</h3>
       )}
       
       {/* Overall Totals */}
@@ -430,14 +443,14 @@ export const SupplyBorrowDisplay: React.FC<SupplyBorrowDisplayProps> = ({
               
               {/* Transaction Details */}
               {item.transactions && item.transactions.length > 0 && (
-                <div className="bg-slate-800/50 rounded-lg p-4 max-w-3xl mx-auto border border-slate-700 backdrop-blur-sm">
+                <div className="bg-slate-800/50 rounded-lg p-4 max-w-3xl mx-auto border border-slate-700 backdrop-blur-sm w-full overflow-x-hidden">
                   <div className="text-sm font-medium text-slate-300 mb-3">Transaction Details ({item.transactions.length} transactions)</div>
-                  <div className="space-y-2 max-h-48 overflow-y-auto">
+                  <div className="space-y-2 max-h-48 overflow-y-auto overflow-x-hidden">
                     {item.transactions.map((tx, txIndex) => (
-                      <div key={txIndex} className="bg-slate-700/50 rounded border border-slate-600 p-3 text-xs">
-                        <div className="flex justify-between items-start mb-2">
-                          <div className="flex items-center space-x-2">
-                            <span className={`px-2 py-1 rounded text-xs font-medium ${
+                      <div key={txIndex} className="bg-slate-700/50 rounded border border-slate-600 p-3 text-xs w-full overflow-x-hidden">
+                        <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start mb-2 gap-2">
+                          <div className="flex flex-wrap items-center gap-2 min-w-0 flex-1">
+                            <span className={`px-2 py-1 rounded text-xs font-medium whitespace-nowrap flex-shrink-0 ${
                               tx.action === 'Supply' ? 'bg-emerald-900/30 text-emerald-400 border border-emerald-500/30' :
                               tx.action === 'Borrow' ? 'bg-orange-900/30 text-orange-400 border border-orange-500/30' :
                               tx.action === 'Repay' ? 'bg-cyan-900/30 text-cyan-400 border border-cyan-500/30' :
@@ -445,20 +458,20 @@ export const SupplyBorrowDisplay: React.FC<SupplyBorrowDisplayProps> = ({
                             }`}>
                               {tx.action}
                             </span>
-                            <span className="font-mono text-slate-300">
+                            <span className="font-mono text-slate-300 break-words min-w-0">
                               {formatTokenAmount(tx.amount, item.asset)} {tokenSymbol}
                             </span>
                           </div>
                         </div>
                         <div className="space-y-1 text-slate-400">
-                          <div className="flex justify-between">
-                            <span>Tx Hash:</span>
-                            <span className="font-mono text-xs">
+                          <div className="flex flex-col sm:flex-row sm:justify-between gap-1 sm:gap-2">
+                            <span className="flex-shrink-0">Tx Hash:</span>
+                            <span className="font-mono text-xs break-all min-w-0">
                               <a 
                                 href={`${getBlockExplorerUrl(item.chainId)}/tx/${tx.txHash}`}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="text-cyan-400 hover:text-cyan-300 underline"
+                                className="text-cyan-400 hover:text-cyan-300 underline break-all"
                               >
                                 {tx.txHash.slice(0, 8)}...{tx.txHash.slice(-6)}
                               </a>

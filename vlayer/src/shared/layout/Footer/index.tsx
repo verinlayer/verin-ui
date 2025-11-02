@@ -2,9 +2,9 @@ import React from "react";
 
 export const Footer: React.FC = () => {
   return (
-    <footer className="w-full px-6 py-4 mt-8 mb-4">
-      <div className="flex justify-between items-center max-w-[95vw] mx-auto">
-        <div className="text-sm text-slate-400">
+    <footer className="w-full px-4 sm:px-6 py-4 mt-8 mb-4">
+      <div className="flex flex-col sm:flex-row justify-between items-center gap-3 sm:gap-0 max-w-[95vw] mx-auto">
+        <div className="text-xs sm:text-sm text-slate-400 text-center sm:text-left">
           Copyright © 2025 VerinLayer. All rights reserved.
         </div>
         <div className="flex items-center">

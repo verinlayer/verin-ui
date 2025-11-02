@@ -584,7 +584,7 @@ const formatCreditTier = (tier: number): string => {
 
       {/* Protocol-Specific Data */}
       {/* <h3 className="text-lg font-semibold text-slate-100 mt-6">Summary of Claimed {getProtocolMetadata(protocol).displayName} Data</h3> */}
-      <h3 className="text-lg font-semibold text-slate-100 mt-6">Summary of Claimed Data</h3>
+      <h3 className="text-lg font-semibold text-slate-100 mt-6 text-center md:text-left">Summary of Claimed Data</h3>
       
       {hasProtocolActivity ? (
         <div className="bg-slate-800/70 border border-slate-700 rounded-xl p-4 backdrop-blur-sm shadow-2xl shadow-slate-950/50">
@@ -618,19 +618,19 @@ const formatCreditTier = (tier: number): string => {
 
           {/* Additional Information */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-3">
-              <div>
-                <div className="text-sm font-medium text-slate-400">Liquidations</div>
-                <div className="text-lg font-semibold text-red-400">{userInfo.liquidations.toString()}</div>
+            <div className="bg-slate-700/50 rounded-lg p-3 border border-slate-600">
+              <div className="text-left">
+                <div className="text-sm font-medium text-slate-300">Liquidations</div>
+                <div className="text-lg font-bold text-red-400">{userInfo.liquidations.toString()}</div>
               </div>
             </div>
 
-            <div className="space-y-3">
-              <div>
-                <div className="text-sm font-medium text-slate-400">Latest Block</div>
-                <div className="text-lg font-semibold text-slate-200">{userInfo.latestBlock.toString()}</div>
+            <div className="bg-slate-700/50 rounded-lg p-3 border border-slate-600">
+              <div className="text-left">
+                <div className="text-sm font-medium text-slate-300">Latest Block</div>
+                <div className="text-lg font-bold text-slate-100">{userInfo.latestBlock.toString()}</div>
                 {latestBlockTimestamp > 0 && (
-                  <div className="text-xs text-slate-500">{formatDate(latestBlockTimestamp)}</div>
+                  <div className="text-xs text-slate-500 mt-1">{formatDate(latestBlockTimestamp)}</div>
                 )}
               </div>
             </div>

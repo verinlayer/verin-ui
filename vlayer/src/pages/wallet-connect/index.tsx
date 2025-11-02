@@ -85,15 +85,8 @@ function Account() {
   React.useEffect(() => {
     if (address) {
       console.log('Wallet connected successfully, redirecting...')
-      // Check if manual fetch data exists - if so, go to dashboard
-      const manualFetchData = localStorage.getItem('fetchedUnclaimedData')
-      if (manualFetchData) {
-        // Redirect to dashboard if user had manually fetched data
-        window.location.href = '/dashboard'
-      } else {
-        // Otherwise redirect to home
-        window.location.href = '/'
-      }
+      // Always redirect to /app (WelcomePage) where user can select protocol and get proof
+      window.location.href = '/app'
     }
   }, [address])
 
