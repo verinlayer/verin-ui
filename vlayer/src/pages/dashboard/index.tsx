@@ -65,6 +65,7 @@ export const DashboardPage = () => {
       setIsLoadingTokens(true);
       setIsLoadingUnclaimed(true);
       setError(null);
+      setShowNoDataWarning(false);
 
       try {
         // Map chain names to config keys
@@ -99,6 +100,7 @@ export const DashboardPage = () => {
         
         setTokensToProve(tokens);
         setUnclaimedSupplyBorrowData(unclaimedData);
+        setShowNoDataWarning(false); // Reset warning when data is loaded
         
         if (tokens.length === 0) {
           const fallbackTokens = getFallbackTokensToProve();
@@ -150,7 +152,6 @@ export const DashboardPage = () => {
       const currentTokens = getTokensToProve();
       
       if (currentTokens.length === 0) {
-        setError('No data for proof generation');
         setShowNoDataWarning(true);
         setIsLoading(false);
         return;

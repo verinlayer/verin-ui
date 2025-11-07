@@ -51,7 +51,7 @@ export const WelcomePage = () => {
   
   // Manual fetch state (when wallet not connected)
   const [selectedProtocol, setSelectedProtocol] = useState<ProtocolType | null>(null);
-  const [selectedNetwork, setSelectedNetwork] = useState<number | null>(null);
+  const [selectedNetwork, setSelectedNetwork] = useState<number | null>(8453); // Default to Base Mainnet
   const [walletAddress, setWalletAddress] = useState<string>("");
   const [isFetchingData, setIsFetchingData] = useState(false);
   const [manualFetchedUnclaimedData, setManualFetchedUnclaimedData] = useState<SupplyBorrowData[] | null>(null);
