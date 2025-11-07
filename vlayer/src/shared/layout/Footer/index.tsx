@@ -3,10 +3,7 @@ import React from "react";
 export const Footer: React.FC = () => {
   return (
     <footer className="w-full px-4 sm:px-6 py-4 mt-8 mb-4">
-      <div className="flex flex-col sm:flex-row justify-between items-center gap-3 sm:gap-0 max-w-[95vw] mx-auto">
-        <div className="text-xs sm:text-sm text-slate-400 text-center sm:text-left">
-          Copyright © 2025 VerinLayer. All rights reserved.
-        </div>
+      <div className="flex flex-col items-start gap-3 max-w-[95vw] mx-auto">
         <div className="flex items-center">
           <a
             href="https://twitter.com/verinlayer"
@@ -24,6 +21,9 @@ export const Footer: React.FC = () => {
               <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
             </svg>
           </a>
+        </div>
+        <div className="text-xs sm:text-sm text-slate-400 text-left">
+          © 2025 VerinLayer
         </div>
       </div>
     </footer>

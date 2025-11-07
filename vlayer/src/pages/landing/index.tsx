@@ -80,8 +80,8 @@ export const LandingPage = () => {
         <h2 className="text-2xl sm:text-3xl font-bold text-slate-100 text-center mb-6 sm:mb-8">How It Works</h2>
         <div className="space-y-4 sm:space-y-6">
           <div className="flex flex-col sm:flex-row items-start gap-4 sm:gap-6 bg-slate-800/30 border border-slate-700 rounded-xl p-4 sm:p-6">
-            <div className="flex-shrink-0 w-10 h-10 sm:w-12 sm:h-12 bg-cyan-500/20 rounded-full flex items-center justify-center mx-auto sm:mx-0">
-              <span className="text-lg sm:text-xl font-bold text-cyan-400">1</span>
+            <div className="flex-shrink-0 w-10 h-10 sm:w-12 sm:h-12 bg-emerald-500/20 rounded-full flex items-center justify-center mx-auto sm:mx-0">
+              <span className="text-lg sm:text-xl font-bold text-emerald-400">1</span>
             </div>
             <div className="flex-1 text-center sm:text-left">
               <h3 className="text-lg sm:text-xl font-semibold text-slate-100 mb-2">Connect or Enter Wallet</h3>
@@ -104,8 +104,8 @@ export const LandingPage = () => {
           </div>
 
           <div className="flex flex-col sm:flex-row items-start gap-4 sm:gap-6 bg-slate-800/30 border border-slate-700 rounded-xl p-4 sm:p-6">
-            <div className="flex-shrink-0 w-10 h-10 sm:w-12 sm:h-12 bg-purple-500/20 rounded-full flex items-center justify-center mx-auto sm:mx-0">
-              <span className="text-lg sm:text-xl font-bold text-purple-400">3</span>
+            <div className="flex-shrink-0 w-10 h-10 sm:w-12 sm:h-12 bg-emerald-500/20 rounded-full flex items-center justify-center mx-auto sm:mx-0">
+              <span className="text-lg sm:text-xl font-bold text-emerald-400">3</span>
             </div>
             <div className="flex-1 text-center sm:text-left">
               <h3 className="text-lg sm:text-xl font-semibold text-slate-100 mb-2">Claim Your Proof</h3>
