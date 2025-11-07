@@ -47,7 +47,7 @@ function WalletOption({
     <button 
       disabled={!ready} 
       onClick={onClick}
-      className="w-full flex items-center justify-center space-x-3 bg-white border border-gray-200 rounded-lg px-4 py-3 hover:bg-gray-50 transition-colors disabled:opacity-50"
+      className="w-full flex items-center justify-center space-x-3 bg-slate-700/50 border border-slate-600 rounded-lg px-4 py-3 hover:bg-slate-700 text-slate-200 transition-colors disabled:opacity-50"
     >
       <div className="w-6 h-6">
         {connector.name === "MetaMask" ? (
@@ -67,10 +67,10 @@ function WalletOption({
           <div className="w-6 h-6 bg-gradient-to-br from-blue-500 to-purple-600 rounded"></div>
         )}
       </div>
-      <span className="font-medium text-gray-900">
+      <span className="font-medium text-slate-200">
         {connector.name === "Injected" ? "Browser Wallet" : connector.name}
       </span>
-      {!ready && <span className="text-xs text-gray-500">(Not Available)</span>}
+      {!ready && <span className="text-xs text-slate-400">(Not Available)</span>}
     </button>
   )
 }
@@ -81,17 +81,17 @@ function Account() {
   const { data: ensName } = useEnsName({ address })
   const { data: ensAvatar } = useEnsAvatar({ name: ensName! })
 
-  // Auto-redirect to main app after connection
+  // Auto-redirect after connection
   React.useEffect(() => {
     if (address) {
-      console.log('Wallet connected successfully, redirecting to main app...')
-      // Immediate redirect to avoid double reload
-      window.location.href = '/'
+      console.log('Wallet connected successfully, redirecting...')
+      // Always redirect to /app (WelcomePage) where user can select protocol and get proof
+      window.location.href = '/app'
     }
   }, [address])
 
   return (
-    <div className="bg-white border border-green-200 rounded-lg p-6">
+    <div className="bg-slate-800/50 border border-emerald-500/30 rounded-lg p-6 backdrop-blur-sm">
       <div className="text-center">
         <div className="flex justify-center mb-4">
           {ensAvatar ? (
@@ -101,24 +101,24 @@ function Account() {
               className="w-16 h-16 rounded-full"
             />
           ) : (
-            <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center">
-              <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="w-16 h-16 bg-emerald-500/20 rounded-full flex items-center justify-center border-2 border-emerald-500/30">
+              <svg className="w-8 h-8 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
               </svg>
             </div>
           )}
         </div>
         
-        <h3 className="text-lg font-semibold text-gray-900 mb-2">
+        <h3 className="text-lg font-semibold text-slate-100 mb-2">
           ✅ Wallet Connected Successfully!
         </h3>
         
         {address && (
           <div className="mb-4">
-            <div className="text-sm font-medium text-gray-900">
+            <div className="text-sm font-medium text-slate-200">
               {ensName ? `${ensName}` : 'Connected Wallet'}
             </div>
-            <div className="text-xs text-gray-500 font-mono break-all mt-1">
+            <div className="text-xs text-slate-400 font-mono break-all mt-1">
               {address}
             </div>
           </div>
@@ -127,7 +127,7 @@ function Account() {
         <div className="flex justify-center">
           <button 
             onClick={() => window.location.href = '/'}
-            className="px-4 py-2 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors"
+            className="px-4 py-2 text-sm bg-emerald-500 hover:bg-emerald-600 text-white rounded-md transition-colors"
           >
             Go to Main App Now
           </button>
@@ -150,7 +150,7 @@ function WalletConnectContent() {
   const chainId = useChainId()
 
   return (
-    <div className="min-h-screen bg-gray-50 py-12">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 to-blue-950 py-12">
       <div className="max-w-2xl mx-auto px-4">
         {/*
         <div className="text-center mb-8">
@@ -203,8 +203,8 @@ function WalletConnectContent() {
         */}
 
         {/* Wallet Connection */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">
+        <div className="bg-slate-800/50 backdrop-blur-sm rounded-lg shadow-2xl shadow-slate-950/50 border border-slate-700 p-6 mb-6">
+          <h2 className="text-xl font-semibold text-slate-100 mb-4">
             {address ? 'Connected Account' : 'Connect Wallet'}
           </h2>
           <ConnectWallet />

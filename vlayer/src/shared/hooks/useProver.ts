@@ -28,7 +28,7 @@ export const useProver = () => {
   }
 
   // Get selected protocol from localStorage (default to AAVE for backward compatibility)
-  const selectedProtocol = (localStorage.getItem('selectedProtocol') || 'AAVE') as 'AAVE' | 'COMPOUND';
+  const selectedProtocol = (localStorage.getItem('selectedProtocol') || 'AAVE') as 'AAVE' | 'COMPOUND' | 'MORPHO';
 
   // Get contract addresses from config based on current chain and protocol
   let proverAddress: `0x${string}` = import.meta.env.VITE_PROVER_ADDRESS as `0x${string}`; // fallback to env
@@ -61,7 +61,11 @@ export const useProver = () => {
   }
 
   // Pick function name based on selected protocol
-  const dynamicFunctionName = selectedProtocol === 'COMPOUND' ? 'proveCompoundData' : 'proveAaveData';
+  const dynamicFunctionName = selectedProtocol === 'COMPOUND'
+    ? 'proveCompoundData'
+    : selectedProtocol === 'MORPHO'
+    ? 'proveMorphoData'
+    : 'proveAaveData';
 
   const {
     callProver,

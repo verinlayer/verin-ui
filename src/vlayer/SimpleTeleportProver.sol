@@ -7,8 +7,9 @@ import {IERC20} from "openzeppelin-contracts/token/ERC20/IERC20.sol";
 import {Initializable} from "openzeppelin-contracts/proxy/utils/Initializable.sol";
 import {UUPSUpgradeable} from "openzeppelin-contracts/proxy/utils/UUPSUpgradeable.sol";
 import {IProver} from "./interfaces/IProver.sol";
-import {Erc20Token, CToken, Protocol, TokenType, CTokenType} from "./types/TeleportTypes.sol";
+import {Erc20Token, CToken, Protocol, TokenType, CTokenType, MToken} from "./types/TeleportTypes.sol";
 import {ICToken} from "./interfaces/ICToken.sol";
+import {IMorpho} from "./interfaces/IMorpho.sol";
 
 /// @title SimpleTeleportProver
 /// @notice Upgradeable contract for proving DeFi protocol data
@@ -101,12 +102,25 @@ contract SimpleTeleportProver is Initializable, UUPSUpgradeable, Prover, IProver
         return (proof(), _owner, SimpleTeleportProver.proveCompoundData.selector, encodedData);
     }
 
-    function proveMorphoData(address _owner, Erc20Token[] memory tokens)
+    function proveMorphoData(address _owner, MToken[] memory tokens)
         external
-        returns (Proof memory, address, Erc20Token[] memory)
+        returns (Proof memory, address, bytes4, bytes memory)
     {
         // TODO: Implement Morpho data proving logic
-        return (proof(), _owner, tokens);
+        for (uint256 i = 0; i < tokens.length; i++) {
+            setChain(tokens[i].chainId, tokens[i].blockNumber);
+            
+            tokens[i].supplyShares = IMorpho(tokens[i].morphoAddress).position(tokens[i].marketId, _owner).supplyShares;
+            tokens[i].borrowShares = IMorpho(tokens[i].morphoAddress).position(tokens[i].marketId, _owner).borrowShares;
+            tokens[i].collateral = IMorpho(tokens[i].morphoAddress).position(tokens[i].marketId, _owner).collateral;
+
+            tokens[i].totalSupplyAssets = IMorpho(tokens[i].morphoAddress).market(tokens[i].marketId).totalSupplyAssets;
+            tokens[i].totalSupplyShares = IMorpho(tokens[i].morphoAddress).market(tokens[i].marketId).totalSupplyShares;
+            tokens[i].totalBorrowAssets = IMorpho(tokens[i].morphoAddress).market(tokens[i].marketId).totalBorrowAssets;
+            tokens[i].totalBorrowShares = IMorpho(tokens[i].morphoAddress).market(tokens[i].marketId).totalBorrowShares;
+        }
+        bytes memory encodedData = abi.encode(tokens);
+        return (proof(), _owner, SimpleTeleportProver.proveMorphoData.selector, encodedData);
     }
 
     function proveFluidIOData(address _owner, Erc20Token[] memory tokens)

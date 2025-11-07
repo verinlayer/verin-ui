@@ -26,11 +26,12 @@ export const HodlerForm = ({
           defaultValue={holderAddress}
         />
       </div>
-      <div className="mt-5 flex justify-center">
+      <div className="mt-5 flex justify-center w-full">
         <button
           type="submit"
           id="nextButton"
           disabled={isLoading || isDisabled}
+          className="relative z-10"
         >
           {isLoading ? loadingLabel : submitLabel}
         </button>

@@ -4,11 +4,11 @@ export class AppError extends Error {
     this.name = name;
   }
 }
-export class AlreadyMintedError extends AppError {
+export class AlreadyClaimedError extends AppError {
   constructor() {
     super(
-      "AlreadyMintedError",
-      "NFT has already been minted for this account.",
+      "AlreadyClaimedError",
+      "Claim has already been made for this account.",
     );
   }
 }

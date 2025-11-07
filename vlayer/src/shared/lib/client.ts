@@ -3,6 +3,7 @@ import { optimismSepolia, mainnet, base, baseSepolia, optimism } from 'viem/chai
 import { getAaveSubgraphUrl } from '../config/aave';
 import { rpcClients } from '../config/compound';
 import { getUnclaimedCompoundData } from './compound-subgraph';
+import { queryMorphoEvents } from './morpho-subgraph';
 import { type ProtocolType, getProtocolEnum } from './utils';
 import verifierAbi from "../../contracts/SimpleTeleportVerifier.json";
 // const VERIFIER_ABI = verifierAbi.abi;
@@ -402,6 +403,47 @@ export const getUnclaimedSupplyBorrowDataWithProtocol = async (
     // Handle Compound protocol
     if (protocol === 'COMPOUND') {
       return getUnclaimedCompoundData(userAddress, currentChainId, timestampFilter) as Promise<SupplyBorrowData[]>;
+    }
+    
+    // Handle Morpho protocol
+    if (protocol === 'MORPHO') {
+      // For Morpho, we use latestProtocolBlockNumbers inside queryMorphoEvents, so timestampFilter is not needed
+      // Controller address is used to fetch latest blocks
+      const events = await queryMorphoEvents(userAddress, currentChainId, controllerAddress);
+      // Group by asset address
+      const byAsset = new Map<string, typeof events>();
+      events.forEach(ev => {
+        const key = ev.assetAddress.toLowerCase();
+        if (!byAsset.has(key)) byAsset.set(key, []);
+        byAsset.get(key)!.push(ev);
+      });
+      const supplyBorrowData: SupplyBorrowData[] = [];
+      for (const [asset, evs] of byAsset) {
+        let supply = 0n, borrow = 0n, repay = 0n, totalBorrow = 0n;
+        evs.forEach(e => {
+          const amt = BigInt(e.amount || '0');
+          if (e.action === 'Supply') supply += amt;
+          if (e.action === 'Borrow') { borrow += amt; totalBorrow += amt; }
+          if (e.action === 'Repay') repay += amt;
+        });
+        supplyBorrowData.push({
+          asset,
+          chainId: (currentChainId || 8453).toString(),
+          supplyAmount: supply.toString(),
+          borrowAmount: borrow.toString(),
+          repayAmount: repay.toString(),
+          totalBorrowAmount: totalBorrow.toString(),
+          transactions: evs.map(e => ({
+            action: e.action,
+            txHash: e.txHash,
+            id: `${e.blockNumber}:${e.txHash}`,
+            amount: e.amount,
+            reserve: { underlyingAsset: e.assetAddress },
+            tokenAddress: e.assetAddress,
+          }))
+        });
+      }
+      return supplyBorrowData;
     }
     
     // Handle AAVE protocol

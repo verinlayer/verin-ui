@@ -27,7 +27,8 @@ contract Registry is Initializable, AccessControl, UUPSUpgradeable, IRegistry {
     address public constant AAVE_POOL_ADDRESS = 0xA238Dd80C259a72e81d7e4664a9801593F98d1c5; // Base mainnet
 
     // Morpho Protocol Addresses (to be updated with actual addresses)
-    address public constant MORPHO_LENS_ADDRESS = address(0);
+    address public constant MORPHO_ADDRESS = 0xBBBBBbbBBb9cC5e90e3b3Af64bdAF62C37EEFFCb; // morpho address on Base and ethereum
+
     address public constant MORPHO_REWARDS_DISTRIBUTOR_ADDRESS = address(0);
 
     // Compound Protocol Addresses (to be updated with actual addresses)
@@ -114,7 +115,7 @@ contract Registry is Initializable, AccessControl, UUPSUpgradeable, IRegistry {
         // Initialize mainnet addresses
         chainAddresses[1] = ChainAddresses({
             aavePool: AAVE_POOL_ADDRESS,
-            morphoLens: MORPHO_LENS_ADDRESS,
+            morpho: MORPHO_ADDRESS,
             compoundComptroller: COMPOUND_COMPTROLLER_ADDRESS,
             usdc: USDC_ADDRESS,
             usdt: USDT_ADDRESS,
@@ -125,7 +126,7 @@ contract Registry is Initializable, AccessControl, UUPSUpgradeable, IRegistry {
         // Initialize optimism addresses
         chainAddresses[10] = ChainAddresses({
             aavePool: AAVE_POOL_ADDRESS,
-            morphoLens: PLACEHOLDER_ADDRESS,
+            morpho: PLACEHOLDER_ADDRESS,
             compoundComptroller: PLACEHOLDER_ADDRESS,
             usdc: OP_USDC_ADDRESS,
             usdt: OP_USDT_ADDRESS,
@@ -136,7 +137,7 @@ contract Registry is Initializable, AccessControl, UUPSUpgradeable, IRegistry {
         // Initialize base addresses
         chainAddresses[8453] = ChainAddresses({
             aavePool: AAVE_POOL_ADDRESS,
-            morphoLens: PLACEHOLDER_ADDRESS,
+            morpho: MORPHO_ADDRESS,
             compoundComptroller: PLACEHOLDER_ADDRESS,
             usdc: BASE_USDC_ADDRESS,
             usdt: BASE_USDT_ADDRESS,
@@ -201,10 +202,10 @@ contract Registry is Initializable, AccessControl, UUPSUpgradeable, IRegistry {
      * @param chainId The chain ID
      * @return The Morpho lens address for the chain
      */
-    function getMorphoLensAddress(uint256 chainId) external view returns (address) {
+    function getMorphoAddress(uint256 chainId) external view returns (address) {
         ChainAddresses memory addresses = chainAddresses[chainId];
         require(addresses.aavePool != address(0), "Unsupported chain ID");
-        return addresses.morphoLens;
+        return addresses.morpho;
     }
 
     /**
@@ -269,23 +270,23 @@ contract Registry is Initializable, AccessControl, UUPSUpgradeable, IRegistry {
      * @notice Update protocol addresses for a specific chain (only admin role)
      * @param chainId The chain ID
      * @param aavePool Aave pool address
-     * @param morphoLens Morpho lens address
+     * @param morpho Morpho address
      * @param compoundComptroller Compound comptroller address
      */
     function updateProtocolAddresses(
         uint256 chainId,
         address aavePool,
-        address morphoLens,
+        address morpho,
         address compoundComptroller
     ) external onlyRole(ADMIN_ROLE) {
         ChainAddresses storage addresses = chainAddresses[chainId];
         require(addresses.aavePool != address(0), "Unsupported chain ID");
 
         addresses.aavePool = aavePool;
-        addresses.morphoLens = morphoLens;
+        addresses.morpho = morpho;
         addresses.compoundComptroller = compoundComptroller;
 
-        emit ProtocolAddressesUpdated(chainId, aavePool, morphoLens, compoundComptroller);
+        emit ProtocolAddressesUpdated(chainId, aavePool, morpho, compoundComptroller);
     }
 
     /**

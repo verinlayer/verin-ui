@@ -2,7 +2,7 @@
 pragma solidity ^0.8.21;
 
 import {SimpleTeleportProver} from "./SimpleTeleportProver.sol";
-import {Erc20Token, CToken, Protocol, TokenType, CTokenType} from "./types/TeleportTypes.sol";
+import {Erc20Token, CToken, MToken, Protocol, TokenType, CTokenType} from "./types/TeleportTypes.sol";
 import {Registry} from "./constants/Registry.sol";
 import {IRegistry} from "./interfaces/IRegistry.sol";
 import {CreditModel} from "./CreditModel.sol";
@@ -15,6 +15,7 @@ import {UUPSUpgradeable} from "openzeppelin-contracts/proxy/utils/UUPSUpgradeabl
 import {IAToken} from "./interfaces/IAToken.sol";
 import {IAavePool} from "./interfaces/IAavePool.sol";
 import {ICToken} from "./interfaces/ICToken.sol";
+import {IMorpho, Id, MarketParams} from "./interfaces/IMorpho.sol";
 
 /**
  * @title Controller
@@ -71,20 +72,37 @@ contract Controller is Initializable, UUPSUpgradeable, IController {
     mapping(address => IVerifier.UserInfo) private _totals;
 
     // user address => protocol => aToken address => block number => amount: to track if a token at a block number has been proven or not
-    mapping(address => mapping(Protocol => mapping(address => mapping(uint256 => bool)))) public isClaimedAaveBlock;
+    mapping(address => mapping(Protocol => mapping(address => mapping(uint256 => bool)))) public isClaimedBlock;
 
     // user address => aToken address => latest balance
-    mapping(address => mapping(address => uint256)) private _latestBalance;
+    mapping(address => mapping(address => uint256)) private _latestAaveBalance;
 
     // user address => cToken address => latest balance (for Compound BASE tokens - borrowed balance)
-    mapping(address => mapping(address => uint256)) private _latestCompoundBalance;
+    mapping(address => mapping(address => uint256)) private _latestCompoundDebtBalance;
 
     // user address => cToken address => collateral address => latest balance (for Compound COLLATERAL tokens)
     mapping(address => mapping(address => mapping(address => uint256))) private _latestCompoundCollateralBalance;
 
-    // cToken type => block number
-    uint256 private _debtCLatestBlockNumber;
-    uint256 private _collateralCLatestBlockNumber;
+    // latest debt aToken block number
+    uint256 private _latestDebtATokenBlockNumber;
+    // latest collateral aToken block number
+    uint256 private _latestCollateralATokenBlockNumber;
+    
+    // latest debt cToken block number
+    uint256 private _latestDebtCBlockNumber;
+    // latest collateral cToken block number
+    uint256 private _latestCollateralCBlockNumber;
+
+    // latest debt Morpho block number
+    uint256 private _latestDebtMBlockNumber;
+    // latest collateral Morpho block number
+    uint256 private _latestCollateralMBlockNumber;
+
+    // user address => morpho address => market id => latest borrow amount
+    mapping(address => mapping(address => mapping(Id => uint256))) public _latestMorphoBorrowAmount;
+
+    // user address => morpho address => market id => latest collateral amount
+    mapping(address => mapping(address => mapping(Id => uint256))) public _latestMorphoCollateralAmount;
 
     // ============ CONSTRUCTOR ============
 
@@ -186,6 +204,8 @@ contract Controller is Initializable, UUPSUpgradeable, IController {
             _processAaveData(claimer, encodedData);
         } else if (selector == SimpleTeleportProver.proveCompoundData.selector) {
             _processCompoundData(claimer, encodedData);
+        } else if (selector == SimpleTeleportProver.proveMorphoData.selector) {
+            _processMorphoData(claimer, encodedData);
         } else {
             revert("Invalid selector");
         }
@@ -210,11 +230,13 @@ contract Controller is Initializable, UUPSUpgradeable, IController {
             for(uint256 i = 0; i < tokens.length; i++) {
                 _blkNumber = tokens[i].blockNumber;
               
-                if(_blkNumber < userInfo.latestBlock) { // skip, always get data at block number which is greater than saved latest block
-                    continue;
-                }
+                // Per aToken latest block checks are handled in each token-type branch
 
                 if(tokens[i].tokenType == TokenType.AVARIABLEDEBT) { // if borrow or repay
+                    // validate latest block number for debt aToken
+                    if (_blkNumber <= _latestDebtATokenBlockNumber) {
+                        continue;
+                    }
                     require(IAavePool(registry.AAVE_POOL_ADDRESS()).getReserveVariableDebtToken(tokens[i].underlingTokenAddress) == tokens[i].aTokenAddress, "Invalid Aave token");
                     
                     // Get USDC and USDT addresses for current chain
@@ -223,8 +245,8 @@ contract Controller is Initializable, UUPSUpgradeable, IController {
                     uint256 borrowAmount;
                     uint256 repayAmount;
                     
-                    if (_latestBalance[claimer][tokens[i].aTokenAddress] <= tokens[i].balance) { // borrow
-                        borrowAmount = tokens[i].balance - _latestBalance[claimer][tokens[i].aTokenAddress];
+                    if (_latestAaveBalance[claimer][tokens[i].aTokenAddress] <= tokens[i].balance) { // borrow
+                        borrowAmount = tokens[i].balance - _latestAaveBalance[claimer][tokens[i].aTokenAddress];
                         
                         // Convert to USD if not USDC or USDT
                         if(tokens[i].underlingTokenAddress != chainAddresses.usdc && tokens[i].underlingTokenAddress != chainAddresses.usdt) {
@@ -243,7 +265,7 @@ contract Controller is Initializable, UUPSUpgradeable, IController {
                         emit UserBorrowed(claimer, Protocol.AAVE, borrowAmount, userInfo.borrowedAmount, userInfo.borrowTimes);
 
                     } else { // repay
-                        repayAmount = _latestBalance[claimer][tokens[i].aTokenAddress] - tokens[i].balance;
+                        repayAmount = _latestAaveBalance[claimer][tokens[i].aTokenAddress] - tokens[i].balance;
                         
                         // Convert to USD if not USDC or USDT
                         if(tokens[i].underlingTokenAddress != chainAddresses.usdc && tokens[i].underlingTokenAddress != chainAddresses.usdt) {
@@ -262,9 +284,14 @@ contract Controller is Initializable, UUPSUpgradeable, IController {
                         emit UserRepaid(claimer, Protocol.AAVE, repayAmount, userInfo.repaidAmount, userInfo.repayTimes);
                     }
 
-                    _latestBalance[claimer][tokens[i].aTokenAddress] = tokens[i].balance;
+                    _latestAaveBalance[claimer][tokens[i].aTokenAddress] = tokens[i].balance;
+                    _latestDebtATokenBlockNumber = _blkNumber;
 
                 } else if(tokens[i].tokenType == TokenType.ARESERVE) { // if supply assets, only increase the supplied amount, will consider withdraw in the future
+                    // validate latest block number for collateral aToken
+                    if (_blkNumber <= _latestCollateralATokenBlockNumber) {
+                        continue;
+                    }
                     require(IAavePool(registry.AAVE_POOL_ADDRESS()).getReserveAToken(tokens[i].underlingTokenAddress) == tokens[i].aTokenAddress, "Invalid Aave token");
                     
                     // Get USDC and USDT addresses for current chain
@@ -287,7 +314,8 @@ contract Controller is Initializable, UUPSUpgradeable, IController {
 
                     // Emit supply event
                     emit UserSupplied(claimer, Protocol.AAVE, supplyAmount, userInfo.suppliedAmount, userInfo.supplyTimes);
-                    _latestBalance[claimer][tokens[i].aTokenAddress] = tokens[i].balance;
+                    _latestAaveBalance[claimer][tokens[i].aTokenAddress] = tokens[i].balance;
+                    _latestCollateralATokenBlockNumber = _blkNumber;
                 } else if(tokens[i].tokenType == TokenType.ASTABLEDEBT) {
                     return;
                 }
@@ -300,7 +328,7 @@ contract Controller is Initializable, UUPSUpgradeable, IController {
                 }
 
                 // Mark this data as existed to prevent duplicate claims
-                isClaimedAaveBlock[claimer][Protocol.AAVE][tokens[i].aTokenAddress][_blkNumber] = true;
+                isClaimedBlock[claimer][Protocol.AAVE][tokens[i].aTokenAddress][_blkNumber] = true;
             }
 
         }
@@ -330,7 +358,7 @@ contract Controller is Initializable, UUPSUpgradeable, IController {
 
                 if(tokens[i].tokenType == CTokenType.BASE) { // if borrow or repay
                     // validate latest block number
-                    if(_blkNumber < _debtCLatestBlockNumber) { // skip, always get data at block number which is greater than saved latest block
+                    if(_blkNumber <= _latestDebtCBlockNumber) { // skip, always get data at block number which is greater than saved latest block
                         continue;
                     }
                 
@@ -353,8 +381,8 @@ contract Controller is Initializable, UUPSUpgradeable, IController {
                     uint256 borrowAmount;
                     uint256 repayAmount;
                     
-                    if (_latestCompoundBalance[claimer][tokens[i].cTokenAddress] <= tokens[i].balance) { // borrow
-                        borrowAmount = tokens[i].balance - _latestCompoundBalance[claimer][tokens[i].cTokenAddress];
+                    if (_latestCompoundDebtBalance[claimer][tokens[i].cTokenAddress] <= tokens[i].balance) { // borrow
+                        borrowAmount = tokens[i].balance - _latestCompoundDebtBalance[claimer][tokens[i].cTokenAddress];
                         
                         // Convert to USD if not USDC or USDT
                         if(baseTokenAddress != chainAddresses.usdc && baseTokenAddress != chainAddresses.usdt) {
@@ -373,7 +401,7 @@ contract Controller is Initializable, UUPSUpgradeable, IController {
                         emit UserBorrowed(claimer, Protocol.COMPOUND, borrowAmount, userInfo.borrowedAmount, userInfo.borrowTimes);
 
                     } else { // repay
-                        repayAmount = _latestCompoundBalance[claimer][tokens[i].cTokenAddress] - tokens[i].balance;
+                        repayAmount = _latestCompoundDebtBalance[claimer][tokens[i].cTokenAddress] - tokens[i].balance;
                         
                         // Convert to USD if not USDC or USDT
                         if(baseTokenAddress != chainAddresses.usdc && baseTokenAddress != chainAddresses.usdt) {
@@ -392,12 +420,12 @@ contract Controller is Initializable, UUPSUpgradeable, IController {
                         emit UserRepaid(claimer, Protocol.COMPOUND, repayAmount, userInfo.repaidAmount, userInfo.repayTimes);
                     }
 
-                    _latestCompoundBalance[claimer][tokens[i].cTokenAddress] = tokens[i].balance;
-                    _debtCLatestBlockNumber = _blkNumber;
+                    _latestCompoundDebtBalance[claimer][tokens[i].cTokenAddress] = tokens[i].balance;
+                    _latestDebtCBlockNumber = _blkNumber;
 
                 } else if(tokens[i].tokenType == CTokenType.COLLATERAL) { // if supply or withdraw collateral
                     // validate latest block number
-                    if(_blkNumber < _collateralCLatestBlockNumber) { // skip, always get data at block number which is greater than saved latest block
+                    if(_blkNumber <= _latestCollateralCBlockNumber) { // skip, always get data at block number which is greater than saved latest block
                         continue;
                     }
                     
@@ -454,7 +482,7 @@ contract Controller is Initializable, UUPSUpgradeable, IController {
                     
                     // Update latest collateral balance
                     _latestCompoundCollateralBalance[claimer][tokens[i].cTokenAddress][tokens[i].collateralAddress] = tokens[i].balance;
-                    _collateralCLatestBlockNumber = _blkNumber;
+                    _latestCollateralCBlockNumber = _blkNumber;
                 }
 
                 userInfo.latestBlock = _blkNumber;
@@ -465,7 +493,170 @@ contract Controller is Initializable, UUPSUpgradeable, IController {
                 }
 
                 // Mark this data as existed to prevent duplicate claims
-                isClaimedAaveBlock[claimer][Protocol.COMPOUND][tokens[i].cTokenAddress][_blkNumber] = true;
+                isClaimedBlock[claimer][Protocol.COMPOUND][tokens[i].cTokenAddress][_blkNumber] = true;
+            }
+        }
+    }
+
+    /**
+     * @notice Process Morpho protocol data
+     * @dev Internal function to handle Morpho data processing
+     * @param claimer The address claiming their data
+     * @param encodedData The encoded MToken array
+     */
+    function _processMorphoData(address claimer, bytes memory encodedData) internal {
+        MToken[] memory tokens = abi.decode(encodedData, (MToken[]));
+        
+        IVerifier.UserInfo storage userInfo = _usersInfo[claimer][Protocol.MORPHO];
+
+        // Track first activity for credit scoring
+        _updateFirstActivity(claimer, Protocol.MORPHO, block.number);
+
+        {
+            uint _blkNumber;
+            for(uint256 i = 0; i < tokens.length; i++) {
+                
+                _blkNumber = tokens[i].blockNumber;
+              
+                // Get USDC and USDT addresses for current chain
+                IRegistry.ChainAddresses memory chainAddresses = registry.getAddressesForChain(block.chainid);
+
+                // check morpho address with chainAddresses.morphoAddress
+                if(tokens[i].morphoAddress != chainAddresses.morphoAddress) {
+                    continue;
+                }
+
+                // Fetch market params once and reuse across borrow/repay and collateral paths
+                MarketParams memory marketParams = IMorpho(tokens[i].morphoAddress).idToMarketParams(tokens[i].marketId);
+
+                // Process borrow shares (debt)
+                if (tokens[i].borrowShares > 0) {
+                    // validate latest block number for debt
+                    if(_blkNumber <= _latestDebtMBlockNumber) { // skip, always get data at block number which is greater than saved latest block
+                        continue;
+                    }
+                    
+                    uint256 borrowAmount;
+                    uint256 repayAmount;
+                    
+                    if (_latestMorphoBorrowAmount[claimer][tokens[i].morphoAddress][tokens[i].marketId] <= tokens[i].borrowShares) { // borrow
+                        uint256 borrowSharesDiff = tokens[i].borrowShares - _latestMorphoBorrowAmount[claimer][tokens[i].morphoAddress][tokens[i].marketId];
+                        // Convert borrow shares to actual borrow amount using: borrowAmount = borrowShares * totalBorrowAssets / totalBorrowShares
+                        if (tokens[i].totalBorrowShares > 0) {
+                            borrowAmount = (borrowSharesDiff * uint256(tokens[i].totalBorrowAssets)) / uint256(tokens[i].totalBorrowShares);
+                        } else {
+                            borrowAmount = 0;
+                        }
+                        
+                        // Convert to USD if not USDC or USDT
+                        if(marketParams.loanToken != chainAddresses.usdc && marketParams.loanToken != chainAddresses.usdt) {
+                            (uint256 usdAmount,) = priceOracle.getPriceInUSDT(marketParams.loanToken, borrowAmount);
+                            borrowAmount = usdAmount / priceOracle.EXP();
+                        }
+                        
+                        userInfo.borrowedAmount += borrowAmount;
+                        userInfo.borrowTimes++;
+
+                        // Update totals
+                        _totals[claimer].borrowedAmount += borrowAmount;
+                        _totals[claimer].borrowTimes++;
+
+                        // Emit borrow event
+                        emit UserBorrowed(claimer, Protocol.MORPHO, borrowAmount, userInfo.borrowedAmount, userInfo.borrowTimes);
+
+                    } else { // repay
+                        uint256 repaySharesDiff = _latestMorphoBorrowAmount[claimer][tokens[i].morphoAddress][tokens[i].marketId] - tokens[i].borrowShares;
+                        // Convert repay shares to actual repay amount using: repayAmount = repayShares * totalBorrowAssets / totalBorrowShares
+                        if (tokens[i].totalBorrowShares > 0) {
+                            repayAmount = (repaySharesDiff * uint256(tokens[i].totalBorrowAssets)) / uint256(tokens[i].totalBorrowShares);
+                        } else {
+                            repayAmount = 0;
+                        }
+                        
+                        // Convert to USD if not USDC or USDT
+                        if(marketParams.loanToken != chainAddresses.usdc && marketParams.loanToken != chainAddresses.usdt) {
+                            (uint256 usdAmount,) = priceOracle.getPriceInUSDT(marketParams.loanToken, repayAmount);
+                            repayAmount = usdAmount / priceOracle.EXP();
+                        }
+                        
+                        userInfo.repaidAmount += repayAmount;
+                        userInfo.repayTimes++;
+
+                        // Update totals
+                        _totals[claimer].repaidAmount += repayAmount;
+                        _totals[claimer].repayTimes++;
+
+                        // Emit repay event
+                        emit UserRepaid(claimer, Protocol.MORPHO, repayAmount, userInfo.repaidAmount, userInfo.repayTimes);
+                    }
+
+                    _latestMorphoBorrowAmount[claimer][tokens[i].morphoAddress][tokens[i].marketId] = tokens[i].borrowShares;
+                    _latestDebtMBlockNumber = _blkNumber;
+                }
+
+                // Process collateral
+                if (tokens[i].collateral > 0) {
+                    // validate latest block number for collateral
+                    if(_blkNumber <= _latestCollateralMBlockNumber) { // skip, always get data at block number which is greater than saved latest block
+                        continue;
+                    }
+                    
+                    uint256 previousCollateral = _latestMorphoCollateralAmount[claimer][tokens[i].morphoAddress][tokens[i].marketId];
+                    
+                    if (previousCollateral <= tokens[i].collateral) { // add collateral
+                        uint256 supplyAmount = tokens[i].collateral - previousCollateral;
+                        
+                        // Convert to USD if not USDC or USDT
+                        if(marketParams.collateralToken != chainAddresses.usdc && marketParams.collateralToken != chainAddresses.usdt) {
+                            (uint256 usdAmount,) = priceOracle.getPriceInUSDT(marketParams.collateralToken, supplyAmount);
+                            supplyAmount = usdAmount / priceOracle.EXP();
+                        }
+                        
+                        userInfo.suppliedAmount += supplyAmount;
+                        userInfo.supplyTimes++;
+
+                        // Update totals
+                        _totals[claimer].suppliedAmount += supplyAmount;
+                        _totals[claimer].supplyTimes++;
+
+                        // Emit supply event
+                        emit UserSupplied(claimer, Protocol.MORPHO, supplyAmount, userInfo.suppliedAmount, userInfo.supplyTimes);
+                        
+                    } else { // withdraw collateral
+                        // uint256 withdrawAmount = previousCollateral - tokens[i].collateral;
+                        
+                        // // Get market params to find the collateral token
+                        // reuse marketParams declared above
+                        
+                        // // Convert to USD if not USDC or USDT
+                        // if(marketParams.collateralToken != chainAddresses.usdc && marketParams.collateralToken != chainAddresses.usdt) {
+                        //     (uint256 usdAmount,) = priceOracle.getPriceInUSDT(marketParams.collateralToken, withdrawAmount);
+                        //     withdrawAmount = usdAmount / priceOracle.EXP();
+                        // }
+                        
+                        // // Decrease supplied amount (but don't go below 0)
+                        // if (userInfo.suppliedAmount >= withdrawAmount) {
+                        //     userInfo.suppliedAmount -= withdrawAmount;
+                        // } else {
+                        //     userInfo.suppliedAmount = 0;
+                        // }
+                        
+                    }
+                    
+                    // Update latest collateral balance
+                    _latestMorphoCollateralAmount[claimer][tokens[i].morphoAddress][tokens[i].marketId] = tokens[i].collateral;
+                    _latestCollateralMBlockNumber = _blkNumber;
+                }
+
+                userInfo.latestBlock = _blkNumber;
+                
+                // Update totals latest block with the most recent block
+                if (_blkNumber > _totals[claimer].latestBlock) {
+                    _totals[claimer].latestBlock = _blkNumber;
+                }
+
+                // Mark this data as existed to prevent duplicate claims
+                isClaimedBlock[claimer][Protocol.MORPHO][tokens[i].morphoAddress][_blkNumber] = true;
             }
         }
     }
@@ -588,6 +779,24 @@ contract Controller is Initializable, UUPSUpgradeable, IController {
         returns (IVerifier.UserInfo memory)
     {
         return _usersInfo[user][protocol];
+    }
+
+    /// @notice Get latest debt and collateral block numbers for a protocol
+    /// @param protocol The protocol to query
+    /// @return latestDebtBlock The latest processed debt block number for the protocol
+    /// @return latestCollateralBlock The latest processed collateral block number for the protocol
+    function latestProtocolBlockNumbers(Protocol protocol)
+        external
+        view
+        returns (uint256 latestDebtBlock, uint256 latestCollateralBlock)
+    {
+        if (protocol == Protocol.AAVE) {
+            return (_latestDebtATokenBlockNumber, _latestCollateralATokenBlockNumber);
+        } else if (protocol == Protocol.COMPOUND) {
+            return (_latestDebtCBlockNumber, _latestCollateralCBlockNumber);
+        } else if (protocol == Protocol.MORPHO) {
+            return (_latestDebtMBlockNumber, _latestCollateralMBlockNumber);
+        }
     }
 
     /// @inheritdoc IController
